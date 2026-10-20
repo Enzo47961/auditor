@@ -1,0 +1,70 @@
+# Política default do auditor — Fase 0, Tier 1.
+#
+# A política é código testado: cada regra tem teste de regressão próprio
+# (tests/policy/test_rules.py). Mudança de regra exige auditoria por alguém que
+# não é o autor da regra. Política ausente, malformada, com chave desconhecida ou
+# referência a regra inexistente → o auditor não roda: todas as declarações saem
+# `Não resolvida` / `Não resolvido`, razão `policy_invalid`, exit 2 (lacuna A).
+
+policy_version = "1"
+
+[axioms]
+# Permitidos: não afetam nenhum estado. `Classical.choice` é permitido por decisão
+# explícita da Fase 0 (contextos construtivos são Fase 3+), não por omissão.
+allowed = ["Classical.choice", "propext", "Quot.sound"]
+# Admissões: afetam só `proof_status` → `Rejeitada`, razão `sorryAx_detected` (Q1-X).
+admissions = ["sorryAx"]
+# Proibidos (fora das admissões): afetam só `premises_status` → `Não conforme`, razão `forbidden_axiom`.
+forbidden = []
+# Avaliação nativa: proibidos sem justificativa válida na declaração dona (O-1, opção B).
+# Sem justificativa → `Não conforme`, `native_decide_unjustified`;
+# justificativa malformada → `Não conforme`, `native_decide_justification_malformed`;
+# dona não resolvida → `Não resolvida`, `native_decide_owner_unresolved`.
+native_evaluation = ["Lean.ofReduceBool", "Lean.ofReduceNat"]
+# Axioma fora de todas as listas (lacuna B):
+#   "fail_closed"        → `Não resolvido`, razão `unknown_axiom` (default);
+#   "allow_with_warning" → `Conforme` com aviso; exige `unknown_axiom_justification`
+#                          não vazia e teste de regressão próprio.
+unknown_axiom_action = "fail_closed"
+unknown_axiom_justification = ""
+
+[native_implementations]
+# `@[implemented_by]` e `@[extern]` (item 2, O-5) — só declarações USER-LEVEL (Q7, opção a):
+# implementações do toolchain são TCB (fronteira em docs/tcb.md) e não disparam estas regras.
+#
+# Sozinho (atributo user-level no fecho, sem avaliação nativa):
+#   `Não resolvida`, razão `implemented_by_candidate` / `extern_candidate`.
+# PADRÃO COMBINADO EXATO → `Rejeitada`:
+#   os axiomas transitivos da declaração incluem um axioma de `axioms.native_evaluation`
+#   E o fecho de dependências da declaração contém uma constante user-level com o atributo.
+#   Razão `implemented_by_reaches_native_eval` / `extern_reaches_native_eval`.
+#   A justificativa de `native_decide` NÃO cobre este padrão.
+# Constante cuja fronteira não pôde ser decidida → `Não resolvida`, `tcb_boundary_unresolved`.
+attributes = ["implemented_by", "extern"]
+trusted_boundary = "toolchain"
+
+[set_option]
+# Valores que relaxam checagem: violação → `Rejeitada`, razão `set_option_violation`,
+# apenas nas declarações sob o alcance da opção (O-3; dependentes: `depends_on_rejected`).
+forbidden = [
+  { option = "maxHeartbeats", value = "0" },
+  { option = "autoImplicit", value = "true" },
+  { option = "checkBinderAnnotations", value = "false" },
+  { option = "debug.skipKernelTC", value = "true" },
+]
+# Opções reconhecidas (nome exato ou prefixo terminado em "."). Opção fora desta lista
+# → `Não resolvida`, razão `set_option_unrecognized` (fail-closed).
+allowed = [
+  "maxHeartbeats", "maxRecDepth", "synthInstance.maxHeartbeats", "synthInstance.maxSize",
+  "autoImplicit", "relaxedAutoImplicit", "checkBinderAnnotations",
+  "linter.", "pp.", "trace.", "profiler",
+]
+
+[set_option.heartbeat_exemption]
+# Isenção de `maxHeartbeats 0` (item 4). Duas condições cumulativas:
+#   (a) o arquivo está num destes caminhos (relativos à raiz do projeto, prefixo);
+#   (b) forma `set_option maxHeartbeats 0 in <declaração>` com docstring
+#       `auditor_justified: reason="test-only heartbeat exemption" reviewer="@handle"`.
+# Default: lista vazia → nunca isento.
+paths = []
+reason = "test-only heartbeat exemption"

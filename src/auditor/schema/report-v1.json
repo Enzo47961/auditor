@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auditor.invalid/schema/report-v1.json",
+  "title": "auditor Tier1 — relatório v1",
+  "description": "Fase 0. Compatibilidade retroativa garantida por pelo menos uma versão menor: versões 1.x só ACRESCENTAM campos opcionais.",
+  "type": "object",
+  "required": ["schema_version", "tool", "target", "compilation", "infrastructure", "file_findings",
+               "declarations", "tcb", "not_covered", "execution_metadata", "exit_code"],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "tool": {
+      "type": "object",
+      "required": ["name", "tier", "phase", "version"],
+      "properties": {"name": {"const": "auditor"}, "tier": {"const": "Tier1"}, "phase": {"const": "0"},
+                     "version": {"type": "string"}}
+    },
+    "target": {
+      "type": "object",
+      "required": ["file", "module", "project_root"],
+      "properties": {"file": {"type": "string"}, "module": {"type": ["string", "null"]},
+                     "project_root": {"type": ["string", "null"]}}
+    },
+    "compilation": {"$ref": "#/$defs/compilation"},
+    "infrastructure": {
+      "type": "object",
+      "required": ["status", "reasons"],
+      "properties": {"status": {"enum": ["ok", "failed"]},
+                     "reasons": {"type": "array", "items": {"$ref": "#/$defs/coded"}}}
+    },
+    "file_findings": {
+      "type": "object",
+      "required": ["unrecognized", "warnings", "stage_a_candidates"],
+      "properties": {
+        "unrecognized": {"type": "array", "items": {"$ref": "#/$defs/coded"}},
+        "warnings": {"type": "array", "items": {"$ref": "#/$defs/coded"}},
+        "stage_a_candidates": {"type": "array", "items": {"$ref": "#/$defs/coded"}}
+      }
+    },
+    "declarations": {"type": "array", "items": {"$ref": "#/$defs/declaration"}},
+    "tcb": {"$ref": "#/$defs/tcb"},
+    "not_covered": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "execution_metadata": {"$ref": "#/$defs/execution_metadata"},
+    "exit_code": {"enum": [0, 1, 2]}
+  },
+  "allOf": [
+    {"if": {"properties": {"exit_code": {"const": 0}}},
+     "then": {"properties": {
+       "infrastructure": {"properties": {"status": {"const": "ok"}}},
+       "file_findings": {"properties": {"unrecognized": {"maxItems": 0}}},
+       "declarations": {"minItems": 1, "items": {"properties": {"overall_status": {"const": "verified"}}}}
+     }}}
+  ],
+  "$defs": {
+    "coded": {"type": "object", "required": ["code"], "properties": {"code": {"type": "string"}}},
+    "reason": {
+      "type": "object", "required": ["code", "detail"],
+      "properties": {"code": {"type": "string"}, "detail": {"type": "object"}}
+    },
+    "proof_status": {
+      "type": "object", "required": ["value", "reasons"],
+      "properties": {"value": {"enum": ["Validada", "Rejeitada", "Não resolvida"]},
+                     "reasons": {"type": "array", "items": {"$ref": "#/$defs/reason"}}},
+      "if": {"properties": {"value": {"const": "Validada"}}},
+      "then": {"properties": {"reasons": {"maxItems": 0}}},
+      "else": {"properties": {"reasons": {"minItems": 1}}}
+    },
+    "premises_status": {
+      "type": "object", "required": ["value", "reasons"],
+      "properties": {"value": {"enum": ["Conforme", "Não conforme", "Não resolvido"]},
+                     "reasons": {"type": "array", "items": {"$ref": "#/$defs/reason"}}},
+      "if": {"properties": {"value": {"const": "Conforme"}}},
+      "then": {"properties": {"reasons": {"maxItems": 0}}},
+      "else": {"properties": {"reasons": {"minItems": 1}}}
+    },
+    "declaration": {
+      "type": "object",
+      "required": ["declaration_name", "declaration_kind", "declaration_hash", "proof_status",
+                   "premises_status", "correspondence_status", "overall_status", "axioms", "admissions",
+                   "policy_violations", "justification", "depends_on_rejected", "warnings", "seal",
+                   "tcb", "execution_metadata"],
+      "properties": {
+        "declaration_name": {"type": "string", "minLength": 1},
+        "declaration_kind": {"type": ["string", "null"]},
+        "declaration_hash": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "proof_status": {"$ref": "#/$defs/proof_status"},
+        "premises_status": {"$ref": "#/$defs/premises_status"},
+        "correspondence_status": {"const": "Não auditada"},
+        "overall_status": {"enum": ["verified", "rejected", "unresolved"]},
+        "axioms": {"type": "array", "items": {
+          "type": "object", "required": ["name", "classification", "origins"],
+          "properties": {"name": {"type": "string"},
+                         "classification": {"enum": ["allowed", "admission", "native_evaluation", "forbidden", "unknown"]},
+                         "origins": {"type": "array", "items": {"type": ["string", "null"]}}}}},
+        "admissions": {"type": "array", "items": {
+          "type": "object", "required": ["name", "origins"],
+          "properties": {"name": {"type": "string"}, "origins": {"type": "array", "items": {"type": ["string", "null"]}}}}},
+        "policy_violations": {"type": "array", "items": {
+          "type": "object", "required": ["rule"], "properties": {"rule": {"type": "string"}}}},
+        "justification": {"oneOf": [
+          {"type": "null"},
+          {"type": "object", "required": ["reason", "reviewer"], "additionalProperties": false,
+           "properties": {"reason": {"type": "string", "minLength": 1},
+                          "reviewer": {"type": "string", "pattern": "^@[A-Za-z0-9-]+$"}}}]},
+        "depends_on_rejected": {"type": "array", "items": {"type": "string"}},
+        "warnings": {"type": "array", "items": {"$ref": "#/$defs/coded"}},
+        "seal": {"type": "string", "pattern": "Correspondência: Não Auditada"},
+        "tcb": {"$ref": "#/$defs/tcb"},
+        "execution_metadata": {"$ref": "#/$defs/execution_metadata"}
+      },
+      "allOf": [
+        {"$comment": "Q4: overall_status é função dos dois estados (pior estado vence).",
+         "if": {"properties": {"proof_status": {"properties": {"value": {"const": "Validada"}}},
+                               "premises_status": {"properties": {"value": {"const": "Conforme"}}}}},
+         "then": {"properties": {"overall_status": {"const": "verified"}}}},
+        {"if": {"anyOf": [
+           {"properties": {"proof_status": {"properties": {"value": {"const": "Rejeitada"}}}}},
+           {"properties": {"premises_status": {"properties": {"value": {"const": "Não conforme"}}}}}]},
+         "then": {"properties": {"overall_status": {"const": "rejected"}}}},
+        {"if": {"allOf": [
+           {"properties": {"proof_status": {"properties": {"value": {"not": {"const": "Rejeitada"}}}}}},
+           {"properties": {"premises_status": {"properties": {"value": {"not": {"const": "Não conforme"}}}}}},
+           {"anyOf": [
+             {"properties": {"proof_status": {"properties": {"value": {"const": "Não resolvida"}}}}},
+             {"properties": {"premises_status": {"properties": {"value": {"const": "Não resolvido"}}}}}]}]},
+         "then": {"properties": {"overall_status": {"const": "unresolved"}}}},
+        {"$comment": "Princípio 2: Validada exige TCB completa.",
+         "if": {"properties": {"proof_status": {"properties": {"value": {"const": "Validada"}}}}},
+         "then": {"properties": {"tcb": {"$ref": "#/$defs/tcb_complete"}}}}
+      ]
+    },
+    "component": {"type": ["object", "null"]},
+    "tcb": {
+      "type": "object",
+      "required": ["kernel", "toolchain", "dependencies", "inspector", "aggregator", "stage_a_parser",
+                   "policy", "metadata", "fingerprint"],
+      "properties": {
+        "kernel": {"$ref": "#/$defs/component"}, "toolchain": {"$ref": "#/$defs/component"},
+        "dependencies": {"$ref": "#/$defs/component"}, "inspector": {"$ref": "#/$defs/component"},
+        "aggregator": {"$ref": "#/$defs/component"}, "stage_a_parser": {"$ref": "#/$defs/component"},
+        "policy": {"$ref": "#/$defs/component"}, "metadata": {"$ref": "#/$defs/component"},
+        "fingerprint": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "tcb_complete": {
+      "type": "object",
+      "properties": {
+        "kernel": {"type": "object", "required": ["lean_version", "githash"]},
+        "toolchain": {"type": "object", "required": ["lean_toolchain"]},
+        "dependencies": {"type": "object", "required": ["lake_manifest_sha256"]},
+        "inspector": {"type": "object", "required": ["version", "source_sha256", "binary_sha256"]},
+        "aggregator": {"type": "object", "required": ["version", "source_sha256", "python"]},
+        "stage_a_parser": {"type": "object", "required": ["version", "allowlist"],
+                           "properties": {"allowlist": {"type": "object"}}},
+        "policy": {"type": "object", "required": ["version", "sha256"]},
+        "metadata": {"type": "object", "required": ["simp", "ext", "reducible", "implemented_by"]},
+        "fingerprint": {"type": "string"}
+      }
+    },
+    "compilation": {
+      "type": "object", "required": ["status"],
+      "properties": {"status": {"enum": ["success", "failure", "timeout", "not_run"]},
+                     "duration_s": {"type": "number"}, "cycle_detected": {"type": "boolean"}}
+    },
+    "execution_metadata": {
+      "type": "object",
+      "required": ["timestamp", "duration_s", "infrastructure_status", "compilation", "timeout_s", "timeout_test"],
+      "properties": {
+        "timestamp": {"type": "string"}, "duration_s": {"type": "number"},
+        "infrastructure_status": {"enum": ["ok", "failed"]},
+        "compilation": {"$ref": "#/$defs/compilation"},
+        "timeout_s": {"type": "number"},
+        "timeout_test": {"enum": [null, "artificial"]}
+      }
+    }
+  }
+}

@@ -3,7 +3,7 @@ name = "auditor"
 version = "0.0.1"
 description = "Verificador mecânico de integridade de provas Lean 4 — Fase 0, Tier 1"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["jsonschema>=4.18"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
@@ -20,7 +20,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-auditor = ["data/**/*", "lean/*.lean"]
+auditor = ["data/**/*", "lean/*.lean", "schema/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
