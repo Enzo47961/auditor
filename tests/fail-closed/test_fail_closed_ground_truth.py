@@ -18,7 +18,7 @@ def test_compiles_without_axioms(fixture, decl):
     proj = FAIL_CLOSED / fixture
     assert subprocess.run([lake, "build"], cwd=proj, capture_output=True).returncode == 0
     g = subprocess.run([lake, "env", "lean", "GroundTruth.lean"], cwd=proj,
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     assert g.returncode == 0, g.stdout + g.stderr
     assert f"'{decl}' does not depend on any axioms" in g.stdout
 
@@ -26,6 +26,6 @@ def test_compiles_without_axioms(fixture, decl):
 def test_circular_rejected_by_lake():
     lake = require_lake()
     b = subprocess.run([lake, "build"], cwd=FAIL_CLOSED / "circular-dependency",
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     assert b.returncode != 0
     assert "build cycle detected" in b.stdout + b.stderr

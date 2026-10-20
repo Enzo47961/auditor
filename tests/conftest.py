@@ -48,7 +48,7 @@ def run_auditor(target: Path, tmp_path: Path, policy: Path = DEFAULT_POLICY) -> 
     proc = subprocess.run(
         [sys.executable, "-m", "auditor", "check", str(target),
          "--output", str(out), "--policy", str(policy)],
-        capture_output=True, text=True, env=env, timeout=600,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=600,
     )
     report = json.loads(out.read_text(encoding="utf-8")) if out.exists() else None
     return AuditResult(proc.returncode, report, proc.stderr)

@@ -43,10 +43,10 @@ def parse_print_axioms(out: str) -> dict[str, set[str]]:
 def test_fixture_ground_truth(scenario):
     lake = require_lake()
     proj = CONFORMANCE / scenario
-    b = subprocess.run([lake, "build"], cwd=proj, capture_output=True, text=True, timeout=600)
+    b = subprocess.run([lake, "build"], cwd=proj, capture_output=True, text=True, encoding="utf-8", timeout=600)
     assert b.returncode == 0, b.stdout + b.stderr
     g = subprocess.run([lake, "env", "lean", "GroundTruth.lean"], cwd=proj,
-                       capture_output=True, text=True, timeout=600)
+                       capture_output=True, text=True, encoding="utf-8", timeout=600)
     # exit 0 também prova que as negações dos enunciados falsos compilaram
     assert g.returncode == 0, g.stdout + g.stderr
     assert parse_print_axioms(g.stdout) == EXPECTED_AXIOMS[scenario]
@@ -55,5 +55,5 @@ def test_fixture_ground_truth(scenario):
 @pytest.mark.parametrize("scenario", sorted(EXPECTED_AXIOMS))
 def test_fixture_toolchain_matches_root(scenario):
     """Cópias de lean-toolchain não podem divergir da raiz (fonte única de verdade)."""
-    root = (ROOT / "lean-toolchain").read_text().strip()
-    assert (CONFORMANCE / scenario / "lean-toolchain").read_text().strip() == root
+    root = (ROOT / "lean-toolchain").read_text(encoding="utf-8").strip()
+    assert (CONFORMANCE / scenario / "lean-toolchain").read_text(encoding="utf-8").strip() == root

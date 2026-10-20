@@ -37,7 +37,7 @@ def extract_commands(toolchain: str) -> list[str]:
         (work / "lean-toolchain").write_text(toolchain + "\n")
         subprocess.run(["lake", "build"], cwd=work, check=True, capture_output=True)
         out = subprocess.run(["lake", "exe", "dump"], cwd=work, check=True,
-                             capture_output=True, text=True).stdout
+                             capture_output=True, text=True, encoding="utf-8").stdout
     return sorted({line.strip() for line in out.splitlines() if line.strip()})
 
 
@@ -67,7 +67,7 @@ def main() -> int:
     ap.add_argument("--toolchain-file", default=str(ROOT / "lean-toolchain"))
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args()
-    toolchain = Path(a.toolchain_file).read_text().strip()
+    toolchain = Path(a.toolchain_file).read_text(encoding="utf-8").strip()
     data = build(toolchain)
     path = OUT_DIR / f"{sanitize(toolchain)}.json"
     rendered = json.dumps(data, ensure_ascii=False, indent=2) + "\n"

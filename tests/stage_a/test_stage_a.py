@@ -7,7 +7,7 @@ import pytest
 from conftest import CONFORMANCE, FAIL_CLOSED, ROOT
 from auditor.tier1 import stage_a as A
 
-TOOLCHAIN = (ROOT / "lean-toolchain").read_text().strip()
+TOOLCHAIN = (ROOT / "lean-toolchain").read_text(encoding="utf-8").strip()
 
 
 @pytest.fixture
