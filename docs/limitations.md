@@ -10,7 +10,7 @@ A sintaxe do Lean é extensível e o parser depende de notações importadas. A 
 - **só vê o texto do arquivo-alvo**. Um `sorry` transitivo (cenário 02) e um ciclo de imports são invisíveis para ela; quem cobre isso é a Etapa B;
 - **checa comandos só na coluna 0**. Um token na coluna 0 que não esteja na allow-list nem entre os tokens de continuação (`|`, `where`, …) resulta em `unknown_command` (fail-closed). Consequência: uma continuação legítima escrita na coluna 0 gera falso "não reconhecido" (inconveniente, nunca selo falso). Comandos indentados não passam por essa checagem;
 - **detecta comandos de risco em qualquer posição** (`macro`, `notation`, `run_cmd`, `#eval`, …). São tokens reservados do Lean e não podem ser identificadores, exceto entre `«»`;
-- **não conhece comandos do Mathlib** (`lemma` e outros). Sem uma allow-list do Mathlib, todo arquivo do Mathlib resulta em `unknown_command` (ver Q5 em `proposed-improvements.md`);
+- **só conhece comandos de projeto com allow-list de projeto** (Q5). Sem `<projeto>/.auditor/allowlist.json`, comandos do Mathlib (`lemma` e outros) resultam em `unknown_command`. A allow-list do Mathlib é evidência da camada 2, gerada no fork (ver `docs/maintenance.md`) e não bloqueia a camada 1;
 - vê `decide +native` e `native := …` só como candidatos. A evidência é `Lean.ofReduceBool` na Etapa B;
 - não inspeciona o conteúdo de strings interpoladas (`s!"{…}"`).
 
@@ -25,6 +25,7 @@ Não são registrados no ambiente elaborado. A isenção de `maxHeartbeats 0` s�
   Sem escape (`\` ou `"` dentro de `reason` é proibido), sem continuação em várias linhas, sem duplicata. `<handle>` usa letras, dígitos e hífen. Qualquer desvio resulta em `native_decide_justification_malformed`. A única normalização é remover espaços em branco no fim da linha, porque o Lean armazena a docstring com o espaço que antecede `-/` (verificado na investigação O-1).
 - **Atribuição por nome, dependente de convenção interna.** A declaração dona é obtida removendo os componentes internos do nome da constante que referencia `Lean.ofReduceBool`/`Lean.ofReduceNat` diretamente (ex.: `nd_justified._proof_1_3` → `nd_justified`). Essa convenção é detalhe do compilador e pode mudar entre versões do Lean. Se a dona não for resolvida, o resultado é `Não resolvida` com razão `native_decide_owner_unresolved`.
 - **Justificativa não é autenticação.** Qualquer autor pode escrever a linha. A aprovação do revisor designado é humana e está fora do escopo.
+- **Auxiliares `where`.** O `native_decide` escrito num auxiliar `where` (ex.: `outer.aux`) gera `outer._proof_N`, então a dona é a declaração de topo `outer`. Justificativa na docstring de `outer.aux` não é encontrada e resulta em violação (direção segura). Comportamento observado no toolchain fixado e travado por teste (`tests/stage_b`, fixture `edges`).
 - **Visibilidade.** A linha aparece na documentação gerada a partir das docstrings.
 - **Fallback registrado, não adotado.** Se o Mathlib objetar concretamente à linha estruturada em docstrings, a alternativa é a opção (C): comentário estruturado, arquivo externo `justifications.toml`, ou `native_decide` sempre violação na Fase 0. Não há migração preventiva.
 
@@ -58,5 +59,26 @@ O caminho `auditor-failed-infra` é testado com limite reduzido e declara `timeo
 ## L-12. Cobertura do ambiente do builder
 Sem acesso ao cache do Mathlib, o ambiente de desenvolvimento só verifica fixtures sem Mathlib. Medições reais e o teste da Action em fork são evidência trazida pelo mantenedor.
 
-## L-13. `@[extern]` não é coberto
-Assim como `@[implemented_by]`, `@[extern]` substitui a implementação compilada, e `native_decide` confia nela. A spec cobre só `implemented_by`. Funções do core (aritmética de `Nat`) usam `extern`, então todo `native_decide` confia em código C do runtime. Registrado como observação O-5; não implementado.
+## L-13. `@[extern]` e implementações do toolchain
+O-5 aceito: `@[extern]` entra na mesma categoria de `@[implemented_by]`, com cenário próprio (`04b-extern`). O ground truth confirma o risco: um `@[extern "lean_nat_add"]` de usuário sobre uma definição que multiplica deixa `native_decide` provar `myF 2 3 = 5`, e o kernel prova a negação sem axiomas (`False`).
+
+Funções do próprio toolchain também usam esses atributos: todo `native_decide` sobre `Nat` passa por `@[extern]` do core (`Nat.add`, `Nat.decLt`, `Nat.ble`), e todo `sorry` puxa `@[implemented_by]` do core (`Lean.Name.str`). O tratamento dessas implementações está pendente (Q7). O inspetor já distingue as do toolchain pelo caminho do `.olean` (sob `<sysroot>/lib/lean`).
+
+`partial def` não aparece como `@[implemented_by]` no toolchain fixado (verificado no fixture `edges`).
+
+## L-14. O inspetor está na TCB
+O inspetor (`src/auditor/lean/Inspect.lean`) é código confiado: se ele omitir uma declaração ou um axioma, o agregador não tem como saber. Mitigações:
+- o fecho de dependências próprio é comparado com `Lean.collectAxioms` (o algoritmo de `#print axioms`); divergência vira `inspector_disagreement` (fail-closed);
+- constantes referenciadas e ausentes do ambiente, que o algoritmo oficial ignora em silêncio, viram `missing_constants`;
+- os testes da Etapa B comparam os resultados com `#print axioms` rodado pelo próprio Lean, num processo separado;
+- hash do fonte e do binário entram na TCB e no fingerprint.
+
+`type_hash` e `value_hash` usam `Expr.hash` do Lean: hash estrutural de 64 bits, determinístico, mas não criptográfico. A composição do `declaration_hash` do relatório será fixada na etapa de Schema.
+
+## L-15. Seleção das declarações reportadas
+O relatório cobre as constantes do módulo-alvo que têm faixa de declaração no fonte e nome de usuário (privadas incluídas). Auxiliares gerados (`match_N`, `_proof_N`, recursores, `noConfusion`, equações) ficam de fora, mas aparecem nos fechos de quem os usa. Constantes geradas com faixa no fonte entram: construtor e projeções de `structure`, instâncias anônimas, e o parser criado por `macro` (`tacticObviously`).
+
+## L-16. A allow-list de projeto só é verificada contra o pino
+A Fase 0 verifica que a allow-list de projeto corresponde ao ambiente fixado (`env_pin` = `lean-toolchain` + bytes do `lake-manifest.json`), não que a classificação de cada comando é semanticamente correta para o alvo. Correção semântica da allow-list é Fase 1+.
+
+O pino não cobre o código-fonte do próprio projeto. Um comando que o projeto redefina entre a geração e a auditoria mantém a classificação antiga. Um comando novo do projeto cai em `unknown_command` (fail-closed). A sintaxe vinda de import é coberta pela Etapa B (L-2).

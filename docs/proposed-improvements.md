@@ -81,19 +81,11 @@ O item 5 introduz warnings (confusables). Campo opcional `warnings` (lista) por 
 - **R-1. A cobertura descrita na Q2 não bate com (X).** A Q2 descreve o cenário 02 como "proibido em dependência, via sorryAx". Pela tabela (X), o `sorryAx` afeta só `proof_status`, e as premissas são avaliadas sem ele: o 02 testa admissão transitiva, não a categoria "proibido" nas premissas. Essa categoria fica coberta pelo 05 (`Lean.ofReduceBool` sem justificativa → `Não conforme`). Um axioma proibido que não seja `sorryAx` nem `ofReduceBool` só terá cobertura nos testes de regressão da policy. Implementei a tabela literalmente.
 - **R-2. `orphan_justification` vai para `proof_status: Rejeitada`.** Derivação: a spec define `Rejeitada` como "violação concreta de política demonstrada", e (X) reserva `premises_status` para dependências.
 
-## Q4–Q6. Decisões abertas surgidas na Etapa A (nenhuma bloqueia a Etapa A)
+## Q4–Q6 — RESOLVIDAS
 
-### Q4. Precedência do `overall_status` em estados mistos
-"rejected se qualquer negativo" e "unresolved se qualquer Não resolvido" se aplicam ao mesmo tempo quando uma declaração tem um estado negativo e outro não resolvido (ex.: `sorry` + axioma desconhecido). Nenhum fixture atual cai nesse caso. Opções: (a) `rejected` prevalece, porque há evidência concreta de problema; (b) `unresolved` prevalece. Inclinação: (a). Bloqueia a etapa de Schema.
-
-### Q5. Allow-list de comandos do Mathlib (SUBSTANTIVA para a camada 2)
-A allow-list atual é só do core. Comandos do Mathlib (`lemma`, `alias`, `assert_not_exists`, `library_note`, …) resultam em `unknown_command`, e então **todo arquivo do Mathlib sai `Não resolvida`**. As medições da camada 2 rodariam, mas sem produzir nenhum selo. Opções:
-(a) allow-list do Mathlib gerada pelo mesmo extrator contra o commit fixado do Mathlib, versionada por commit e regenerada no procedimento de manutenção. Exige build do Mathlib, então é gerada no fork (camada 2). Subir o commit sem regenerar resulta em fail-closed;
-(b) allow-list dinâmica, extraída do ambiente do alvo em tempo de auditoria. Isso deixa de ser "versionada", contrariando a decisão 6.
-Inclinação: (a). A classificação de risco dos comandos do Mathlib também é manual, e é trabalho de revisão real (o Mathlib tem dezenas de comandos próprios).
-
-### Q6. Exit code para falha de compilação do alvo
-A spec dá exit 2 para "input inválido, timeout, ambiente inconsistente" e exit 1 para "qualquer falha". Um arquivo que não compila (incluindo ciclo de imports) poderia ser qualquer dos dois. Os testes fail-closed atuais exigem só exit ≠ 0. Inclinação: exit 2, porque sem elaboração não há declaração auditável. Bloqueia a etapa de CLI.
+- **Q4:** precedência `rejected` > `unresolved` > `verified` ("pior estado vence"). Formalizada como tabela no README; entra no schema v1 na etapa de Schema.
+- **Q5:** allow-list de projeto gerada por `auditor-gen-allowlist --project <dir>`, vinculada ao pino do ambiente; allow-list obsoleta é fail-closed. Testes da camada 1 contra um projeto Lake mínimo (`tests/allowlist`). A allow-list do Mathlib é evidência da camada 2. A correção semântica da allow-list é Fase 1+ (L-16).
+- **Q6:** alvo que não compila → exit 1, `proof_status: Não resolvida`, `overall_status: unresolved`, razão `compile_failure`.
 
 ## Decisões locais tomadas na Etapa A (para veto)
 
@@ -101,5 +93,43 @@ A spec dá exit 2 para "input inválido, timeout, ambiente inconsistente" e exit
 - **D-2. Regra de confusables:** detecção por pares (TR39 §4) no arquivo, ignorando componentes de um caractere (L-6). Avisar sobre todo caractere confusable dispararia em quase todo arquivo do Mathlib (α→a, ι→i, ℝ→R).
 - **D-3. Estrutura:** cenários como diretórios-projeto; pacote em `src/auditor/` (layout Python padrão), não em `src/main.py`.
 
-## O-5. `@[extern]` (observação, não implementada)
-Ver L-13. Adicionar a regra seria expandir escopo; fica registrada para a spec.
+## O-5. `@[extern]` — ACEITO
+Entra na spec com a mesma categoria de risco de `@[implemented_by]`. Cenário `04b-extern` criado, com o mesmo formato de ground truth do 04: (a) atributo sozinho; (b) combinado com `Lean.ofReduceBool`. O ground truth deriva `False`: um `@[extern "lean_nat_add"]` de usuário sobre uma definição que multiplica. O fixture precisa de `precompileModules := true`, porque o interpretador só avalia um `extern` de usuário se o módulo que o define tiver código nativo carregado. As regras de política para `extern` dependem de Q7.
+
+## Q7. Implementações nativas do próprio toolchain (SUBSTANTIVA; bloqueia a Policy)
+
+**Problema.** As regras decididas são: `@[implemented_by]` no fecho de dependências → candidato (item 2, Q3a), e `@[extern]` → mesma categoria (O-5). Aplicadas ao pé da letra, contradizem decisões já aprovadas, porque o **próprio toolchain** usa esses atributos no caminho de quase tudo. Evidência do inspetor no toolchain fixado:
+
+| Declaração | Atributos do toolchain no fecho |
+|---|---|
+| `nd_justified : 10 < 22 := by native_decide` (05c, aprovado como `verified`) | `@[extern]`: `Nat.ble`, `Nat.decLt`, `Nat.decLe`, `Nat.add` |
+| `foo : 1 = 2 := by sorry` (01) | `@[implemented_by]`: `Lean.Name.str`, `Lean.Name.num`, `Lean.Name.anonymous` |
+| `e_bad` (04b) | `@[extern]`: `Nat.beq`, `Nat.decEq`, `Nat.mul`, `Nat.add`, e `myF` (do usuário) |
+
+Consequências da leitura literal:
+1. **Todo `native_decide` sobre `Nat` vira `Rejeitada`** (`extern_reaches_native_eval`), inclusive o 05c justificado. Isso anula a decisão O-1/B: justificar `native_decide` deixaria de ter efeito.
+2. Grande parte do Mathlib vira `Não resolvida`, porque `Array`, `Name`, `String` etc. do core têm `@[implemented_by]`.
+
+**Opções.**
+- **(a) Implementações do toolchain são TCB.** Atributos em constantes cujo `.olean` está sob `<sysroot>/lib/lean` não disparam as regras; as demais disparam. O compilador e o runtime já estão na TCB enumerada (L-1), e a justificativa de `native_decide` já é, por definição, a aceitação explícita de confiar neles. A distinção é feita pelo caminho do `.olean`, não pelo prefixo do nome do módulo (que um projeto poderia imitar). O inspetor já emite `in_toolchain`.
+- **(b) Allow-list explícita** em `policy.toml` das implementações confiáveis do toolchain, gerada mecanicamente e versionada por toolchain (como a allow-list de comandos). Mais granular; custa manutenção a cada subida do toolchain.
+- **(c) Leitura literal.** `native_decide` fica, na prática, sempre rejeitado na Fase 0; o 05c e a opção B de O-1 precisam ser revistos.
+
+**Recomendação: (a).** É a única que preserva as decisões já tomadas (05c `verified`, O-1/B) sem lista nova para manter, e mantém o cenário 04/04b intacto: o risco demonstrado (implementação mentirosa) vem de código **fora** do toolchain. O custo: um bug no runtime do Lean fica fora do alcance, mas ele já estava (L-1). **Não implementei nenhuma das opções.** A Etapa B emite o fato bruto (`in_toolchain`), e a Policy aguarda a decisão.
+
+Efeito colateral a medir na camada 2: `@[implemented_by]` do **próprio Mathlib** (fora do toolchain) torna dependentes `Não resolvida` em qualquer das opções. A magnitude só aparece nas medições.
+
+## Decisões locais tomadas na Q5 e na Etapa B (para veto)
+
+- **D-4. Pino da allow-list de projeto** = SHA-256 de (`lean-toolchain`, bytes do `lake-manifest.json`). Não inclui o fonte do próprio projeto: incluí-lo invalidaria a allow-list a cada commit e a tornaria, na prática, dinâmica (contrário à Q5). Consequência registrada em L-16.
+- **D-5. Classificação de projeto.** Comando novo do projeto sem classificação → `unclassified` (fail-closed), ao contrário do core, onde todo comando extraído passou pelo critério. A classificação de projeto não pode reclassificar comandos do core nem citar comandos inexistentes ou duplicados; o gerador recusa (exit 2).
+- **D-6. Módulos do projeto** para a extração: todos os `.olean` produzidos pelo `lake build` do projeto (`.lake/build/lib/lean`).
+- **D-7. Execução do inspetor.** Compilado por (hash do fonte, toolchain) e guardado em cache fora do repositório; executado sob `lake env` no projeto-alvo. A saída do executável é byte a byte idêntica à do interpretador (`lean --run`), verificado no fixture 05.
+- **D-8. Declarações reportadas** = constantes do módulo-alvo com faixa de declaração e nome de usuário, privadas incluídas (L-15). Consequência: `macro` gera uma constante reportada (`tacticObviously`).
+- **D-9. Formato do toolchain.** Só `leanprover/lean4:vX.Y.Z` (com `-rcN` opcional) é reconhecido para conferir a versão do inspetor; outros formatos (ex.: `nightly-…`) são fail-closed (`toolchain_unrecognized`).
+- **D-10. Fim de linha.** O repositório desliga a conversão de fim de linha do git (`.gitattributes`: `* -text`), porque o pino e os hashes dependem dos bytes exatos (no Windows, o checkout com CRLF mudaria o `env_pin`). Os geradores gravam LF explicitamente.
+
+## Correções feitas na retomada (sessão no Windows)
+
+- O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.
+- Portabilidade: a saída do Lean passou a ser decodificada como UTF-8 explicitamente (no Windows, o padrão é cp1252, o que quebrava dois testes de ground truth com nomes Unicode).

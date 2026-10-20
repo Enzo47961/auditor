@@ -25,9 +25,12 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 | Item | Estado |
 |---|---|
 | README com limitações e seção "O que NÃO faz" | em revisão |
-| Conformance suite (5 cenários) passa | red: todas as asserções decididas; falham por ausência de relatório (CLI não implementada) |
-| Fail-closed suite (3 cenários) passa | red fim a fim; a Etapa A já rejeita 2 dos 3 (o ciclo é da Etapa B) |
+| Conformance suite (5 cenários + 04b-extern) passa | red: falham por ausência de relatório (Policy, Schema e CLI não implementados) |
+| Fail-closed suite (3 cenários) passa | red fim a fim; a Etapa A rejeita 2 dos 3, a Etapa B detecta o ciclo (falha de build) |
 | Etapa A (pré-scan léxico) | feita: 36 testes, 9 mutações detectadas |
+| Gerador de allow-list testado contra projeto Lake arbitrário (Q5) | feito: 16 testes, 9 mutações detectadas |
+| Etapa B (inspetor Lean + wrapper) | feita: 61 testes, 13 mutações detectadas (5 no inspetor, 8 no wrapper) |
+| Policy engine | bloqueado por Q7 (`docs/proposed-improvements.md`) |
 | Schema JSON v1 publicado e validado | pendente |
 | `docs/limitations.md`, `docs/maintenance.md` | feito |
 | `docs/tcb.md`, `docs/invalidation.md` (só modelo) | pendente |
@@ -38,11 +41,27 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 
 | Item | Estado |
 |---|---|
+| Allow-list do Mathlib gerada no fork (`auditor-gen-allowlist --project`), com os comandos do Mathlib classificados | **awaiting user evidence** |
 | CLI em 3 PRs reais do Mathlib (trivial, médio, núcleo) com tempos medidos, mais o arquivo de maior fanout | **awaiting user evidence** |
 | Caminho de timeout (`auditor-failed-infra`, sem bloquear merge) | **awaiting user evidence** |
 | GitHub Action integrada e testada em fork | **awaiting user evidence** |
 
 **Por que duas camadas.** O ambiente de desenvolvimento tem o toolchain Lean (verificado: `lean`, `lake` e `#print axioms` funcionam), mas não tem acesso ao cache de build do Mathlib, e compilar o Mathlib do zero não cabe nele.
+
+**Ambientes de desenvolvimento usados.** Linux (sandbox, até a Etapa A) e Windows 11 com elan + `leanprover/lean4:v4.22.0` (commit `ba2cbbf0`), a partir da Etapa B. A suíte inteira roda nos dois.
+
+## Conformance suite: o que cada cenário testa
+
+| Cenário | Categoria | Estado esperado |
+|---|---|---|
+| `01-sorry-target` | admissão no arquivo-alvo | `Rejeitada` / `Conforme`, `sorryAx_detected` |
+| `02-sorry-transitive` | admissão transitiva (A → B → C → D) | `Rejeitada` / `Conforme`; origem rastreada até `d_lemma` |
+| `03-axiom-unknown` | axioma **desconhecido** nas premissas | `Validada` / `Não resolvido`, `unknown_axiom` |
+| `04-implemented-by` | `@[implemented_by]` sozinho e combinado com avaliação nativa | (a) `Não resolvida`, `implemented_by_candidate`; (b) `Rejeitada`, `implemented_by_reaches_native_eval` |
+| `04b-extern` | `@[extern]` sozinho e combinado (O-5) | análogo ao 04; regras dependem de Q7 |
+| `05-native-decide` | mecanismo **proibido** nas premissas (`Lean.ofReduceBool` sem justificativa) e a gramática da justificativa | `Validada` / `Não conforme`; justificado: `verified`; órfã: `Rejeitada` |
+
+Sob a ortogonalidade estrita (Q1-X), `sorryAx` é admissão e afeta só `proof_status`; por isso a categoria "proibido nas premissas" é coberta pelo 05, não pelo 02 (R-1).
 
 ## O que a ferramenta faz
 
@@ -74,7 +93,11 @@ Os componentes são separados de propósito: quem **lê** o ambiente não é que
 
 **Etapa A — parser léxico (Python).** Varredura léxica do arquivo-alvo, sem elaboração. Sinaliza `sorry`, `admit`, `axiom`, `native_decide`, `@[implemented_by]`, `set_option` suspeitos, declarações de `macro`/`syntax`/`elab`/`notation` no próprio arquivo, comandos fora da allow-list e caracteres Unicode proibidos. **Nunca emite conclusão positiva.** Seu papel é apontar candidatos e capturar o que não existe no ambiente elaborado: `set_option` e comentários.
 
-**Etapa B — inspetor (metaprograma Lean).** Roda depois de `lake build` no ambiente fixado. Importa os módulos compilados via `Lean.Environment` e, para cada declaração do arquivo-alvo, extrai os axiomas transitivos (mesmo algoritmo de `#print axioms`), as admissões (`sorryAx`), o uso de `Lean.ofReduceBool`/`Lean.ofReduceNat`, os atributos relevantes (`@[implemented_by]`, `@[auditor_justified]`) e os metadados para o fingerprint. Produz dados brutos, sem aplicar política. O inspetor é compilado contra o toolchain do projeto-alvo, porque arquivos `.olean` só são legíveis pela mesma versão do Lean.
+**Etapa B — inspetor (metaprograma Lean).** Roda depois de `lake build` no ambiente fixado. Importa os módulos compilados via `Lean.Environment` e, para cada declaração do arquivo-alvo, extrai os axiomas transitivos (mesmo algoritmo de `#print axioms`), as admissões (`sorryAx`), o uso de `Lean.ofReduceBool`/`Lean.ofReduceNat`, os atributos relevantes (`@[implemented_by]`, `@[auditor_justified]`) e os metadados para o fingerprint. Produz dados brutos, sem aplicar política. O inspetor é compilado contra o toolchain do projeto-alvo, porque arquivos `.olean` só são legíveis pela mesma versão do Lean; o binário fica em cache, identificado pelo hash do fonte + toolchain, e roda sob `lake env` no projeto-alvo.
+
+O inspetor calcula os axiomas de duas formas: com `Lean.collectAxioms` (o algoritmo oficial de `#print axioms`) e com um fecho de dependências próprio, que também registra quem referencia cada axioma, as constantes com `@[implemented_by]`/`@[extern]` e se cada uma vem do toolchain (decidido pelo caminho do `.olean`, não pelo nome do módulo). Divergência entre as duas formas, constante referenciada inexistente (o algoritmo oficial a ignora em silêncio) ou dona não resolvida viram anomalias, que o agregador converte em fail-closed.
+
+**Allow-list de comandos de projetos (Q5).** A allow-list empacotada cobre só o core. Para um projeto com comandos próprios (o Mathlib define `lemma`, por exemplo), `auditor-gen-allowlist --project <dir>` gera `<dir>/.auditor/allowlist.json` vinculada ao pino do ambiente (`lean-toolchain` + `lake-manifest.json`). A Etapa A só a usa se o pino bater (senão, `allowlist_stale`, fail-closed). Comando do projeto sem classificação explícita em `<dir>/.auditor/classification.toml` é fail-closed (`unclassified_command`).
 
 **Agregador (Python).** Valida a política, aplica as regras aos dados brutos das Etapas A e B, consolida os três estados ortogonais por declaração, monta a TCB e o fingerprint, valida o relatório contra o JSON Schema v1 e define o exit code.
 
@@ -91,7 +114,15 @@ Cada declaração tem três estados independentes, nunca condensados num veredit
 | `proof_status` | `Validada` (kernel aceitou e toda verificação obrigatória passou) · `Rejeitada` (violação concreta de política demonstrada) · `Não resolvida` (evidência insuficiente, timeout ou input fora de cobertura) |
 | `premises_status` | `Conforme` · `Não conforme` (dependência proibida detectada) · `Não resolvido` (análise incompleta) |
 | `correspondence_status` | `Não auditada` — sempre, na Fase 0 |
-| `overall_status` | `verified` só se `Validada` + `Conforme` · `rejected` · `unresolved` (precedência em estados mistos: Q4, pendente) |
+| `overall_status` | `verified` · `rejected` · `unresolved`, pela tabela abaixo (Q4: o pior estado vence) |
+
+**`overall_status` (Q4: precedência `rejected` > `unresolved` > `verified`).** É a leitura segura para quem só lê esse campo.
+
+| `proof_status` \ `premises_status` | `Conforme` | `Não conforme` | `Não resolvido` |
+|---|---|---|---|
+| `Validada` | `verified` | `rejected` | `unresolved` |
+| `Rejeitada` | `rejected` | `rejected` | `rejected` |
+| `Não resolvida` | `unresolved` | `rejected` | `unresolved` |
 
 Todo estado diferente de `Validada`/`Conforme` carrega uma razão explícita e legível por máquina (ex.: `sorryAx_detected`, `unknown_axiom`, `policy_invalid`, `timeout`).
 
@@ -112,10 +143,12 @@ análise semântica, contextos construtivos · fingerprint: <hash>
 | Código | Significado |
 |---|---|
 | `0` | Todos os checks obrigatórios passaram em todas as declarações (`Validada` + `Conforme`) |
-| `1` | Pelo menos uma declaração não está `Validada` + `Conforme` |
-| `2` | Falha de infraestrutura: input inválido, política ausente ou inválida, ambiente inconsistente, timeout |
+| `1` | Pelo menos uma declaração não está `Validada` + `Conforme`; inclui alvo que **não compila** (Q6) |
+| `2` | Falha de infraestrutura: a ferramenta não conseguiu rodar (política ausente ou inválida, ambiente não fixado ou inconsistente, timeout, falha do inspetor) |
 
 Input não reconhecido **nunca** resulta em exit `0`.
+
+**Alvo que não compila (Q6)**, incluindo ciclo de imports: exit `1`, `proof_status: Não resolvida`, `overall_status: unresolved`, razão `compile_failure`. É falha do alvo detectada pela ferramenta: não é infraestrutura (exit 2 é para a ferramenta incapaz de rodar) nem violação de política (`Rejeitada`).
 
 ## Política (`policy.toml`)
 
@@ -141,6 +174,8 @@ A Etapa B lê a docstring do ambiente elaborado (`.olean`) e associa a justifica
 **`@[implemented_by]`.**
 - Sozinho, não afeta o kernel: `Não resolvida`, razão `implemented_by_candidate`.
 - Combinado: se os axiomas transitivos da declaração incluem `Lean.ofReduceBool` ou `Lean.ofReduceNat` **e** o fecho de dependências da declaração contém uma constante com `@[implemented_by]`, o estado é `Rejeitada`, razão `implemented_by_reaches_native_eval`. Uma justificativa de `native_decide` **não** cobre esse caso. O padrão está escrito na política e tem teste de regressão próprio.
+
+**`@[extern]` (O-5).** Mesma categoria de risco que `@[implemented_by]`: substitui a implementação compilada, e `native_decide` confia nela. Regras análogas (sozinho: candidato; combinado com `Lean.ofReduceBool`/`Lean.ofReduceNat`: `Rejeitada`), com cenário próprio (`04b-extern`, ground truth: deriva `False`). **Pendente de Q7:** toda avaliação nativa sobre `Nat` passa por `@[extern]` do próprio toolchain (`Nat.add`, `Nat.decLt`, …), e a regra literal rejeitaria todo `native_decide`.
 
 **`set_option`.** Allow-list versionada. `maxHeartbeats 0` é **sempre** violação na política default, em qualquer caminho. Uma política customizada pode isentar, mas só com duas condições cumulativas: (a) o arquivo está numa allow-list explícita de caminhos; e (b) a opção está na forma `set_option maxHeartbeats 0 in` aplicada a uma declaração cuja docstring tem `auditor_justified: reason="test-only heartbeat exemption" reviewer="@handle"`. `set_option maxHeartbeats 0` em nível de arquivo ou seção nunca é isentável.
 
