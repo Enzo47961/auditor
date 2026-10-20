@@ -1,0 +1,36 @@
+# Classificação de risco dos comandos do Lean para a Etapa A.
+# A LISTA de comandos é extraída mecanicamente do toolchain (Dump.lean).
+# Apenas a CLASSIFICAÇÃO abaixo é mantida à mão. Comando extraído que não
+# aparece aqui cai em `allowed`.
+#
+# Critério (fail-closed quando presente no arquivo-alvo):
+#   syntax_extension — introduz sintaxe que a Etapa A não consegue ler.
+#   metaprogramming  — executa código arbitrário durante a elaboração capaz de
+#                      alterar o ambiente ou extensões; OU é comando interno do
+#                      core (builtin_*, init_*) cujo uso fora do core é exótico;
+#                      OU oculta conteúdo da elaboração (#exit).
+# Na dúvida, classificar como fail-closed (assimetria de erro).
+classification_version = "1"
+
+syntax_extension = [
+  "binder_predicate", "declare_syntax_cat", "declare_simp_like_tactic", "elab", "elab_rules",
+  "infix", "infixl", "infixr", "macro", "macro_rules", "notation", "postfix", "prefix",
+  "syntax", "?", "«$»",
+]
+
+metaprogramming = [
+  "#eval", "#eval!", "#exit", "#with_exporting", "#dump_async_env_state",
+  "builtin_dsimproc", "builtin_dsimproc_decl", "builtin_grind_propagator", "builtin_initialize",
+  "builtin_simproc", "builtin_simproc_decl", "«builtin_simproc_pattern%»",
+  "declare_bitwise_int_theorems", "declare_bitwise_uint_theorems", "declare_command_config_elab",
+  "declare_config_elab", "declare_int_theorems", "declare_sint_simprocs", "declare_uint_simprocs",
+  "declare_uint_theorems", "dsimproc", "dsimproc_decl", "elab_stx_quot", "«gen_injective_theorems%»",
+  "grind_propagator", "init_grind_norm", "init_quot", "initialize", "register_builtin_option",
+  "register_label_attr", "register_linter_set", "register_option", "register_simp_attr",
+  "register_tactic_tag", "«reset_grind_attrs%»", "run_cmd", "run_elab", "run_meta", "simproc",
+  "simproc_decl", "«simproc_pattern%»", "set_premise_selector", "tactic_extension", "test_extern",
+]
+
+# Tokens que não são comandos mas aparecem legitimamente na coluna 0 como
+# continuação de um comando (casamento de padrões, cláusulas). Mantido à mão.
+continuation = ["|", "where", "termination_by", "decreasing_by", "with", ")", "]", "}", "⟩"]
