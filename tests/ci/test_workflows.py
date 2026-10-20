@@ -1,0 +1,109 @@
+"""Política dos workflows como teste (componente 7, princípio 8, D-24).
+
+* nenhum `pull_request_target` (rodaria código do PR com token de escrita);
+* o job que roda código do PR só tem permissão de leitura e não persiste credenciais;
+* os workflows com permissão de escrita (label, comentário) nunca fazem checkout;
+* comentário só com pedido humano explícito (`@auditor report`) de quem tem acesso;
+* nenhum texto controlado pelo autor do PR interpolado com `${{ }}` dentro de `run:`;
+* ações referenciadas por versão; nada de branch móvel."""
+import re
+from pathlib import Path
+
+import pytest
+import yaml
+
+from conftest import ROOT
+
+WF = ROOT / ".github" / "workflows"
+TPL = ROOT / "ci" / "templates"
+ALL = sorted([*WF.glob("*.yml"), *TPL.glob("*.yml")])
+UNTRUSTED = re.compile(r"\$\{\{\s*github\.(event\.(pull_request\.(title|body|head\.ref|head\.label)|"
+                       r"comment\.body|issue\.(title|body)|review\.body|head_commit\.message)|head_ref)")
+
+
+def load(p: Path) -> dict:
+    d = yaml.safe_load(p.read_text(encoding="utf-8"))
+    d["on"] = d.pop(True, d.get("on"))      # YAML 1.1 lê `on:` como True
+    return d
+
+
+def steps(d: dict) -> list[dict]:
+    return [s for j in d["jobs"].values() for s in j.get("steps", [])]
+
+
+@pytest.mark.parametrize("p", ALL, ids=lambda p: p.name)
+def test_never_pull_request_target(p):
+    assert "pull_request_target" not in p.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("p", ALL, ids=lambda p: p.name)
+def test_no_untrusted_interpolation_in_scripts(p):
+    for s in steps(load(p)):
+        assert not UNTRUSTED.search(s.get("run", "")), (p.name, s.get("name"))
+
+
+@pytest.mark.parametrize("p", ALL, ids=lambda p: p.name)
+def test_actions_pinned_to_versions(p):
+    for s in steps(load(p)):
+        if "uses" in s:
+            assert re.search(r"@v\d+$|@[0-9a-f]{40}$", s["uses"]), s["uses"]
+    for j in load(p)["jobs"].values():
+        if "uses" in j:     # chamada de workflow reutilizável: SHA fixado (placeholder no modelo)
+            assert j["uses"].endswith("@AUDITOR_SHA") or re.search(r"@[0-9a-f]{40}$", j["uses"])
+
+
+@pytest.mark.parametrize("p", ALL, ids=lambda p: p.name)
+def test_top_level_permissions_read_only(p):
+    assert load(p)["permissions"] == {"contents": "read"}
+
+
+def test_audit_job_is_read_only_and_does_not_persist_credentials():
+    d = load(WF / "auditor-tier1.yml")
+    assert list(d["on"]) == ["workflow_call"]
+    job = d["jobs"]["audit"]
+    assert job["permissions"] == {"contents": "read"}
+    for s in job["steps"]:
+        if s.get("uses", "").startswith("actions/checkout"):
+            assert s["with"]["persist-credentials"] is False
+    names = [s.get("name", s.get("uses")) for s in job["steps"]]
+    assert "artefato com os relatórios completos" in names
+    upload = [s for s in job["steps"] if s.get("uses", "").startswith("actions/upload-artifact")][0]
+    assert upload["if"] == "always()" and upload["with"]["name"] == "auditor-report"
+    run_step = [s for s in job["steps"] if s.get("id") == "audit"][0]
+    assert "--budget" in run_step["run"] and "$GITHUB_STEP_SUMMARY" in run_step["run"]
+
+
+def test_audit_job_never_comments_or_labels():
+    text = (WF / "auditor-tier1.yml").read_text(encoding="utf-8")
+    assert "gh pr comment" not in text and "add-label" not in text
+
+
+@pytest.mark.parametrize("name", ["auditor-label.yml", "auditor-report.yml"])
+def test_write_workflows_never_checkout(name):
+    d = load(TPL / name)
+    for s in steps(d):
+        assert not s.get("uses", "").startswith("actions/checkout"), s
+    perms = [j["permissions"] for j in d["jobs"].values()]
+    assert all("contents" not in p or p["contents"] == "read" for p in perms)
+
+
+def test_label_workflow_is_trusted_trigger_and_fail_closed():
+    d = load(TPL / "auditor-label.yml")
+    assert list(d["on"]) == ["workflow_run"] and d["on"]["workflow_run"]["workflows"] == ["auditor-tier1"]
+    text = (TPL / "auditor-label.yml").read_text(encoding="utf-8")
+    assert "auditor-ci label-decision" in text and "auditor-failed-infra" in text
+    dl = [s for s in steps(d) if s.get("uses", "").startswith("actions/download-artifact")][0]
+    assert dl["continue-on-error"] is True       # artefato ausente → decisão fail-closed, não erro
+
+
+def test_report_workflow_requires_explicit_human_request():
+    d = load(TPL / "auditor-report.yml")
+    assert list(d["on"]) == ["issue_comment"]
+    cond = d["jobs"]["report"]["if"]
+    assert "startsWith(github.event.comment.body, '@auditor report')" in cond
+    assert "author_association" in cond and "github.event.issue.pull_request" in cond
+
+
+def test_caller_template_runs_only_on_lean_changes():
+    d = load(TPL / "auditor-tier1.yml")
+    assert d["on"]["pull_request"]["paths"] == ["**.lean"]

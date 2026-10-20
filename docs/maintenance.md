@@ -56,3 +56,22 @@ O percurso de dependências espelha `Lean.CollectAxioms.collect` do toolchain fi
 ## Convenção de nomes auxiliares de `native_decide`
 
 A atribuição de `native_decide` à declaração dona depende da convenção `X._proof_N` do compilador (L-4). Ela está travada por testes de regressão em `tests/stage_b` (`test_05_owner_attribution`, `test_edges_where_auxiliary_owned_by_top_level_declaration`, `test_edges_private_declaration_reported_and_owned`). A subida do toolchain precisa passar por eles.
+
+## Testes de mutação
+
+Um teste verde só é evidência se ficar vermelho quando o código está errado. Esta disciplina já encontrou falhas reais duas vezes: um falso resultado de mutação causado pelo `pythonpath` do pytest (Etapa A) e 4 buracos de teste na Policy, todos corrigidos. Ela não depende de memória: o catálogo e o executor estão versionados.
+
+- **Catálogo:** `tools/mutation/catalog.py`. Grupos `stage_a`, `allowlist`, `stage_b` e `policy`; cada mutação é (arquivo, trecho original, trecho mutado), e cada grupo declara os testes que precisam acusá-la.
+- **Executor:** `python tools/mutation/run.py [grupo ...]`. Aplica cada mutação, roda os testes do grupo com `-x` e restaura o arquivo a partir de uma cópia em memória, também em caso de erro. Termina com exit 1 se alguma mutação **sobreviveu** (buraco nos testes) ou foi **pulada** (padrão não encontrado).
+- **Integridade do catálogo:** `tests/maintenance/test_mutation_catalog.py`, rápido e parte da suíte normal, falha se algum padrão deixar de ocorrer exatamente uma vez no código. Assim, refatorar uma checagem obriga a atualizar a mutação correspondente, em vez de ela virar uma mutação "pulada" sem ninguém notar.
+
+**Quando rodar:**
+1. ao fechar cada etapa;
+2. ao mudar qualquer regra de política (a mudança de regra exige auditoria por outra pessoa, e o resultado da mutação é parte da evidência dessa auditoria);
+3. ao subir o toolchain.
+
+**Ao adicionar uma checagem nova,** acrescente ao menos uma mutação que a desligue e confirme que ela é detectada. Uma mutação sobrevivente se resolve escrevendo o teste que falta, nunca removendo a mutação.
+
+**Armadilhas já encontradas:**
+- O pytest com `pythonpath = ["src"]` importa o código do repositório. Mutar uma cópia em outro diretório faz toda mutação "sobreviver" falsamente; o executor muta no lugar.
+- Strings com barra invertida em scripts gerados via heredoc do shell perdem o escape; o catálogo usa strings *raw* num arquivo Python.

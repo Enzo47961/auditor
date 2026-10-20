@@ -1,0 +1,19 @@
+# Modelo para o REPOSITÓRIO-ALVO (ex.: fork do Mathlib): .github/workflows/auditor-tier1.yml
+# Substitua OWNER/auditor e AUDITOR_SHA (commit fixado do auditor). Ver docs/ci.md.
+name: auditor-tier1
+
+on:
+  pull_request:
+    paths:
+      - "**.lean"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    uses: OWNER/auditor/.github/workflows/auditor-tier1.yml@AUDITOR_SHA
+    with:
+      auditor-repository: OWNER/auditor
+      auditor-ref: AUDITOR_SHA
+      cache-get: true

@@ -367,3 +367,28 @@ def test_ingest_file_level_mismatch(over, code):
 def test_inspector_identity_depends_on_toolchain():
     assert B.inspector_identity("leanprover/lean4:v4.22.0")[1] != \
         B.inspector_identity("leanprover/lean4:v4.21.0")[1]
+
+
+def test_apply_boundary_exposes_unresolved_origin(tmp_path):
+    """Constante com `.olean` fora das raízes declaradas → nível `unresolved` E anomalia
+    `tcb_boundary_unresolved` (sem Lean: toolchain e manifest sintéticos)."""
+    import json
+    sysroot = tmp_path / "tc"
+    (sysroot / "lib" / "lean" / "Init").mkdir(parents=True)
+    (sysroot / "lib" / "lean" / "Init.olean").write_bytes(b"")
+    (sysroot / "lib" / "lean" / "Init" / "Prelude.olean").write_bytes(b"")
+    proj = tmp_path / "p"
+    proj.mkdir()
+    (proj / "lake-manifest.json").write_text(json.dumps({"version": "1.1.0", "packages": []}), encoding="utf-8")
+    stray = tmp_path / "stray" / "X.olean"
+    stray.parent.mkdir()
+    stray.write_bytes(b"")
+    d = {"name": "t", "implemented_by": [],
+         "extern": [{"name": "Nat.add", "module": "Init.Prelude",
+                     "olean": str(sysroot / "lib" / "lean" / "Init" / "Prelude.olean")},
+                    {"name": "x", "module": "X", "olean": str(stray)}]}
+    r = B.StageBResult(file="T.lean", declarations=[d])
+    B.apply_boundary(r, {"search_path": []}, proj, sysroot)
+    assert [e["level"] for e in d["extern"]] == ["tcb", "unresolved"]
+    assert [a["code"] for a in r.anomalies] == ["tcb_boundary_unresolved"]
+    assert r.anomalies[0]["detail"]["constant"] == "x"

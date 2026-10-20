@@ -35,10 +35,11 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 | Schema JSON v1 publicado e validado | feito: `schema/report-v1.json`; todo relatório dos fixtures valida; o schema rejeita 8 violações de princípio |
 | CLI (`auditor check`) com exit codes Q6 e `overall_status` Q4 | feita |
 | `docs/tcb.md` | feito, com a seção "Fronteira de TCB" |
-| `docs/invalidation.md` (só modelo) | pendente |
+| `docs/invalidation.md` (só modelo) | feito: selos imutáveis, eventos append-only, estado derivado, propagação |
 | `docs/limitations.md`, `docs/maintenance.md` | feito |
 | Nenhuma dependência de LLM (verificação automatizada) | feito: `tests/maintenance/test_no_llm.py` |
-| GitHub Action | pendente (aguarda revisão de D-4 a D-21, pedida antes do CI) |
+| GitHub Action (workflow reutilizável + modelos para o fork) | feita e testada na camada 1: 50 testes (`tests/ci`), `actionlint` sem apontamentos; teste em fork é camada 2 |
+| Testes de mutação versionados (`tools/mutation`) | catálogo de 64 mutações em 4 grupos, com teste de integridade do catálogo |
 | Nenhuma promessa não cumprida no README | pendente (revisão final) |
 
 **Camada 2 — done no ambiente real.** Exige evidência trazida pelo mantenedor. A Fase 0 não é done sem ela.
@@ -149,7 +150,7 @@ análise semântica, contextos construtivos · fingerprint: <hash>
 |---|---|
 | `0` | Todos os checks obrigatórios passaram em todas as declarações (`Validada` + `Conforme`) |
 | `1` | Pelo menos uma declaração não está `Validada` + `Conforme`; inclui alvo que **não compila** (Q6) |
-| `2` | Falha de infraestrutura: a ferramenta não conseguiu rodar (política ausente ou inválida, ambiente não fixado ou inconsistente, timeout, falha do inspetor) |
+| `2` | Falha de infraestrutura: a ferramenta não conseguiu rodar (política ausente ou inválida, ambiente não fixado ou inconsistente, timeout, falha do inspetor); ou arquivo **sem declarações** (`no_declarations_found`, D-15): não há nada a rejeitar, e o usuário precisa ser explícito (`--allow-empty` para arquivos só de imports) |
 
 Input não reconhecido **nunca** resulta em exit `0`.
 
@@ -220,7 +221,7 @@ Todo relatório enumera a TCB contra a qual o selo foi emitido. Mínimo:
 | Toolchain (elaborador, `lake`) | `lean-toolchain` exato |
 | Mathlib e demais dependências | commit + hash do `lake-manifest.json` |
 | Inspetor (metaprograma Lean) | hash |
-| Agregador (Python) | versão + hash + versão do interpretador |
+| Agregador (Python) | versão + hash + versão do interpretador + dependências Python transitivas com versão exata (`jsonschema` e o que ele puxa; D-20) |
 | Parser da Etapa A | versão + versão da allow-list |
 | Política | versão + hash |
 
@@ -243,9 +244,9 @@ O ambiente vem do `lean-toolchain` e do `lake-manifest.json` do projeto que cont
 
 ## Integração CI
 
-GitHub Action `auditor-tier1`:
+GitHub Action `auditor-tier1` (workflow reutilizável `.github/workflows/auditor-tier1.yml` + modelos em `ci/templates/` para o repositório-alvo; detalhes e instalação no fork em `docs/ci.md`):
 
-- roda em PRs que tocam arquivos `.lean`, acionada pelo workflow do repositório, sob identidade do repositório;
+- roda em PRs que tocam arquivos `.lean`, acionada pelo workflow do repositório, sob identidade do repositório; o job que compila o código do PR tem só permissão de leitura (o label é aplicado por um workflow separado que nunca executa código do PR);
 - publica o sumário no **Job Summary** da execução e anexa o relatório JSON completo como artefato;
 - **não comenta no PR automaticamente.** Um comentário com o sumário só é postado quando um humano o pede explicitamente no PR (`@auditor report`);
 - se não concluir em menos de 5 minutos: aplica o label `auditor-failed-infra`, **não bloqueia o merge** e exige revisão humana explícita. Timeout nunca é tratado como sucesso.
@@ -274,5 +275,6 @@ GitHub Action `auditor-tier1`:
 - `docs/tcb.md` — manifesto completo da TCB
 - `docs/invalidation.md` — modelo de dados de selos e revogação (implementação na Fase 1)
 - `docs/limitations.md` — limitações detalhadas
-- `docs/maintenance.md` — manutenção da allow-list da Etapa A
+- `docs/maintenance.md` — manutenção da allow-list, do inspetor e dos testes de mutação
+- `docs/ci.md` — integração CI, segurança dos workflows, instalação no fork e roteiro da evidência da camada 2
 - `docs/proposed-improvements.md` — objeções registradas à especificação

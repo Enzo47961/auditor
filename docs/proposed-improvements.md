@@ -107,7 +107,7 @@ Implementações do toolchain são TCB. A fronteira é declarada pelo toolchain 
 - **D-1, com a adição do revisor.** `#reduce` passou a ser fail-closed, como `#eval`; antes **não estava coberto** (caía em `allowed`). Aplicando o mesmo critério ("avalia → fail-closed"), verifiquei no fonte do toolchain que `#guard` e `#widget` chamam `evalExpr`, a mesma execução de código compilado do `#eval`; os dois também passaram a fail-closed. `classification_version` subiu para 2. Testes: `tests/stage_a/test_stage_a.py::test_risky_commands`.
 - **D-2** e **D-3:** sem mudança.
 
-## Q8. Comandos que só reduzem (não bloqueia nada)
+## Q8. Comandos que só reduzem — RESOLVIDA (ver "Rodada da instrução 10"; pergunta original abaixo)
 
 Pelo critério de D-1, `#reduce` (redução) foi equiparado a `#eval` (execução). Outros comandos do core também reduzem termos sem executar código compilado: `#guard_expr` (com `=~`, defeq), `#check_simp` (roda `simp`), `#synth` (resolução de instâncias), `#check_tactic` (roda uma tática). Eles continuam `allowed`. Pergunta: o critério do revisor é "executa código" (então só `#reduce` é exceção explícita) ou "avalia/reduz" (então os quatro também viram fail-closed)? Sem resposta, mantenho `allowed`. Mudar é uma linha em `classification.toml`.
 
@@ -156,13 +156,34 @@ Nenhuma é urgente para a Policy: a Policy foi implementada sem depender de veto
 - **D-12. Allow-list de opções.** Reconhecidas: `maxHeartbeats`, `maxRecDepth`, `synthInstance.maxHeartbeats`, `synthInstance.maxSize`, `autoImplicit`, `relaxedAutoImplicit`, `checkBinderAnnotations`, e os prefixos `linter.`, `pp.`, `trace.`, mais `profiler`. Opção fora da lista → `Não resolvida`, `set_option_unrecognized`. É provável que o Mathlib use opções fora dela; a lista será ajustada com evidência da camada 2.
 - **D-13. Alcance de `set_option` em nível de arquivo ou seção.** Atinge toda declaração que não esteja comprovadamente **antes** da opção. O fim de seção não é rastreado (aproximação conservadora: mais declarações atingidas, nunca menos). Forma `in` que não se vincula a declaração com nome, sendo a opção proibida ou não reconhecida → `set_option_unattributed` em todas as declarações. Teste fim a fim: `tests/policy/set-option`.
 - **D-14. Declaração vista pela Etapa A e ausente do ambiente** → entrada própria no relatório, `Não resolvida`/`Não resolvido`, razão `declaration_not_found_in_environment`, exit 1.
-- **D-15. Arquivo sem declarações** → `no_declarations`, exit 1 (sem nada a selar, nunca exit 0). O schema impõe que exit 0 tenha pelo menos uma declaração.
+- **D-15 (REVISADA pelo revisor: exit 2, `no_declarations_found`, `--allow-empty`; texto original:)** Arquivo sem declarações → `no_declarations`, exit 1 (sem nada a selar, nunca exit 0). O schema impõe que exit 0 tenha pelo menos uma declaração.
 - **D-16. Entrada não reconhecida pela Etapa A** (sintaxe nova, comando fora da allow-list, Unicode proibido) afeta só `proof_status` (`Não resolvida`, `stage_a_unrecognized`). As premissas vêm do ambiente elaborado, que a Etapa B analisou por completo.
 - **D-17. Precedência dentro de cada estado:** pior efeito vence (`Rejeitada` > `Não resolvida` > `Validada`; `Não conforme` > `Não resolvido` > `Conforme`). É a mesma regra da Q4, aplicada dentro de cada estado: `sorry` + candidato `implemented_by` → `Rejeitada`.
 - **D-18. `declaration_hash`** = SHA-256 de (nome, tipo de declaração, `Expr.hash` do tipo, `Expr.hash` do valor). Determinístico; o `Expr.hash` subjacente é estrutural de 64 bits (L-14). É `null` para declaração não elaborada.
 - **D-19. Layout do relatório.** A spec lista `tcb` e `execution_metadata` como campos por declaração; eles estão em cada declaração (cópia) **e** no nível do relatório. Também há campos de arquivo (`compilation`, `infrastructure`, `file_findings`, `not_covered`, `exit_code`). O schema amarra `overall_status` à tabela da Q4, `correspondence_status` à constante `Não auditada`, `Validada` à TCB completa e exit 0 à ausência de entradas não reconhecidas.
 - **D-20. Dependência `jsonschema` (≥ 4.18)** em tempo de execução. A CLI valida todo relatório antes de gravá-lo; relatório fora do schema → `report_schema_invalid`, exit 2.
 - **D-21. Timeout padrão de 300 s** (o orçamento de 5 min da spec), configurável com `--timeout`; `--timeout-test artificial` marca o relatório (L-11).
+
+## Rodada da instrução 10 — resoluções
+
+- **Q8 — RESOLVIDA** com o critério do revisor: fail-closed se o comando *pode executar código compilado em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente*. `#guard_expr`, `#check_tactic` → fail-closed; `#check`, `#synth`, `#check_simp` → permitidos (revisados). O critério e a tabela estão em `limitations.md` (L-17); `classification_version = "3"`.
+- **D-15 — REVISADA** conforme o revisor: arquivo sem declarações → exit 2, `no_declarations_found`. `--allow-empty` torna explícito o caso de arquivo só de imports (exit 0, aviso `empty_file_allowed`, `execution_metadata.allow_empty: true`). O schema impõe que exit 0 sem declarações exige `allow_empty: true`.
+- **Aceitas:** D-4 a D-13 e D-20.
+  - D-7: a taxa de acerto do cache é medida na Action (`docs/ci.md`).
+  - D-8: as exclusões estão em L-15.
+  - D-20: `jsonschema` e seu fecho transitivo entram na TCB (`tcb.aggregator.python_dependencies`, com versões exatas); dependência não resolvível → TCB incompleta.
+- **Teste anti-LLM transitivo:** percorre o mesmo fecho da TCB (`src/auditor/pydeps.py`); uma dependência nova, mesmo transitiva, que traga biblioteca de LLM o faz falhar (testado com um grafo sintético de dois níveis).
+- **Testes de mutação versionados:** `tools/mutation/` + `docs/maintenance.md`, com teste de integridade do catálogo.
+
+## Decisões locais do CI (para veto)
+
+- **D-22. Falha do job.** Arquivo com exit 1 (rejeição ou não resolução) faz o job falhar; só infraestrutura (orçamento, timeout, exit 2) deixa o job verde com o label `auditor-failed-infra`. Se o check do job bloqueia merge é configuração do repositório-alvo (branch protection), não da ferramenta.
+- **D-23. `auditor-tier1.yml` é reutilizável** (`workflow_call`), com modelos de chamada em `ci/templates/`. Neste repositório ele não roda em `pull_request`: os fixtures são, de propósito, rejeitados, e auditá-los aqui só produziria jobs vermelhos sem significado. O CI do próprio auditor é `ci.yml` (a suíte inteira).
+- **D-24. Separação de privilégios em três workflows.** O job que roda código do PR tem só leitura. O label vem de `workflow_run` (sem checkout, artefato tratado como não confiável). O comentário vem de `issue_comment` (sem checkout, só OWNER/MEMBER/COLLABORATOR). Alternativa rejeitada: `pull_request_target` com checkout do PR, que daria token de escrita a código não confiável. Testado como política em `tests/ci/test_workflows.py`.
+- **D-25. Fixação de versões.** Instalador do elan fixado em `v4.2.4`. Ações oficiais do GitHub fixadas por tag de versão maior (`@v4`, `@v5`), não por SHA; o teste aceita os dois formatos. Para o fork, recomendo fixar por SHA (mudança só nos modelos).
+- **D-26. `#check_tactic_failure`** foi classificado como fail-closed por derivação direta do critério da Q8 (roda tática do usuário, como `#check_tactic`).
+- **D-27. Subprocesso do `auditor-ci`.** Cada arquivo é auditado em processo separado (`python -m auditor check`), com o mesmo pacote que orquestra (caminho do pacote no `PYTHONPATH`). O isolamento impede que um arquivo afete o seguinte; o timeout do subprocesso é o restante do orçamento + 30 s.
+- **D-28. O que o orçamento de 5 min mede.** O orçamento cobre a auditoria (todos os arquivos, incluindo o `lake build` de cada módulo-alvo). Instalação do elan, do Python e `lake exe cache get` ficam fora dele: são preparação do runner, medidas pela duração total do job. Se o revisor entender que os 5 min da spec incluem a preparação, o ajuste é passar o tempo já gasto no job para o `auditor-ci` descontar do orçamento.
 
 ## Correções feitas na retomada (sessão no Windows)
 

@@ -1,0 +1,119 @@
+# auditor-tier1 — workflow reutilizável (componente 7). O repositório-alvo (ex.: fork do
+# Mathlib) o chama em `pull_request`; modelo em ci/templates/auditor-tier1.yml.
+#
+# Segurança (D-24): este job roda código do PR (`lake build`), portanto tem SÓ permissão de
+# leitura. Ele não aplica label nem comenta: o label `auditor-failed-infra` é aplicado por um
+# workflow separado e confiável (ci/templates/auditor-label.yml), que nunca executa código do
+# PR; o comentário só sai quando um humano pede (`@auditor report`, ci/templates/auditor-report.yml).
+#
+# Resultado: sumário no Job Summary; relatórios JSON completos no artefato `auditor-report`.
+# Orçamento de 5 min (spec): esgotado → `infra_failed`, o job NÃO falha (não bloqueia merge)
+# e o workflow de label marca o PR para revisão humana explícita.
+name: auditor-tier1
+
+on:
+  workflow_call:
+    inputs:
+      auditor-repository:
+        description: "owner/repo do auditor"
+        type: string
+        required: true
+      auditor-ref:
+        description: "commit (SHA) fixado do auditor — nunca um branch"
+        type: string
+        required: true
+      policy:
+        description: "caminho da política no repositório-alvo; vazio = política default do auditor"
+        type: string
+        default: ""
+      budget-seconds:
+        description: "orçamento da auditoria (s); spec: 300"
+        type: number
+        default: 300
+      cache-get:
+        description: "rodar `lake exe cache get` antes (Mathlib)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45        # salvaguarda; o orçamento real é aplicado pelo auditor-ci
+    permissions:
+      contents: read
+    steps:
+      - name: checkout do PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: arquivos .lean alterados
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '*.lean' > "$RUNNER_TEMP/files.txt"
+          echo "arquivos .lean tocados: $(wc -l < "$RUNNER_TEMP/files.txt")"
+
+      - name: checkout do auditor (ref fixada)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.auditor-repository }}
+          ref: ${{ inputs.auditor-ref }}
+          path: .auditor-tool
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: instalar o auditor
+        run: python -m pip install ./.auditor-tool
+
+      - name: instalar elan (versão fixada)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh -o elan-init.sh
+          sh elan-init.sh -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: cache do inspetor (D-7)
+        id: inspector-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/auditor
+          key: auditor-inspector-${{ runner.os }}-${{ inputs.auditor-ref }}-${{ hashFiles('lean-toolchain') }}
+
+      - name: cache de build do Mathlib
+        if: inputs.cache-get
+        run: lake exe cache get
+
+      - name: auditar
+        id: audit
+        timeout-minutes: 30
+        env:
+          POLICY_INPUT: ${{ inputs.policy }}
+          BUDGET: ${{ inputs.budget-seconds }}
+        run: |
+          policy="${POLICY_INPUT:-.auditor-tool/policy.toml}"
+          auditor-ci run --files-from "$RUNNER_TEMP/files.txt" --policy "$policy" \
+            --out-dir "$RUNNER_TEMP/auditor-out" --budget "$BUDGET" \
+            --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
+
+      - name: medição do cache (D-7)
+        if: always()
+        env:
+          HIT: ${{ steps.inspector-cache.outputs.cache-hit }}
+        run: |
+          echo "actions/cache do inspetor restaurado: ${HIT:-false}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: artefato com os relatórios completos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditor-report
+          path: ${{ runner.temp }}/auditor-out
+          if-no-files-found: warn

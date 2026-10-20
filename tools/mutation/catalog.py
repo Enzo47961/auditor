@@ -18,6 +18,7 @@ RP = "src/auditor/report.py"
 TB = "src/auditor/tcb_boundary.py"
 FP = "src/auditor/fingerprint/__init__.py"
 PD = "src/auditor/pydeps.py"
+CI = "src/auditor/ci.py"
 
 GROUPS = {
     "stage_a": {
@@ -113,6 +114,21 @@ GROUPS = {
             (PD, "            if has_marker:\n                continue\n            raise DependencyError",
              "            if True:\n                continue\n            raise DependencyError"),
             (PD, r'            if "extra" in marker:', r"            if True:"),
+        ],
+    },
+    "ci": {
+        "tests": ["tests/ci"],
+        "mutations": [
+            (CI, r"        if remaining < MIN_SLICE_S:", r"        if False:"),
+            (CI, r'    infra = [r for r in results if r["status"] in ("infra", "skipped_budget", "killed_timeout")]',
+             r'    infra = [r for r in results if r["status"] in ("infra",)]'),
+            (CI, r'        return 1 if outcome["audit_failed"] else 0', r'        return 1 if outcome["audit_failed"] or outcome["infra_failed"] else 0'),
+            (CI, r'    if conclusion not in ("success", "failure"):', r"    if False:"),
+            (CI, r'            or not isinstance(data.get("infra_failed"), bool):', r"            or False:"),
+            (CI, '    if data["infra_failed"]:\n        return True, "infra_failed"', '    if False:\n        return True, "infra_failed"'),
+            (CI, '        return True, "outcome ausente"', '        return False, "outcome ausente"'),
+            (CI, r'            entry["status"] = {0: "pass", 1: "fail", 2: "infra"}.get(entry["exit_code"], "infra")',
+             r'            entry["status"] = {0: "pass", 1: "fail", 2: "pass"}.get(entry["exit_code"], "pass")'),
         ],
     },
 }

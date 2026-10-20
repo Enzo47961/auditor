@@ -1,0 +1,64 @@
+# Modelo para o REPOSITÓRIO-ALVO: .github/workflows/auditor-label.yml
+#
+# Aplica o label `auditor-failed-infra` quando a auditoria não concluiu (orçamento esgotado,
+# timeout, falha de infraestrutura, job cancelado ou sem resultado). Roda no contexto CONFIÁVEL
+# do repositório (`workflow_run`), com permissão de escrita, e por isso NUNCA faz checkout nem
+# executa código do PR. O artefato do job auditado é tratado como dado não confiável: só o
+# booleano `infra_failed` é lido, com checagem estrita (auditor-ci label-decision).
+# Ausência de resultado → label (fail-closed). O label não bloqueia merge; pede revisão humana.
+name: auditor-label
+
+on:
+  workflow_run:
+    workflows: [auditor-tier1]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: baixar o resultado (dado não confiável)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: auditor-report
+          path: auditor-out
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: instalar o auditor (ref fixada; código confiável)
+        run: python -m pip install "git+https://github.com/OWNER/auditor@AUDITOR_SHA"
+
+      - name: decidir
+        id: decide
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          auditor-ci label-decision --outcome auditor-out/outcome.json \
+            --conclusion "$CONCLUSION" --github-output "$GITHUB_OUTPUT"
+
+      - name: aplicar o label
+        if: steps.decide.outputs.label == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          pr=$(gh pr list --repo "$REPO" --state open --limit 1000 --json number,headRefOid \
+                 --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" | head -n 1)
+          if [ -z "$pr" ]; then echo "nenhum PR aberto com head $HEAD_SHA"; exit 0; fi
+          gh label create auditor-failed-infra --repo "$REPO" --color B60205 \
+            --description "auditor não concluiu: revisão humana explícita necessária" 2>/dev/null || true
+          gh pr edit "$pr" --repo "$REPO" --add-label auditor-failed-infra
