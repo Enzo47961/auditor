@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -82,3 +83,18 @@ def assert_common_invariants(result: AuditResult) -> None:
 def state(decl: dict) -> tuple[str, str, str]:
     """(proof_status, premises_status, overall_status) de uma declaração."""
     return (decl["proof_status"]["value"], decl["premises_status"]["value"], decl["overall_status"])
+
+
+PRINT_AXIOMS_LINE = re.compile(
+    r"^'(?P<n>[^']+)' (?:depends on axioms: \[(?P<ax>[^\]]*)\]|does not depend on any axioms)$")
+
+
+def parse_print_axioms(out: str) -> dict[str, set[str]]:
+    """Saída de `#print axioms` → {declaração: axiomas}. Ground truth independente do auditor."""
+    res = {}
+    for line in out.splitlines():
+        m = PRINT_AXIOMS_LINE.match(line.strip())
+        if m:
+            ax = m.group("ax")
+            res[m.group("n")] = {a.strip() for a in ax.split(",")} if ax else set()
+    return res
