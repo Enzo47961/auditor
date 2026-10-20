@@ -62,7 +62,7 @@ Sem acesso ao cache do Mathlib, o ambiente de desenvolvimento só verifica fixtu
 ## L-13. `@[extern]` e implementações do toolchain
 O-5 aceito: `@[extern]` entra na mesma categoria de `@[implemented_by]`, com cenário próprio (`04b-extern`). O ground truth confirma o risco: um `@[extern "lean_nat_add"]` de usuário sobre uma definição que multiplica deixa `native_decide` provar `myF 2 3 = 5`, e o kernel prova a negação sem axiomas (`False`).
 
-Funções do próprio toolchain também usam esses atributos: todo `native_decide` sobre `Nat` passa por `@[extern]` do core (`Nat.add`, `Nat.decLt`, `Nat.ble`), e todo `sorry` puxa `@[implemented_by]` do core (`Lean.Name.str`). O tratamento dessas implementações está pendente (Q7). O inspetor já distingue as do toolchain pelo caminho do `.olean` (sob `<sysroot>/lib/lean`).
+Funções do próprio toolchain também usam esses atributos: todo `native_decide` sobre `Nat` passa por `@[extern]` do core (`Nat.add`, `Nat.decLt`, `Nat.ble`), e todo `sorry` puxa `@[implemented_by]` do core (`Lean.Name.str`). Pela Q7 (opção a), essas implementações são TCB e não disparam as regras; só as user-level disparam. A fronteira é declarada pelo toolchain e pelo `lake-manifest.json` (`docs/tcb.md`), e o canário é o cenário `06-tcb-boundary`.
 
 `partial def` não aparece como `@[implemented_by]` no toolchain fixado (verificado no fixture `edges`).
 

@@ -25,16 +25,20 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 | Item | Estado |
 |---|---|
 | README com limitações e seção "O que NÃO faz" | em revisão |
-| Conformance suite (5 cenários + 04b-extern) passa | red: falham por ausência de relatório (Policy, Schema e CLI não implementados) |
-| Fail-closed suite (3 cenários) passa | red fim a fim; a Etapa A rejeita 2 dos 3, a Etapa B detecta o ciclo (falha de build) |
-| Etapa A (pré-scan léxico) | feita: 36 testes, 9 mutações detectadas |
+| Conformance suite (5 cenários obrigatórios + `04b-extern` + `06-tcb-boundary`) passa | **verde** fim a fim (CLI real, Lean real) |
+| Fail-closed suite (3 cenários) passa | **verde**: macro customizada e zero-width → `Não resolvida` (Etapa A); ciclo de imports → `compile_failure`, exit 1 |
+| Etapa A (pré-scan léxico) | feita: 39 testes, 9 mutações detectadas; D-1 com `#reduce`/`#guard`/`#widget` |
 | Gerador de allow-list testado contra projeto Lake arbitrário (Q5) | feito: 16 testes, 9 mutações detectadas |
-| Etapa B (inspetor Lean + wrapper) | feita: 61 testes, 13 mutações detectadas (5 no inspetor, 8 no wrapper) |
-| Policy engine | bloqueado por Q7 (`docs/proposed-improvements.md`) |
-| Schema JSON v1 publicado e validado | pendente |
+| Etapa B (inspetor Lean v2 + wrapper) | feita: 13 mutações detectadas (rodada anterior) |
+| Fronteira de TCB (Q7-a) | feita: algoritmo em `docs/tcb.md`, 19 testes unitários, canário `06-tcb-boundary` |
+| Policy engine (`policy.toml` + regras com regressão própria) | feito: 30 mutações detectadas (política, agregador, relatório, fronteira, fingerprint) |
+| Schema JSON v1 publicado e validado | feito: `schema/report-v1.json`; todo relatório dos fixtures valida; o schema rejeita 8 violações de princípio |
+| CLI (`auditor check`) com exit codes Q6 e `overall_status` Q4 | feita |
+| `docs/tcb.md` | feito, com a seção "Fronteira de TCB" |
+| `docs/invalidation.md` (só modelo) | pendente |
 | `docs/limitations.md`, `docs/maintenance.md` | feito |
-| `docs/tcb.md`, `docs/invalidation.md` (só modelo) | pendente |
-| Nenhuma dependência de LLM (verificação automatizada) | pendente |
+| Nenhuma dependência de LLM (verificação automatizada) | feito: `tests/maintenance/test_no_llm.py` |
+| GitHub Action | pendente (aguarda revisão de D-4 a D-21, pedida antes do CI) |
 | Nenhuma promessa não cumprida no README | pendente (revisão final) |
 
 **Camada 2 — done no ambiente real.** Exige evidência trazida pelo mantenedor. A Fase 0 não é done sem ela.
@@ -58,7 +62,8 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 | `02-sorry-transitive` | admissão transitiva (A → B → C → D) | `Rejeitada` / `Conforme`; origem rastreada até `d_lemma` |
 | `03-axiom-unknown` | axioma **desconhecido** nas premissas | `Validada` / `Não resolvido`, `unknown_axiom` |
 | `04-implemented-by` | `@[implemented_by]` sozinho e combinado com avaliação nativa | (a) `Não resolvida`, `implemented_by_candidate`; (b) `Rejeitada`, `implemented_by_reaches_native_eval` |
-| `04b-extern` | `@[extern]` sozinho e combinado (O-5) | análogo ao 04; regras dependem de Q7 |
+| `04b-extern` | `@[extern]` user-level sozinho e combinado (O-5); (c) com `Nat.add` do toolchain no mesmo enunciado | (a) `Não resolvida`, `extern_candidate`; (b)/(c) `Rejeitada`, `extern_reaches_native_eval`, só `myF` apontado |
+| `06-tcb-boundary` | fronteira de TCB (Q7-a), canário: `Nat.add` (`@[extern]` do toolchain) com e sem `native_decide` | `verified` nos dois |
 | `05-native-decide` | mecanismo **proibido** nas premissas (`Lean.ofReduceBool` sem justificativa) e a gramática da justificativa | `Validada` / `Não conforme`; justificado: `verified`; órfã: `Rejeitada` |
 
 Sob a ortogonalidade estrita (Q1-X), `sorryAx` é admissão e afeta só `proof_status`; por isso a categoria "proibido nas premissas" é coberta pelo 05, não pelo 02 (R-1).
@@ -175,7 +180,9 @@ A Etapa B lê a docstring do ambiente elaborado (`.olean`) e associa a justifica
 - Sozinho, não afeta o kernel: `Não resolvida`, razão `implemented_by_candidate`.
 - Combinado: se os axiomas transitivos da declaração incluem `Lean.ofReduceBool` ou `Lean.ofReduceNat` **e** o fecho de dependências da declaração contém uma constante com `@[implemented_by]`, o estado é `Rejeitada`, razão `implemented_by_reaches_native_eval`. Uma justificativa de `native_decide` **não** cobre esse caso. O padrão está escrito na política e tem teste de regressão próprio.
 
-**`@[extern]` (O-5).** Mesma categoria de risco que `@[implemented_by]`: substitui a implementação compilada, e `native_decide` confia nela. Regras análogas (sozinho: candidato; combinado com `Lean.ofReduceBool`/`Lean.ofReduceNat`: `Rejeitada`), com cenário próprio (`04b-extern`, ground truth: deriva `False`). **Pendente de Q7:** toda avaliação nativa sobre `Nat` passa por `@[extern]` do próprio toolchain (`Nat.add`, `Nat.decLt`, …), e a regra literal rejeitaria todo `native_decide`.
+**`@[extern]` (O-5).** Mesma categoria de risco que `@[implemented_by]`: substitui a implementação compilada, e `native_decide` confia nela. Regras análogas (sozinho: candidato; combinado com `Lean.ofReduceBool`/`Lean.ofReduceNat`: `Rejeitada`), com cenário próprio (`04b-extern`, ground truth: deriva `False`).
+
+**Fronteira de TCB (Q7, opção a).** As regras de `@[implemented_by]` e `@[extern]` só se aplicam a declarações **user-level**. Implementações do próprio toolchain (`Nat.add`, `Lean.Name.str`, …) são TCB e não disparam nada. A fronteira é declarada pelo toolchain (raízes de biblioteca em `<sysroot>/lib/lean`) e pelo `lake-manifest.json` (pacotes do usuário), nunca pelo nome do módulo. O que não puder ser decidido é `Não resolvida` (`tcb_boundary_unresolved`). Algoritmo e manutenção em `docs/tcb.md`; o canário é o cenário `06-tcb-boundary`.
 
 **`set_option`.** Allow-list versionada. `maxHeartbeats 0` é **sempre** violação na política default, em qualquer caminho. Uma política customizada pode isentar, mas só com duas condições cumulativas: (a) o arquivo está numa allow-list explícita de caminhos; e (b) a opção está na forma `set_option maxHeartbeats 0 in` aplicada a uma declaração cuja docstring tem `auditor_justified: reason="test-only heartbeat exemption" reviewer="@handle"`. `set_option maxHeartbeats 0` em nível de arquivo ou seção nunca é isentável.
 
@@ -223,7 +230,14 @@ TCB incompleta impede `Validada`. Detalhes em `docs/tcb.md`.
 
 ```
 auditor check <arquivo.lean> --output report.json --policy policy.toml
+        [--timeout 300] [--timeout-test artificial] [--allowlist <allowlist.json>]
 ```
+
+Requisitos: Python ≥ 3.11 com `jsonschema` (`pip install -e .`), e `elan` no `PATH` com o toolchain do projeto-alvo. O arquivo precisa estar num projeto Lake com `lean-toolchain` e `lake-manifest.json`. A primeira execução com um toolchain novo compila o inspetor (cerca de 15 s); as seguintes reutilizam o binário em cache.
+
+Para projetos com comandos próprios (Mathlib), gere antes a allow-list do projeto: `auditor-gen-allowlist --project <raiz>` (ver `docs/maintenance.md`).
+
+O relatório é validado contra `schema/report-v1.json` antes de ser gravado. Cada declaração traz `seal`, a string do selo, que sempre declara o que não foi verificado.
 
 O ambiente vem do `lean-toolchain` e do `lake-manifest.json` do projeto que contém o arquivo. Nenhuma versão de Lean, Mathlib ou política é codificada na ferramenta.
 

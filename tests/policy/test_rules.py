@@ -122,6 +122,14 @@ def test_native_owner_unresolved(owner_docs):
     assert p == "Não resolvida" and "native_decide_owner_unresolved" in codes(r, "proof_status")
 
 
+def test_native_owner_without_docstring_record_is_unresolved():
+    """Dona resolvida pelo inspetor, mas sem registro de docstring: não presumir ausência."""
+    d = fact(axioms=[NATIVE], refs={NATIVE: [("o._proof_1", "o")]})
+    p, m, _, r = ev(d, owner_docs={"other": {"docstring": JUST}})
+    assert p == "Não resolvida" and codes(r, "proof_status") == {"native_decide_owner_unresolved"}
+    assert m == "Conforme"
+
+
 # ------------------------------------------------------------------ gramática da justificativa (L-4)
 
 @pytest.mark.parametrize("doc,status", [
@@ -131,6 +139,7 @@ def test_native_owner_unresolved(owner_docs):
     ('  auditor_justified: reason="a" reviewer="@x"', "malformed"),        # espaço inicial
     ('auditor_justified: reason="" reviewer="@x"', "malformed"),           # reason vazio
     ('auditor_justified: reason="a\\"b" reviewer="@x"', "malformed"),      # escape
+    ('auditor_justified: reason="a\\b" reviewer="@x"', "malformed"),      # barra invertida
     ('auditor_justified: reason="a" reviewer="x"', "malformed"),           # sem @
     ('auditor_justified: reason="a"', "malformed"),                        # sem reviewer
     ('auditor_justified: reviewer="@x" reason="a"', "malformed"),          # ordem

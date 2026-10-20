@@ -96,38 +96,73 @@ O item 5 introduz warnings (confusables). Campo opcional `warnings` (lista) por 
 ## O-5. `@[extern]` — ACEITO
 Entra na spec com a mesma categoria de risco de `@[implemented_by]`. Cenário `04b-extern` criado, com o mesmo formato de ground truth do 04: (a) atributo sozinho; (b) combinado com `Lean.ofReduceBool`. O ground truth deriva `False`: um `@[extern "lean_nat_add"]` de usuário sobre uma definição que multiplica. O fixture precisa de `precompileModules := true`, porque o interpretador só avalia um `extern` de usuário se o módulo que o define tiver código nativo carregado. As regras de política para `extern` dependem de Q7.
 
-## Q7. Implementações nativas do próprio toolchain (SUBSTANTIVA; bloqueia a Policy)
+## Q7 — RESOLVIDA: opção (a), com especificação de fronteira
 
-**Problema.** As regras decididas são: `@[implemented_by]` no fecho de dependências → candidato (item 2, Q3a), e `@[extern]` → mesma categoria (O-5). Aplicadas ao pé da letra, contradizem decisões já aprovadas, porque o **próprio toolchain** usa esses atributos no caminho de quase tudo. Evidência do inspetor no toolchain fixado:
+Implementações do toolchain são TCB. A fronteira é declarada pelo toolchain (raízes de biblioteca em `<sysroot>/lib/lean`) e pelo `lake-manifest.json` (raízes de usuário), não pelo nome do módulo. Algoritmo, garantias e manutenção estão em `docs/tcb.md`, seção "Fronteira de TCB"; testes unitários em `tests/tcb`. O canário é o cenário `06-tcb-boundary`, e o `04b-extern` ganhou o caso (c).
 
-| Declaração | Atributos do toolchain no fecho |
-|---|---|
-| `nd_justified : 10 < 22 := by native_decide` (05c, aprovado como `verified`) | `@[extern]`: `Nat.ble`, `Nat.decLt`, `Nat.decLe`, `Nat.add` |
-| `foo : 1 = 2 := by sorry` (01) | `@[implemented_by]`: `Lean.Name.str`, `Lean.Name.num`, `Lean.Name.anonymous` |
-| `e_bad` (04b) | `@[extern]`: `Nat.beq`, `Nat.decEq`, `Nat.mul`, `Nat.add`, e `myF` (do usuário) |
+**Mudança no inspetor (v2).** O inspetor deixou de decidir `in_toolchain`. Agora emite só fatos: o caminho real do `.olean` de cada módulo, o sysroot, o search path efetivo e as docstrings de todas as donas. A decisão TCB/usuário fica no Python, testável sem Lean.
 
-Consequências da leitura literal:
-1. **Todo `native_decide` sobre `Nat` vira `Rejeitada`** (`extern_reaches_native_eval`), inclusive o 05c justificado. Isso anula a decisão O-1/B: justificar `native_decide` deixaria de ter efeito.
-2. Grande parte do Mathlib vira `Não resolvida`, porque `Array`, `Name`, `String` etc. do core têm `@[implemented_by]`.
+## D-1 a D-3 — ACEITAS
 
-**Opções.**
-- **(a) Implementações do toolchain são TCB.** Atributos em constantes cujo `.olean` está sob `<sysroot>/lib/lean` não disparam as regras; as demais disparam. O compilador e o runtime já estão na TCB enumerada (L-1), e a justificativa de `native_decide` já é, por definição, a aceitação explícita de confiar neles. A distinção é feita pelo caminho do `.olean`, não pelo prefixo do nome do módulo (que um projeto poderia imitar). O inspetor já emite `in_toolchain`.
-- **(b) Allow-list explícita** em `policy.toml` das implementações confiáveis do toolchain, gerada mecanicamente e versionada por toolchain (como a allow-list de comandos). Mais granular; custa manutenção a cada subida do toolchain.
-- **(c) Leitura literal.** `native_decide` fica, na prática, sempre rejeitado na Fase 0; o 05c e a opção B de O-1 precisam ser revistos.
+- **D-1, com a adição do revisor.** `#reduce` passou a ser fail-closed, como `#eval`; antes **não estava coberto** (caía em `allowed`). Aplicando o mesmo critério ("avalia → fail-closed"), verifiquei no fonte do toolchain que `#guard` e `#widget` chamam `evalExpr`, a mesma execução de código compilado do `#eval`; os dois também passaram a fail-closed. `classification_version` subiu para 2. Testes: `tests/stage_a/test_stage_a.py::test_risky_commands`.
+- **D-2** e **D-3:** sem mudança.
 
-**Recomendação: (a).** É a única que preserva as decisões já tomadas (05c `verified`, O-1/B) sem lista nova para manter, e mantém o cenário 04/04b intacto: o risco demonstrado (implementação mentirosa) vem de código **fora** do toolchain. O custo: um bug no runtime do Lean fica fora do alcance, mas ele já estava (L-1). **Não implementei nenhuma das opções.** A Etapa B emite o fato bruto (`in_toolchain`), e a Policy aguarda a decisão.
+## Q8. Comandos que só reduzem (não bloqueia nada)
 
-Efeito colateral a medir na camada 2: `@[implemented_by]` do **próprio Mathlib** (fora do toolchain) torna dependentes `Não resolvida` em qualquer das opções. A magnitude só aparece nas medições.
+Pelo critério de D-1, `#reduce` (redução) foi equiparado a `#eval` (execução). Outros comandos do core também reduzem termos sem executar código compilado: `#guard_expr` (com `=~`, defeq), `#check_simp` (roda `simp`), `#synth` (resolução de instâncias), `#check_tactic` (roda uma tática). Eles continuam `allowed`. Pergunta: o critério do revisor é "executa código" (então só `#reduce` é exceção explícita) ou "avalia/reduz" (então os quatro também viram fail-closed)? Sem resposta, mantenho `allowed`. Mudar é uma linha em `classification.toml`.
 
-## Decisões locais tomadas na Q5 e na Etapa B (para veto)
+## D-4 a D-10 — detalhes completos para revisão
 
-- **D-4. Pino da allow-list de projeto** = SHA-256 de (`lean-toolchain`, bytes do `lake-manifest.json`). Não inclui o fonte do próprio projeto: incluí-lo invalidaria a allow-list a cada commit e a tornaria, na prática, dinâmica (contrário à Q5). Consequência registrada em L-16.
-- **D-5. Classificação de projeto.** Comando novo do projeto sem classificação → `unclassified` (fail-closed), ao contrário do core, onde todo comando extraído passou pelo critério. A classificação de projeto não pode reclassificar comandos do core nem citar comandos inexistentes ou duplicados; o gerador recusa (exit 2).
-- **D-6. Módulos do projeto** para a extração: todos os `.olean` produzidos pelo `lake build` do projeto (`.lake/build/lib/lean`).
-- **D-7. Execução do inspetor.** Compilado por (hash do fonte, toolchain) e guardado em cache fora do repositório; executado sob `lake env` no projeto-alvo. A saída do executável é byte a byte idêntica à do interpretador (`lean --run`), verificado no fixture 05.
-- **D-8. Declarações reportadas** = constantes do módulo-alvo com faixa de declaração e nome de usuário, privadas incluídas (L-15). Consequência: `macro` gera uma constante reportada (`tacticObviously`).
-- **D-9. Formato do toolchain.** Só `leanprover/lean4:vX.Y.Z` (com `-rcN` opcional) é reconhecido para conferir a versão do inspetor; outros formatos (ex.: `nightly-…`) são fail-closed (`toolchain_unrecognized`).
-- **D-10. Fim de linha.** O repositório desliga a conversão de fim de linha do git (`.gitattributes`: `* -text`), porque o pino e os hashes dependem dos bytes exatos (no Windows, o checkout com CRLF mudaria o `env_pin`). Os geradores gravam LF explicitamente.
+Nenhuma é urgente para a Policy: a Policy foi implementada sem depender de veto a elas. Se alguma for vetada, a mudança é local.
+
+### D-4. Pino da allow-list de projeto
+- **O que faz.** `env_pin = SHA-256(versão do pino ‖ lean-toolchain ‖ bytes do lake-manifest.json)`, com cada parte prefixada pelo comprimento (`src/auditor/allowlist.py::env_pin`). A allow-list de projeto guarda esse valor. A Etapa A recalcula o pino a partir do ambiente atual e só usa a allow-list se os valores baterem.
+- **O que muda no comportamento.** Qualquer mudança no toolchain ou em qualquer byte do manifest (versão de dependência, até espaço em branco) torna a allow-list obsoleta: `allowlist_stale`, a Etapa A não usa a lista e o relatório sai com exit 2. O **fonte do próprio projeto não entra** no pino. Se entrasse, a allow-list do Mathlib ficaria obsoleta a cada commit, e na prática seria regenerada em cada auditoria, que é a allow-list dinâmica rejeitada na Q5(b). Consequência registrada em L-16: um comando novo do projeto cai em `unknown_command` (fail-closed); um comando redefinido mantém a classificação antiga.
+- **Como testa.** `tests/allowlist/test_project_allowlist.py`: pino igual ao recalculado; manifest alterado em um byte, campo `toolchain`, campo `env_pin` ou campo `kind` adulterados → `allowlist_stale`; `--check` detecta a deriva. Fim a fim: `tests/cli/test_cli.py::test_stale_project_allowlist_is_infra` (exit 2, nenhuma `verified`). Mutações: retirar a comparação do pino e retirar o manifest do hash são detectadas.
+
+### D-5. Classificação de comandos de projeto
+- **O que faz.** O gerador separa os comandos extraídos em comandos do core (classificados por `tools/gen_allowlist/classification.toml`) e comandos novos do projeto. Os novos só saem de `unclassified` se estiverem em `<projeto>/.auditor/classification.toml`. O gerador recusa (exit 2) classificação que: cite comando inexistente; cite comando do core (um projeto não pode reclassificar `#eval` como permitido); classifique um comando duas vezes; ou tenha chave desconhecida.
+- **O que muda no comportamento.** Comando de projeto não classificado → `unclassified_command` em qualquer posição → declarações `Não resolvida`. No core, o padrão para comando sem risco listado é `allowed`, porque o critério foi aplicado a todos os 122 comandos extraídos. No projeto, o padrão é fail-closed, porque ninguém olhou os comandos novos.
+- **Como testa.** `tests/allowlist`: `my_lemma` sem classificação → `unclassified_command`; com classificação → aceito; os quatro tipos de classificação inválida → exit 2. Mutações: tornar `unclassified` vazio, desligar a checagem de comando obsoleto, de duplicata e de chave desconhecida são detectadas.
+
+### D-6. Módulos do projeto na extração
+- **O que faz.** O gerador roda `lake build` no projeto e importa **todos** os `.olean` em `<projeto>/.lake/build/lib/lean`, mais `Lean`. Os comandos extraídos são os de todo esse ambiente.
+- **O que muda no comportamento.** A allow-list cobre todo comando disponível em qualquer arquivo do projeto, e não só nos arquivos que importam tudo. Um comando definido num módulo que o alvo não importa fica na allow-list, mas não pode aparecer no alvo sem import (o Lean não o reconheceria), então o efeito é nulo. Projeto sem build → erro explícito.
+- **Como testa.** `tests/allowlist`: o comando `my_lemma`, definido em `Mini.Cmd`, aparece na allow-list gerada; projeto sem `lake-manifest.json` → exit 2.
+
+### D-7. Execução do inspetor
+- **O que faz.** `Inspect.lean` é compilado como executável com o toolchain do projeto-alvo, numa pasta de cache fora do repositório. A chave do cache é o hash do fonte + toolchain + lakefile do inspetor. O executável roda sob `lake env` na raiz do projeto, para herdar o `LEAN_PATH` fixado.
+- **O que muda no comportamento.** A primeira auditoria com um toolchain novo leva cerca de 15 s a mais (compilação); as seguintes reutilizam o binário. Qualquer mudança no fonte gera binário novo, e `source_sha256` e `binary_sha256` entram na TCB e no fingerprint. Falha de compilação → `inspector_build_failed` (exit 2).
+- **Como testa.** `tests/stage_b`: a identidade do inspetor depende do toolchain; o `source_sha256` do relatório é o hash do fonte; a versão declarada em Lean e em Python coincidem. Evidência adicional: a saída do executável compilado é **idêntica, byte a byte,** à do interpretador (`lean --run`) no fixture 05.
+
+### D-8. Declarações reportadas
+- **O que faz.** O relatório cobre as constantes do módulo-alvo que (a) têm faixa de declaração no fonte (`declRangeExt`) e (b) têm nome de usuário. Nomes privados são julgados pela parte de usuário. Ficam fora: `match_N`, `_proof_N`, recursores, `noConfusion`, equações.
+- **O que muda no comportamento.** Entram também constantes geradas com faixa no fonte: construtor e projeções de `structure`, instâncias anônimas (`instInhabitedP`) e o parser criado por `macro` (`tacticObviously`). Cada uma recebe estados próprios. Declarações `private` são reportadas com o nome interno (`_private.Mod.0.hidden`); o vínculo com a Etapa A (`set_option … in`) usa o nome de usuário.
+- **Como testa.** `tests/stage_b::test_reported_declarations_exact` (conjunto exato por fixture, incluindo `edges` e `macro`); `test_edges_internal_names_never_reported`; `test_edges_private_declaration_reported_and_owned`. Mutações: retirar o filtro de faixa e o tratamento de privadas são detectadas.
+
+### D-9. Formato do toolchain
+- **O que faz.** Para conferir que o inspetor rodou com o Lean fixado, o wrapper extrai a versão de `leanprover/lean4:vX.Y.Z` (com `-rcN` opcional) e a compara com `Lean.versionString` emitido pelo inspetor.
+- **O que muda no comportamento.** Toolchains em outro formato (`nightly-…`, forks, `stable`) → `toolchain_unrecognized`, exit 2, sem tentar auditar. Divergência de versão → `toolchain_mismatch`, exit 2.
+- **Como testa.** `tests/stage_b::test_unrecognized_toolchain_format` e `test_ingest_file_level_mismatch`. A mutação que retira a checagem de versão é detectada.
+
+### D-10. Fim de linha
+- **O que faz.** `.gitattributes` com `* -text` desliga a conversão automática de fim de linha do git. Os geradores gravam bytes UTF-8 com LF, e o `--check` compara bytes, não texto.
+- **O que muda no comportamento.** No Windows, sem isso, o checkout converteria o `lake-manifest.json` para CRLF: o `env_pin` mudaria e toda allow-list de projeto pareceria obsoleta. Os hashes da TCB (fonte do inspetor, política) também mudariam entre sistemas.
+- **Como testa.** Indiretamente: `tests/maintenance/test_allowlist_fresh.py` compara bytes e passou nos dois sistemas (Linux e Windows), e os testes do pino dependem dos bytes exatos.
+
+## Decisões locais da Policy, Schema e CLI (para veto)
+
+- **D-11. `debug.skipKernelTC true` é `set_option` proibido.** A opção faz o Lean aceitar declarações **sem** checagem do kernel; é o caso extremo de "set_option que relaxa checagem". Teste: `tests/policy/test_rules.py::test_forbidden_option_rejects`.
+- **D-12. Allow-list de opções.** Reconhecidas: `maxHeartbeats`, `maxRecDepth`, `synthInstance.maxHeartbeats`, `synthInstance.maxSize`, `autoImplicit`, `relaxedAutoImplicit`, `checkBinderAnnotations`, e os prefixos `linter.`, `pp.`, `trace.`, mais `profiler`. Opção fora da lista → `Não resolvida`, `set_option_unrecognized`. É provável que o Mathlib use opções fora dela; a lista será ajustada com evidência da camada 2.
+- **D-13. Alcance de `set_option` em nível de arquivo ou seção.** Atinge toda declaração que não esteja comprovadamente **antes** da opção. O fim de seção não é rastreado (aproximação conservadora: mais declarações atingidas, nunca menos). Forma `in` que não se vincula a declaração com nome, sendo a opção proibida ou não reconhecida → `set_option_unattributed` em todas as declarações. Teste fim a fim: `tests/policy/set-option`.
+- **D-14. Declaração vista pela Etapa A e ausente do ambiente** → entrada própria no relatório, `Não resolvida`/`Não resolvido`, razão `declaration_not_found_in_environment`, exit 1.
+- **D-15. Arquivo sem declarações** → `no_declarations`, exit 1 (sem nada a selar, nunca exit 0). O schema impõe que exit 0 tenha pelo menos uma declaração.
+- **D-16. Entrada não reconhecida pela Etapa A** (sintaxe nova, comando fora da allow-list, Unicode proibido) afeta só `proof_status` (`Não resolvida`, `stage_a_unrecognized`). As premissas vêm do ambiente elaborado, que a Etapa B analisou por completo.
+- **D-17. Precedência dentro de cada estado:** pior efeito vence (`Rejeitada` > `Não resolvida` > `Validada`; `Não conforme` > `Não resolvido` > `Conforme`). É a mesma regra da Q4, aplicada dentro de cada estado: `sorry` + candidato `implemented_by` → `Rejeitada`.
+- **D-18. `declaration_hash`** = SHA-256 de (nome, tipo de declaração, `Expr.hash` do tipo, `Expr.hash` do valor). Determinístico; o `Expr.hash` subjacente é estrutural de 64 bits (L-14). É `null` para declaração não elaborada.
+- **D-19. Layout do relatório.** A spec lista `tcb` e `execution_metadata` como campos por declaração; eles estão em cada declaração (cópia) **e** no nível do relatório. Também há campos de arquivo (`compilation`, `infrastructure`, `file_findings`, `not_covered`, `exit_code`). O schema amarra `overall_status` à tabela da Q4, `correspondence_status` à constante `Não auditada`, `Validada` à TCB completa e exit 0 à ausência de entradas não reconhecidas.
+- **D-20. Dependência `jsonschema` (≥ 4.18)** em tempo de execução. A CLI valida todo relatório antes de gravá-lo; relatório fora do schema → `report_schema_invalid`, exit 2.
+- **D-21. Timeout padrão de 300 s** (o orçamento de 5 min da spec), configurável com `--timeout`; `--timeout-test artificial` marca o relatório (L-11).
 
 ## Correções feitas na retomada (sessão no Windows)
 
