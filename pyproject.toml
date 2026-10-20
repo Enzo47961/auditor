@@ -10,6 +10,7 @@ test = ["pytest>=8"]
 
 [project.scripts]
 auditor = "auditor.__main__:main"
+auditor-gen-allowlist = "auditor.allowlist:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -17,6 +18,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+auditor = ["data/**/*", "lean/*.lean"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

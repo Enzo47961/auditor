@@ -1,4 +1,5 @@
 {
+  "kind": "core",
   "toolchain": "leanprover/lean4:v4.22.0",
   "generator_version": "1",
   "classification_version": "1",
