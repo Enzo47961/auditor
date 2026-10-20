@@ -30,7 +30,7 @@ def test_artificial_timeout_never_success(tmp_path):
     shutil.copytree(CONFORMANCE / "01-sorry-target", proj, ignore=shutil.ignore_patterns(".lake"))
     out = tmp_path / "r.json"
     p = cli("check", str(proj / "Fixture" / "Target.lean"), "--output", str(out),
-            "--policy", str(DEFAULT_POLICY), "--timeout", "0.01", "--timeout-test", "artificial")
+            "--policy", str(DEFAULT_POLICY), "--timeout-file", "0.01", "--timeout-test", "artificial")
     assert p.returncode == 2, p.stderr
     r = json.loads(out.read_text(encoding="utf-8"))
     assert r["execution_metadata"]["timeout_test"] == "artificial"
@@ -71,3 +71,15 @@ def test_empty_file_e2e(tmp_path):
     r = json.loads(out.read_text(encoding="utf-8"))
     assert [x["code"] for x in r["infrastructure"]["reasons"]] == ["no_declarations_found"]
     assert cli(*base, "--allow-empty").returncode == 0
+
+
+def test_timeout_file_default_is_90_and_timeout_is_alias(tmp_path, monkeypatch):
+    """Instrução 11 (D-21): o timeout por arquivo tem padrão de 90 s; `--timeout` é sinônimo."""
+    import auditor.__main__ as m
+    seen = []
+    monkeypatch.setattr(m, "check", lambda a: seen.append(a.timeout) or 0)
+    base = ["check", "T.lean", "--output", "r.json", "--policy", "p.toml"]
+    m.main(base)
+    m.main(base + ["--timeout", "12"])
+    m.main(base + ["--timeout-file", "7"])
+    assert seen == [90.0, 12.0, 7.0]

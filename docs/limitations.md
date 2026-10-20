@@ -54,7 +54,7 @@ Invalida apenas a declaração que o usa. Declarações que dependem dela mantê
 O relatório declara o fingerprint; comparar com o ambiente atual é responsabilidade do consumidor. Revogação é Fase 1.
 
 ## L-11. Teste de timeout é artificial
-O caminho `auditor-failed-infra` é testado com limite reduzido e declara `timeout_test: artificial` no relatório. Latência real só vem das medições em PRs do Mathlib (camada 2 do Done).
+O caminho `auditor-failed-infra` é testado com limite reduzido e declara `timeout_test: artificial` no relatório. Latência real só vem das medições em PRs do Mathlib (camada 2 do Done). O timeout por arquivo de 90 s e o orçamento estendido de 15 min são valores iniciais, não medidos: o p95 por arquivo da camada 2 decide o default (instrução 11).
 
 ## L-12. Cobertura do ambiente do builder
 Sem acesso ao cache do Mathlib, o ambiente de desenvolvimento só verifica fixtures sem Mathlib. Medições reais e o teste da Action em fork são evidência trazida pelo mantenedor.
@@ -104,3 +104,8 @@ Aplicação no toolchain fixado (`classification_version = "3"`):
 `#check_tactic_failure` não foi citado na decisão Q8. Foi incluído por derivação direta do critério, porque roda tática do usuário exatamente como `#check_tactic`.
 
 Limite: o critério cobre comandos que **aparecem no arquivo-alvo**. Código executado na elaboração de **dependências** (por exemplo, `initialize` num módulo importado) roda quando o `lake build` compila essas dependências, e isso está fora do alcance da Etapa A do alvo (L-2).
+
+## L-18. Relógio e `cache_state` do CI são medidas do runner
+- O relógio do PR começa em `pull_request.updated_at`, o carimbo do evento no GitHub, e é comparado com o relógio do runner; diferença de relógio entre os dois entra na medida. Numa re-execução, o relógio começa no início do job (D-30), e a fila anterior não é contada.
+- `cache_state` depende de dois sinais (restauração de `~/.cache/mathlib` e binário do inspetor). Um cache restaurado mas inútil (por exemplo, `.ltar` de outro toolchain) conta como quente; o orçamento estendido nunca é concedido sem sinal frio (D-31).
+- Fixação por hash no CI cobre as actions e o elan. O toolchain Lean baixado pelo elan e as dependências Python resolvidas pelo pip não são conferidos por hash no job; suas versões efetivas ficam registradas na TCB do relatório (D-35).

@@ -1,4 +1,6 @@
-# Manutenção da allow-list da Etapa A
+# Manutenção
+
+Allow-list da Etapa A, inspetor, testes de mutação e fixação de versões dos workflows.
 
 ## O que é mantido e por quem
 
@@ -61,7 +63,7 @@ A atribuição de `native_decide` à declaração dona depende da convenção `X
 
 Um teste verde só é evidência se ficar vermelho quando o código está errado. Esta disciplina já encontrou falhas reais duas vezes: um falso resultado de mutação causado pelo `pythonpath` do pytest (Etapa A) e 4 buracos de teste na Policy, todos corrigidos. Ela não depende de memória: o catálogo e o executor estão versionados.
 
-- **Catálogo:** `tools/mutation/catalog.py`. Grupos `stage_a`, `allowlist`, `stage_b` e `policy`; cada mutação é (arquivo, trecho original, trecho mutado), e cada grupo declara os testes que precisam acusá-la.
+- **Catálogo:** `tools/mutation/catalog.py`. Grupos `stage_a`, `allowlist`, `stage_b`, `policy` e `ci`; cada mutação é (arquivo, trecho original, trecho mutado), e cada grupo declara os testes que precisam acusá-la.
 - **Executor:** `python tools/mutation/run.py [grupo ...]`. Aplica cada mutação, roda os testes do grupo com `-x` e restaura o arquivo a partir de uma cópia em memória, também em caso de erro. Termina com exit 1 se alguma mutação **sobreviveu** (buraco nos testes) ou foi **pulada** (padrão não encontrado).
 - **Integridade do catálogo:** `tests/maintenance/test_mutation_catalog.py`, rápido e parte da suíte normal, falha se algum padrão deixar de ocorrer exatamente uma vez no código. Assim, refatorar uma checagem obriga a atualizar a mutação correspondente, em vez de ela virar uma mutação "pulada" sem ninguém notar.
 
@@ -75,3 +77,12 @@ Um teste verde só é evidência se ficar vermelho quando o código está errado
 **Armadilhas já encontradas:**
 - O pytest com `pythonpath = ["src"]` importa o código do repositório. Mutar uma cópia em outro diretório faz toda mutação "sobreviver" falsamente; o executor muta no lugar.
 - Strings com barra invertida em scripts gerados via heredoc do shell perdem o escape; o catálogo usa strings *raw* num arquivo Python.
+
+## Fixação de versões nos workflows (D-25)
+
+**Todas as actions em workflows do auditor são pinadas por SHA; atualização é PR que muda o SHA e é revisado.** Vale para este repositório (`.github/workflows/`) e para os modelos do repositório-alvo (`ci/templates/`). Tag é mutável; SHA de commit não. Se o publicador de uma action for comprometido, uma tag flutuante é um vetor de ataque à cadeia de suprimentos, exatamente o tipo de troca silenciosa que o auditor existe para detectar.
+
+- Formato: `uses: actions/<nome>@<SHA de 40 hex> # vX.Y.Z`. O comentário com a versão é obrigatório e serve à revisão; `tests/ci/test_workflows.py` exige os dois.
+- Para atualizar: obter o SHA do commit da tag nova (`git ls-remote --tags https://github.com/actions/<nome>`; em tag anotada, usar a linha `^{}`), trocar SHA e comentário juntos, ler o changelog da action e abrir PR. Quem revisa confere o SHA contra a tag.
+- **elan:** o `elan-init.sh` baixa a release `latest` do elan, então fixar a tag do script não fixa o elan (D-35). Os workflows baixam o binário da release fixada (`ELAN_VERSION`) e conferem `ELAN_SHA256` antes de executar. Para atualizar: baixar `elan-x86_64-unknown-linux-gnu.tar.gz` da release nova, calcular o SHA-256, trocar os dois valores em `ci.yml` e `auditor-tier1.yml` no mesmo PR.
+- Resíduos não fixados por hash no CI (L-18): o toolchain Lean que o elan baixa a partir de `lean-toolchain` e as dependências Python resolvidas pelo pip. As versões efetivas entram na TCB do relatório (`kernel.githash`, `aggregator.python_dependencies`).

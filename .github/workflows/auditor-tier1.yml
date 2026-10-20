@@ -2,13 +2,18 @@
 # Mathlib) o chama em `pull_request`; modelo em ci/templates/auditor-tier1.yml.
 #
 # Segurança (D-24): este job roda código do PR (`lake build`), portanto tem SÓ permissão de
-# leitura. Ele não aplica label nem comenta: o label `auditor-failed-infra` é aplicado por um
-# workflow separado e confiável (ci/templates/auditor-label.yml), que nunca executa código do
-# PR; o comentário só sai quando um humano pede (`@auditor report`, ci/templates/auditor-report.yml).
+# leitura. Ele não aplica label nem comenta: o label é aplicado por um workflow separado e
+# confiável (ci/templates/auditor-label.yml), que nunca executa código do PR; o comentário só
+# sai quando um humano pede (`@auditor report`, ci/templates/auditor-report.yml).
 #
-# Resultado: sumário no Job Summary; relatórios JSON completos no artefato `auditor-report`.
-# Orçamento de 5 min (spec): esgotado → `infra_failed`, o job NÃO falha (não bloqueia merge)
-# e o workflow de label marca o PR para revisão humana explícita.
+# Orçamento (instrução 11, D-28): wall-clock do PR, do trigger até o relatório, INCLUINDO a
+# preparação (`lake exe cache get`). 5 min no steady-state; cache cold → orçamento estendido e
+# `first_run`. Timeout por arquivo (D-21): 90 s; estourá-lo encerra a auditoria do PR (exit 2).
+# Infraestrutura (exit 2) → o job NÃO falha (não bloqueia merge) e o workflow de label marca o
+# PR. Rejeição real → o job falha (D-22).
+#
+# Toda action é fixada por SHA de commit (D-25; docs/maintenance.md). O elan é baixado da
+# release fixada e conferido por SHA-256 (o elan-init.sh baixaria a release `latest`).
 name: auditor-tier1
 
 on:
@@ -27,11 +32,19 @@ on:
         type: string
         default: ""
       budget-seconds:
-        description: "orçamento da auditoria (s); spec: 300"
+        description: "orçamento do PR no steady-state (s), do trigger ao relatório; spec: 300"
         type: number
         default: 300
+      first-run-budget-seconds:
+        description: "orçamento do PR com cache cold (s)"
+        type: number
+        default: 900
+      timeout-file-seconds:
+        description: "timeout por arquivo (s); reajustar pelo p95 medido"
+        type: number
+        default: 90
       cache-get:
-        description: "rodar `lake exe cache get` antes (Mathlib)"
+        description: "rodar `lake exe cache get` antes (Mathlib), com cache de ~/.cache/mathlib"
         type: boolean
         default: false
 
@@ -45,8 +58,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: início do job
+        id: clock
+        run: echo "job_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: checkout do PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -60,36 +77,57 @@ jobs:
           echo "arquivos .lean tocados: $(wc -l < "$RUNNER_TEMP/files.txt")"
 
       - name: checkout do auditor (ref fixada)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ inputs.auditor-repository }}
           ref: ${{ inputs.auditor-ref }}
           path: .auditor-tool
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
       - name: instalar o auditor
         run: python -m pip install ./.auditor-tool
 
-      - name: instalar elan (versão fixada)
+      - name: instalar elan (release fixada, SHA-256 conferido)
+        env:
+          ELAN_VERSION: v4.2.4
+          ELAN_SHA256: 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63
         run: |
-          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh -o elan-init.sh
-          sh elan-init.sh -y --default-toolchain none
+          curl -sSfL "https://github.com/leanprover/elan/releases/download/$ELAN_VERSION/elan-x86_64-unknown-linux-gnu.tar.gz" -o "$RUNNER_TEMP/elan.tar.gz"
+          echo "$ELAN_SHA256  $RUNNER_TEMP/elan.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/elan.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/elan-init" -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: cache do inspetor (D-7)
-        id: inspector-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/auditor
           key: auditor-inspector-${{ runner.os }}-${{ inputs.auditor-ref }}-${{ hashFiles('lean-toolchain') }}
 
+      - name: cache do Mathlib (restaurar)
+        id: mathlib-cache
+        if: inputs.cache-get
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/mathlib
+          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.event.pull_request.base.sha }}
+          restore-keys: |
+            mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-
+
       - name: cache de build do Mathlib
         if: inputs.cache-get
         run: lake exe cache get
+
+      - name: cache do Mathlib (salvar)
+        if: inputs.cache-get && steps.mathlib-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/mathlib
+          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.event.pull_request.base.sha }}
 
       - name: auditar
         id: audit
@@ -97,22 +135,53 @@ jobs:
         env:
           POLICY_INPUT: ${{ inputs.policy }}
           BUDGET: ${{ inputs.budget-seconds }}
+          FIRST_RUN_BUDGET: ${{ inputs.first-run-budget-seconds }}
+          TIMEOUT_FILE: ${{ inputs.timeout-file-seconds }}
+          CACHE_GET: ${{ inputs.cache-get }}
+          CACHE_HIT: ${{ steps.mathlib-cache.outputs.cache-hit }}
+          CACHE_MATCHED: ${{ steps.mathlib-cache.outputs.cache-matched-key }}
+          TRIGGER_AT: ${{ github.event.pull_request.updated_at }}
+          JOB_START: ${{ steps.clock.outputs.job_start }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           policy="${POLICY_INPUT:-.auditor-tool/policy.toml}"
+          if [ "$CACHE_GET" != "true" ]; then build_cache=none
+          elif [ "$CACHE_HIT" = "true" ]; then build_cache=hit
+          elif [ -n "$CACHE_MATCHED" ]; then build_cache=partial
+          else build_cache=miss; fi
+          # relógio do PR: o trigger (evento do PR); numa re-execução, o início do job
+          if [ "$RUN_ATTEMPT" = "1" ] && [ -n "$TRIGGER_AT" ]; then start="$TRIGGER_AT"; kind=trigger
+          else start="$JOB_START"; kind=job_start; fi
+          rc=0
           auditor-ci run --files-from "$RUNNER_TEMP/files.txt" --policy "$policy" \
             --out-dir "$RUNNER_TEMP/auditor-out" --budget "$BUDGET" \
-            --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
+            --first-run-budget "$FIRST_RUN_BUDGET" --timeout-file "$TIMEOUT_FILE" \
+            --build-cache "$build_cache" --started-at "$start" --started-at-kind "$kind" \
+            --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT" || rc=$?
+          # 0 ok · 1 rejeição (o passo seguinte falha o job) · 2 infraestrutura (label, não bloqueia)
+          echo "auditor-ci run: exit $rc"
 
-      - name: medição do cache (D-7)
+      - name: rejeição falha o job (D-22)
+        if: steps.audit.outputs.audit_failed == 'true'
+        run: |
+          echo "::error::o auditor rejeitou ou não resolveu declarações; ver o Job Summary"
+          exit 1
+
+      - name: medição do cache (D-7, D-28)
         if: always()
         env:
-          HIT: ${{ steps.inspector-cache.outputs.cache-hit }}
+          MATHLIB_HIT: ${{ steps.mathlib-cache.outputs.cache-hit }}
+          MATHLIB_MATCHED: ${{ steps.mathlib-cache.outputs.cache-matched-key }}
+          STATE: ${{ steps.audit.outputs.cache_state }}
         run: |
-          echo "actions/cache do inspetor restaurado: ${HIT:-false}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "cache_state: ${STATE:-desconhecido}"
+            echo "cache do Mathlib: exato=${MATHLIB_HIT:-false} parcial=${MATHLIB_MATCHED:-nenhum}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: artefato com os relatórios completos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: auditor-report
           path: ${{ runner.temp }}/auditor-out

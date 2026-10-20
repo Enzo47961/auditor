@@ -18,7 +18,7 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 
 ## Status
 
-A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é considerada done quando as duas estão completas.
+**Fase 0 = Camada 1 (done) + Camada 2 (pending user evidence).** A Fase 0 **não está done**: só é done quando as duas camadas estão completas. O critério de go/no-go da Fase 0 é a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1. **A próxima decisão de projeto (início da Fase 1) depende da camada 2**; os itens da Fase 1 já decididos estão em `docs/roadmap.md`.
 
 **Camada 1 — done no ambiente do builder.** Itens verificáveis sem Mathlib, com evidência produzida no ambiente de desenvolvimento.
 
@@ -38,8 +38,8 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 | `docs/invalidation.md` (só modelo) | feito: selos imutáveis, eventos append-only, estado derivado, propagação |
 | `docs/limitations.md`, `docs/maintenance.md` | feito |
 | Nenhuma dependência de LLM (verificação automatizada) | feito: `tests/maintenance/test_no_llm.py` |
-| GitHub Action (workflow reutilizável + modelos para o fork) | feita e testada na camada 1: 50 testes (`tests/ci`), `actionlint` sem apontamentos; teste em fork é camada 2 |
-| Testes de mutação versionados (`tools/mutation`) | catálogo de 64 mutações em 4 grupos, com teste de integridade do catálogo |
+| GitHub Action (workflow reutilizável + modelos para o fork) | feita e testada na camada 1: 78 testes (`tests/ci`), `actionlint` sem apontamentos; actions fixadas por SHA, elan por release + SHA-256; orçamento wall-clock do PR com `cache_state`, timeout por arquivo de 90 s. Teste em fork é camada 2 |
+| Testes de mutação versionados (`tools/mutation`) | catálogo de 84 mutações em 5 grupos, com teste de integridade do catálogo |
 | Nenhuma promessa não cumprida no README | pendente (revisão final) |
 
 **Camada 2 — done no ambiente real.** Exige evidência trazida pelo mantenedor. A Fase 0 não é done sem ela.
@@ -47,8 +47,10 @@ A Fase 0 **não está done**. "Done" tem duas camadas, e a Fase 0 só é conside
 | Item | Estado |
 |---|---|
 | Allow-list do Mathlib gerada no fork (`auditor-gen-allowlist --project`), com os comandos do Mathlib classificados | **awaiting user evidence** |
-| CLI em 3 PRs reais do Mathlib (trivial, médio, núcleo) com tempos medidos, mais o arquivo de maior fanout | **awaiting user evidence** |
+| Primeiro run no fork (cache cold, `first_run: true`) | **awaiting user evidence** |
+| 3 PRs reais do Mathlib no steady-state (trivial, médio, arquivo de maior fanout escolhido por `tools/layer2/fanout.py`), com tempos por `cache_state` (`tools/layer2/timings.py`) | **awaiting user evidence** |
 | Caminho de timeout (`auditor-failed-infra`, sem bloquear merge) | **awaiting user evidence** |
+| p95 por arquivo medido e default do timeout por arquivo reajustado | **awaiting user evidence** |
 | GitHub Action integrada e testada em fork | **awaiting user evidence** |
 
 **Por que duas camadas.** O ambiente de desenvolvimento tem o toolchain Lean (verificado: `lean`, `lake` e `#print axioms` funcionam), mas não tem acesso ao cache de build do Mathlib, e compilar o Mathlib do zero não cabe nele.
@@ -231,7 +233,7 @@ TCB incompleta impede `Validada`. Detalhes em `docs/tcb.md`.
 
 ```
 auditor check <arquivo.lean> --output report.json --policy policy.toml
-        [--timeout 300] [--timeout-test artificial] [--allowlist <allowlist.json>]
+        [--timeout-file 90] [--timeout-test artificial] [--allowlist <allowlist.json>]
 ```
 
 Requisitos: Python ≥ 3.11 com `jsonschema` (`pip install -e .`), e `elan` no `PATH` com o toolchain do projeto-alvo. O arquivo precisa estar num projeto Lake com `lean-toolchain` e `lake-manifest.json`. A primeira execução com um toolchain novo compila o inspetor (cerca de 15 s); as seguintes reutilizam o binário em cache.
@@ -249,7 +251,10 @@ GitHub Action `auditor-tier1` (workflow reutilizável `.github/workflows/auditor
 - roda em PRs que tocam arquivos `.lean`, acionada pelo workflow do repositório, sob identidade do repositório; o job que compila o código do PR tem só permissão de leitura (o label é aplicado por um workflow separado que nunca executa código do PR);
 - publica o sumário no **Job Summary** da execução e anexa o relatório JSON completo como artefato;
 - **não comenta no PR automaticamente.** Um comentário com o sumário só é postado quando um humano o pede explicitamente no PR (`@auditor report`);
-- se não concluir em menos de 5 minutos: aplica o label `auditor-failed-infra`, **não bloqueia o merge** e exige revisão humana explícita. Timeout nunca é tratado como sucesso.
+- **orçamento de 5 minutos de wall-clock do PR**, do trigger ao relatório, incluindo `lake exe cache get` (steady-state). Se não concluir: exit 2, label `auditor-failed-infra`, **não bloqueia o merge** e exige revisão humana explícita. Timeout nunca é tratado como sucesso;
+- **timeout por arquivo de 90 s**: um arquivo que o estoura encerra a auditoria do PR (exit 2);
+- o relatório declara `cache_state` (`cold`, `delta`, `warm`). Com cache cold (primeiro run), o orçamento é estendido (15 min), o resultado declara `first_run: true`, e passar dos 5 min não é falha: `cache_cold_extension` e label `auditor-first-run`;
+- toda action é fixada por SHA de commit.
 
 ## Limitações
 
@@ -275,6 +280,7 @@ GitHub Action `auditor-tier1` (workflow reutilizável `.github/workflows/auditor
 - `docs/tcb.md` — manifesto completo da TCB
 - `docs/invalidation.md` — modelo de dados de selos e revogação (implementação na Fase 1)
 - `docs/limitations.md` — limitações detalhadas
-- `docs/maintenance.md` — manutenção da allow-list, do inspetor e dos testes de mutação
-- `docs/ci.md` — integração CI, segurança dos workflows, instalação no fork e roteiro da evidência da camada 2
+- `docs/maintenance.md` — manutenção da allow-list, do inspetor, dos testes de mutação e da fixação de versões dos workflows
+- `docs/ci.md` — integração CI, segurança dos workflows, instalação no fork e roteiro da evidência da camada 2 (ferramentas em `tools/layer2/`)
+- `docs/roadmap.md` — itens já decididos da Fase 1 (que só começa depois da camada 2)
 - `docs/proposed-improvements.md` — objeções registradas à especificação

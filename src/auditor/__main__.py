@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 EXIT_OK, EXIT_FAIL, EXIT_INFRA = 0, 1, 2
-DEFAULT_TIMEOUT_S = 300.0   # 5 min: orçamento da spec por PR
+DEFAULT_TIMEOUT_S = 90.0    # timeout por arquivo (instrução 11, D-21); o orçamento do PR é do auditor-ci
 
 
 def _utf8_stdio() -> None:
@@ -79,7 +79,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--output", required=True)
     c.add_argument("--policy", required=True)
     c.add_argument("--allowlist", help="allow-list de projeto explícita (padrão: <projeto>/.auditor/allowlist.json)")
-    c.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S, help="segundos (padrão: 300)")
+    c.add_argument("--timeout-file", "--timeout", dest="timeout", type=float, default=DEFAULT_TIMEOUT_S,
+                   help="timeout deste arquivo em segundos (padrão: 90)")
     c.add_argument("--timeout-test", choices=["artificial"], default=None,
                    help="marca o relatório como teste de timeout com limite artificial (L-11)")
     c.add_argument("--allow-empty", action="store_true",

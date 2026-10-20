@@ -143,7 +143,7 @@ def ensure_inspector(toolchain: str, lake: str) -> dict:
 
 # --------------------------------------------------------------------------- análise
 
-def analyze(target: Path, timeout_s: float = 300.0) -> StageBResult:
+def analyze(target: Path, timeout_s: float = 90.0) -> StageBResult:
     target = Path(target)
     res = StageBResult(file=str(target))
     started = time.monotonic()

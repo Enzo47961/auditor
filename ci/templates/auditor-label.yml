@@ -1,11 +1,16 @@
 # Modelo para o REPOSITÓRIO-ALVO: .github/workflows/auditor-label.yml
 #
-# Aplica o label `auditor-failed-infra` quando a auditoria não concluiu (orçamento esgotado,
-# timeout, falha de infraestrutura, job cancelado ou sem resultado). Roda no contexto CONFIÁVEL
-# do repositório (`workflow_run`), com permissão de escrita, e por isso NUNCA faz checkout nem
-# executa código do PR. O artefato do job auditado é tratado como dado não confiável: só o
-# booleano `infra_failed` é lido, com checagem estrita (auditor-ci label-decision).
-# Ausência de resultado → label (fail-closed). O label não bloqueia merge; pede revisão humana.
+# Aplica um label conforme o resultado da auditoria:
+#   * `auditor-failed-infra`: a auditoria não concluiu (orçamento esgotado, timeout por arquivo,
+#     falha de infraestrutura, job cancelado ou sem resultado). Não bloqueia merge; pede revisão
+#     humana explícita.
+#   * `auditor-first-run`: cache cold (primeiro run no fork, cache despejado) e a auditoria passou
+#     dos 5 min do steady-state dentro do orçamento estendido (`cache_cold_extension`). Não é falha.
+# Roda no contexto CONFIÁVEL do repositório (`workflow_run`), com permissão de escrita, e por isso
+# NUNCA faz checkout nem executa código do PR. O artefato do job auditado é tratado como dado não
+# confiável: só os booleanos `infra_failed` e `cache_cold_extension` são lidos, com checagem
+# estrita (auditor-ci label-decision). Ausência de resultado → `auditor-failed-infra` (fail-closed).
+# Actions fixadas por SHA de commit (D-25).
 name: auditor-label
 
 on:
@@ -27,14 +32,14 @@ jobs:
     steps:
       - name: baixar o resultado (dado não confiável)
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: auditor-report
           path: auditor-out
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -50,15 +55,20 @@ jobs:
             --conclusion "$CONCLUSION" --github-output "$GITHUB_OUTPUT"
 
       - name: aplicar o label
-        if: steps.decide.outputs.label == 'true'
+        if: steps.decide.outputs.label != ''
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          LABEL: ${{ steps.decide.outputs.label }}
         run: |
+          case "$LABEL" in
+            auditor-failed-infra) color=B60205; desc="auditor não concluiu: revisão humana explícita necessária" ;;
+            auditor-first-run) color=FBCA04; desc="auditor: primeiro run com cache cold (orçamento estendido)" ;;
+            *) echo "label inesperado: $LABEL"; exit 1 ;;
+          esac
           pr=$(gh pr list --repo "$REPO" --state open --limit 1000 --json number,headRefOid \
                  --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" | head -n 1)
           if [ -z "$pr" ]; then echo "nenhum PR aberto com head $HEAD_SHA"; exit 0; fi
-          gh label create auditor-failed-infra --repo "$REPO" --color B60205 \
-            --description "auditor não concluiu: revisão humana explícita necessária" 2>/dev/null || true
-          gh pr edit "$pr" --repo "$REPO" --add-label auditor-failed-infra
+          gh label create "$LABEL" --repo "$REPO" --color "$color" --description "$desc" 2>/dev/null || true
+          gh pr edit "$pr" --repo "$REPO" --add-label "$LABEL"
