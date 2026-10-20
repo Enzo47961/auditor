@@ -118,6 +118,10 @@ def test_set_option_file_level(proj):
     ("run_cmd pure ()\n", "metaprogramming_command"),
     ("#eval 1\n", "metaprogramming_command"),
     ("#exit\n", "metaprogramming_command"),
+    # D-1 (revisor): comandos que avaliam termos durante a elaboração
+    ("#reduce 1 + 1\n", "metaprogramming_command"),
+    ("#guard 1 + 1 == 2\n", "metaprogramming_command"),
+    ("#widget w\n", "metaprogramming_command"),
 ])
 def test_risky_commands(proj, src, code):
     assert code in codes(run(proj, src).unrecognized)
