@@ -20,6 +20,7 @@ TARGETS = {
     "04": CONFORMANCE / "04-implemented-by" / "Fixture" / "Target.lean",
     "04b": CONFORMANCE / "04b-extern" / "Fixture" / "Target.lean",
     "05": CONFORMANCE / "05-native-decide" / "Fixture" / "Target.lean",
+    "06": CONFORMANCE / "06-tcb-boundary" / "Fixture" / "Target.lean",
     "edges": EDGES / "Fixture" / "Edges.lean",
     "macro": FAIL_CLOSED / "macro-custom" / "Fixture" / "Target.lean",
     "unicode": FAIL_CLOSED / "namespace-unicode" / "Fixture" / "Target.lean",
@@ -30,7 +31,8 @@ REPORTED = {
     "02": {"a_main", "a_clean"},
     "03": {"usa_axioma", "nao_usa"},
     "04": {"g", "gImpl", "g_zero", "f", "fImpl", "f_bad"},
-    "04b": {"h", "h_zero", "e_zero", "e_bad"},
+    "04b": {"h", "h_zero", "e_zero", "e_bad", "e_mixed"},
+    "06": {"add_native", "add_kernel"},
     "05": {"nd_nodoc", "nd_plain_doc", "nd_justified", "drift_holder", "drift_victim",
            "bad_multiline", "bad_escape", "bad_no_reviewer", "bad_handle", "bad_duplicate",
            "consumes_justified", "consumes_unjustified"},
@@ -60,8 +62,8 @@ def owners(d: dict, axiom: str) -> set:
     return {x["owner"] for ref in d["axiom_referrers"] if ref["axiom"] == axiom for x in ref["referrers"]}
 
 
-def externs(d: dict, toolchain: bool) -> set:
-    return {e["name"] for e in d["extern"] if e["in_toolchain"] == toolchain}
+def externs(d: dict, level: str) -> set:
+    return {e["name"] for e in d["extern"] if e["level"] == level}
 
 
 # ------------------------------------------------------------------ contrato
@@ -69,7 +71,8 @@ def externs(d: dict, toolchain: bool) -> set:
 def test_result_has_no_positive_conclusion_field():
     fields = {f.name for f in dataclasses.fields(B.StageBResult)}
     assert fields == {"file", "project_root", "module", "toolchain", "stage_b_version", "build",
-                      "inspector", "declarations", "anomalies", "unrecognized", "metadata"}
+                      "inspector", "declarations", "anomalies", "unrecognized", "owners",
+                      "boundary", "metadata"}
 
 
 def test_inspector_version_matches_source():
@@ -129,9 +132,9 @@ def test_03_unknown_axiom_is_a_fact_not_a_judgement():
 
 def test_04_implemented_by_facts():
     r = inspect("04")
-    ib = lambda n: {(i["name"], i["implementation"], i["in_toolchain"]) for i in decl(r, n)["implemented_by"]}
-    assert ib("g") == ib("g_zero") == {("g", "gImpl", False)}
-    assert ib("f") == ib("f_bad") == {("f", "fImpl", False)}
+    ib = lambda n: {(i["name"], i["implementation"], i["level"]) for i in decl(r, n)["implemented_by"]}
+    assert ib("g") == ib("g_zero") == {("g", "gImpl", "user")}
+    assert ib("f") == ib("f_bad") == {("f", "fImpl", "user")}
     assert ib("gImpl") == ib("fImpl") == set()
     assert decl(r, "f_bad")["axioms_official"] == ["Lean.ofReduceBool"]
     assert owners(decl(r, "f_bad"), "Lean.ofReduceBool") == {"f_bad"}
@@ -140,18 +143,49 @@ def test_04_implemented_by_facts():
 
 def test_04b_extern_facts():
     r = inspect("04b")
-    assert externs(decl(r, "e_bad"), toolchain=False) == {"myF"}
-    assert externs(decl(r, "e_zero"), toolchain=False) == {"myF"}
-    assert externs(decl(r, "h"), toolchain=False) == externs(decl(r, "h_zero"), toolchain=False) == {"h"}
+    assert externs(decl(r, "e_bad"), "user") == {"myF"}
+    assert externs(decl(r, "e_zero"), "user") == {"myF"}
+    assert externs(decl(r, "h"), "user") == externs(decl(r, "h_zero"), "user") == {"h"}
     assert owners(decl(r, "e_bad"), "Lean.ofReduceBool") == {"e_bad"}
     myf = [e for e in decl(r, "e_bad")["extern"] if e["name"] == "myF"][0]
     assert myf["module"] == "Fixture.Dep"
 
 
-def test_toolchain_externs_marked_by_olean_path():
-    """`Nat.add` vem do toolchain; isso é decidido pelo caminho do `.olean`, não pelo nome."""
-    e = [x for x in decl(inspect("04b"), "e_bad")["extern"] if x["name"] == "Nat.add"]
-    assert e and e[0]["in_toolchain"] is True and e[0]["module"] == "Init.Prelude"
+def test_04b_case_c_only_user_extern_is_user_level():
+    """(c): `myF` (usuário) e `Nat.add` (toolchain) no mesmo enunciado: só `myF` é user-level."""
+    d = decl(inspect("04b"), "e_mixed")
+    assert externs(d, "user") == {"myF"}
+    assert "Nat.add" in externs(d, "tcb")
+    assert externs(d, "unresolved") == set()
+
+
+def test_06_tcb_boundary_canary():
+    """Canário da fronteira (Q7): `Nat.add` é `@[extern]` de `Init.Prelude`, declarado pelo
+    toolchain, e nada no fecho é user-level. Se o Lean mover `Nat.add` ou a fronteira mudar,
+    este teste falha e a política precisa ser revista (docs/tcb.md)."""
+    r = inspect("06")
+    assert r.boundary["toolchain_roots"] == ["Init", "Lake", "LakeMain", "Lean", "Leanc", "Std"]
+    for n in ("add_native", "add_kernel"):
+        d = decl(r, n)
+        nat_add = [e for e in d["extern"] if e["name"] == "Nat.add"]
+        assert nat_add and nat_add[0]["module"] == "Init.Prelude", n
+        assert nat_add[0]["level"] == "tcb" and nat_add[0]["level_reason"] == "toolchain_root"
+        assert externs(d, "user") == externs(d, "unresolved") == set()
+        assert all(i["level"] == "tcb" for i in d["implemented_by"])
+
+
+def test_every_attribute_entry_is_classified():
+    for key in sorted(REPORTED):
+        for d in inspect(key).declarations:
+            for e in d["implemented_by"] + d["extern"]:
+                assert e["level"] in ("tcb", "user"), (key, d["name"], e)
+
+
+def test_owner_docstrings_include_owners_outside_target():
+    r = inspect("02")
+    assert "d_lemma" in r.owners and r.owners["d_lemma"]["module"] == "Fixture.D"
+    r5 = inspect("05")
+    assert r5.owners["nd_justified"]["docstring"].splitlines()[1].rstrip() ==         'auditor_justified: reason="kernel decide too slow" reviewer="@enzo"'
 
 
 def test_05_owner_attribution():

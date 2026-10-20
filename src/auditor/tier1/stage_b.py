@@ -24,8 +24,10 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from auditor import tcb_boundary as tb
+
 STAGE_B_VERSION = "1"
-INSPECTOR_VERSION = "1"            # deve bater com `inspectorVersion` em Inspect.lean
+INSPECTOR_VERSION = "2"            # deve bater com `inspectorVersion` em Inspect.lean
 PKG = Path(__file__).resolve().parent.parent
 INSPECT_SRC = PKG / "lean" / "Inspect.lean"
 INSPECTOR_LAKEFILE = """import Lake
@@ -50,6 +52,8 @@ class StageBResult:
     declarations: list[dict] = field(default_factory=list)
     anomalies: list[dict] = field(default_factory=list)      # {declaration, code, detail}
     unrecognized: list[dict] = field(default_factory=list)   # {code, detail}
+    owners: dict = field(default_factory=dict)                 # dona → {docstring, module}
+    boundary: dict | None = None                               # fronteira de TCB usada (Q7)
     metadata: dict | None = None                               # hashes e contagens
 
 
@@ -214,7 +218,50 @@ def analyze(target: Path, timeout_s: float = 300.0) -> StageBResult:
             return res
 
     _ingest(res, facts, expected)
+    _apply_boundary(res, facts, root)
     return res
+
+
+def _sysroot(root: Path) -> Path | None:
+    """Sysroot resolvido pelo elan a partir do `lean-toolchain` do projeto, independente do inspetor."""
+    lean = shutil.which("lean")
+    if lean is None:
+        return None
+    p = subprocess.run([lean, "--print-prefix"], cwd=root, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    return Path(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else None
+
+
+def _apply_boundary(res: StageBResult, facts: dict, root: Path) -> None:
+    """Q7: classifica cada constante com `@[implemented_by]`/`@[extern]` como tcb/user.
+    A decisão usa o manifest e as raízes declaradas pelo toolchain (tcb_boundary.py)."""
+    sysroot = _sysroot(root)
+    if sysroot is None or os.path.normcase(os.path.realpath(sysroot)) !=             os.path.normcase(os.path.realpath(facts.get("sysroot") or "")):
+        res.unrecognized.append({"code": "sysroot_mismatch",
+                                 "detail": f"elan: {sysroot}; inspetor: {facts.get('sysroot')}"})
+        return
+    apply_boundary(res, facts, root, sysroot)
+
+
+def apply_boundary(res: StageBResult, facts: dict, root: Path, sysroot: Path) -> None:
+    try:
+        b = tb.load_boundary(root, sysroot)
+    except tb.BoundaryError as e:
+        res.unrecognized.append({"code": "tcb_boundary_undeclared", "detail": str(e)})
+        return
+    res.boundary = {"toolchain_lib": str(b.toolchain_lib), "toolchain_roots": sorted(b.toolchain_roots),
+                    "user_roots": [str(u) for u in b.user_roots], "packages": list(b.packages)}
+    extra = tb.unrecognized_search_path(b, facts.get("search_path") or [])
+    if extra:
+        res.unrecognized.append({"code": "search_path_unrecognized", "detail": extra})
+    for d in res.declarations:
+        for key in ("implemented_by", "extern"):
+            for e in d[key]:
+                e["level"], e["level_reason"] = tb.classify(b, e.get("module") or "", e.get("olean"))
+                if e["level"] == tb.UNRESOLVED:
+                    res.anomalies.append({"declaration": d["name"], "code": "tcb_boundary_unresolved",
+                                          "detail": {"attribute": key, "constant": e["name"],
+                                                     "module": e.get("module"), "reason": e["level_reason"]}})
 
 
 def _ingest(res: StageBResult, facts: dict, expected_version: str) -> None:
@@ -244,6 +291,8 @@ def _ingest(res: StageBResult, facts: dict, expected_version: str) -> None:
                     res.anomalies.append({"declaration": name, "code": "owner_unresolved",
                                           "detail": {"axiom": ref["axiom"], "referrer": r["name"]}})
         res.declarations.append(d)
+    res.owners = {o["name"]: {"docstring": o.get("docstring"), "module": o.get("module")}
+                  for o in facts.get("owners", [])}
 
     md = facts.get("metadata") or {}
     res.metadata = {}

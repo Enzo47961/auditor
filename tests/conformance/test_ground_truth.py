@@ -17,7 +17,9 @@ EXPECTED_AXIOMS = {
     "03-axiom-unknown": {"usa_axioma": {"minhaAxioma"}, "nao_usa": set()},
     "04-implemented-by": {"f_bad": {"Lean.ofReduceBool"}, "f_bad_is_false": set(), "g_zero": set()},
     "04b-extern": {"e_bad": {"Lean.ofReduceBool"}, "e_bad_is_false": set(), "e_zero": set(),
-                   "h_zero": set()},
+                   "h_zero": set(), "e_mixed": {"Lean.ofReduceBool"}, "e_mixed_is_false": set()},
+    "06-tcb-boundary": {"add_native": {"Lean.ofReduceBool"}, "add_kernel": set(),
+                        "add_native_kernel": set()},
     "05-native-decide": {
         **{n: {"Lean.ofReduceBool"} for n in (
             "nd_nodoc", "nd_plain_doc", "nd_justified", "drift_victim", "bad_multiline",

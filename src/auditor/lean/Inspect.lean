@@ -15,14 +15,17 @@ Para cada declaração do módulo-alvo escrita no fonte:
   com o mesmo percurso; divergência entre os dois é exposta, não resolvida;
 * `axiom_referrers` — para cada axioma, as constantes do fecho que o referenciam
   diretamente, e a declaração dona de cada uma (componentes internos removidos);
-* `implemented_by`, `extern` — constantes do fecho com esses atributos;
+* `implemented_by`, `extern` — constantes do fecho com esses atributos, com o módulo e o
+  caminho real do `.olean` de origem (a classificação TCB/usuário é do Python: Q7);
 * `missing` — constantes referenciadas que não existem no ambiente (o algoritmo
   oficial as ignora em silêncio);
 * `docstring`, `depends_on` (outras declarações do alvo no fecho).
+No nível do arquivo: `sysroot`, `search_path` (para conferência contra o manifest),
+`owners` (docstring de toda declaração dona encontrada, inclusive fora do alvo).
 Também emite os metadados do fingerprint (`@[simp]`, `@[ext]`, `@[reducible]`,
 `@[implemented_by]` de todo o ambiente importado). -/
 
-def inspectorVersion : String := "1"
+def inspectorVersion : String := "2"
 
 /-- Dependências diretas, espelhando `Lean.CollectAxioms.collect` (v4.22.0). -/
 def directDeps (ci : ConstantInfo) : Array Name :=
@@ -59,9 +62,8 @@ partial def ownerOf (env : Environment) (n : Name) : Option Name :=
 
 structure Ctx where
   env        : Environment
-  sysrootLib : String
   deps       : IO.Ref (Std.HashMap Name (Array Name))
-  toolchainMod : IO.Ref (Std.HashMap Nat Bool)
+  oleans     : IO.Ref (Std.HashMap Nat (Option String))
 
 def Ctx.deps? (c : Ctx) (n : Name) : IO (Option (Array Name)) := do
   if let some d := (← c.deps.get)[n]? then return some d
@@ -75,19 +77,19 @@ def Ctx.deps? (c : Ctx) (n : Name) : IO (Option (Array Name)) := do
 def Ctx.moduleOf (c : Ctx) (n : Name) : Option Name :=
   c.env.getModuleIdxFor? n |>.bind fun i => c.env.header.moduleNames[i.toNat]?
 
-/-- A constante vem de um módulo do toolchain? Decidido pelo caminho do `.olean`
-(sob `<sysroot>/lib/lean`), não pelo prefixo do nome do módulo. -/
-def Ctx.inToolchain (c : Ctx) (n : Name) : IO Bool := do
-  let some i := c.env.getModuleIdxFor? n | return false
-  if let some b := (← c.toolchainMod.get)[i.toNat]? then return b
-  let some m := c.env.header.moduleNames[i.toNat]? | return false
-  let b ← try
-      let p ← findOLean m
-      let p ← IO.FS.realPath p
-      pure (p.toString.startsWith c.sysrootLib)
-    catch _ => pure false
-  c.toolchainMod.modify (·.insert i.toNat b)
-  return b
+/-- Caminho real do `.olean` do módulo de origem da constante, resolvido pelo search path
+efetivo (o mesmo que o `importModules` usou). Fato bruto: não decide TCB. -/
+def Ctx.oleanOf (c : Ctx) (n : Name) : IO (Option String) := do
+  let some i := c.env.getModuleIdxFor? n | return none
+  if let some r := (← c.oleans.get)[i.toNat]? then return r
+  let r ← match c.env.header.moduleNames[i.toNat]? with
+    | none => pure none
+    | some m => try pure (some (← IO.FS.realPath (← findOLean m)).toString) catch _ => pure none
+  c.oleans.modify (·.insert i.toNat r)
+  return r
+
+def Ctx.originJ (c : Ctx) (m : Name) : IO (List (String × Json)) := do
+  return [("module", toJson ((c.moduleOf m).map toString)), ("olean", toJson (← c.oleanOf m))]
 
 def nameJ (n : Name) : Json := toJson n.toString
 
@@ -104,7 +106,7 @@ def targetDecls (env : Environment) (modIdx : ModuleIdx) : Array Name := Id.run 
     out := out.push n
   return out.qsort (·.toString < ·.toString)
 
-def inspectDecl (c : Ctx) (targets : NameSet) (n : Name) : IO Json := do
+def inspectDecl (c : Ctx) (targets : NameSet) (n : Name) : IO (Json × Array Name) := do
   let env := c.env
   let some ci := env.find? n | throw <| IO.userError s!"declaração sumiu do ambiente: {n}"
   -- fecho independente
@@ -133,18 +135,20 @@ def inspectDecl (c : Ctx) (targets : NameSet) (n : Name) : IO Json := do
   let mut dependsOn := #[]
   for m in visited.toArray do
     if let some impl := Compiler.implementedByAttr.getParam? env m then
-      implBy := implBy.push <| Json.mkObj [("name", nameJ m), ("implementation", nameJ impl),
-        ("module", toJson ((c.moduleOf m).map toString)), ("in_toolchain", toJson (← c.inToolchain m))]
+      implBy := implBy.push <| Json.mkObj
+        ([("name", nameJ m), ("implementation", nameJ impl)] ++ (← c.originJ m))
     if isExtern env m then
-      ext := ext.push <| Json.mkObj [("name", nameJ m),
-        ("module", toJson ((c.moduleOf m).map toString)), ("in_toolchain", toJson (← c.inToolchain m))]
+      ext := ext.push <| Json.mkObj ([("name", nameJ m)] ++ (← c.originJ m))
     if m != n && targets.contains m then dependsOn := dependsOn.push m
   let refJ := axioms.qsort (·.toString < ·.toString) |>.map fun ax =>
     let rs := (referrers.getD ax #[]).qsort (·.toString < ·.toString)
     Json.mkObj [("axiom", nameJ ax), ("referrers", Json.arr <| rs.map fun r =>
       Json.mkObj [("name", nameJ r), ("owner", toJson ((ownerOf env r).map toString))])]
+  let owners := axioms.foldl (init := #[]) fun acc ax =>
+    (referrers.getD ax #[]).foldl (init := acc) fun acc r =>
+      match ownerOf env r with | some o => acc.push o | none => acc
   let doc ← findDocString? env n (includeBuiltin := false)
-  return Json.mkObj [
+  return (·, owners) <| Json.mkObj [
     ("name", nameJ n),
     ("kind", toJson (kindOf ci)),
     ("type_hash", toJson (toString ci.type.hash)),
@@ -185,20 +189,31 @@ def main (args : List String) : IO UInt32 := do
   let env ← importModules #[{module := mod}] {} (loadExts := true)
   let some modIdx := env.getModuleIdx? mod
     | IO.eprintln s!"módulo não encontrado no ambiente: {mod}"; return 2
-  let sysrootLib := (← IO.FS.realPath (sysroot / "lib" / "lean")).toString
-  let c : Ctx := { env, sysrootLib, deps := ← IO.mkRef {}, toolchainMod := ← IO.mkRef {} }
+  let c : Ctx := { env, deps := ← IO.mkRef {}, oleans := ← IO.mkRef {} }
   let decls := targetDecls env modIdx
   let targets := decls.foldl NameSet.insert {}
   let mut out := #[]
+  let mut owners : NameSet := {}
   for n in decls do
-    out := out.push (← inspectDecl c targets n)
+    let (j, os) ← inspectDecl c targets n
+    out := out.push j
+    owners := os.foldl NameSet.insert owners
+  let mut ownersJ := #[]
+  for o in owners.toArray.qsort (·.toString < ·.toString) do
+    ownersJ := ownersJ.push <| Json.mkObj [("name", nameJ o),
+      ("docstring", toJson (← findDocString? env o (includeBuiltin := false))),
+      ("module", toJson ((c.moduleOf o).map toString))]
+  let sp ← searchPathRef.get
   let j := Json.mkObj [
     ("inspector_version", toJson inspectorVersion),
     ("lean_version", toJson Lean.versionString),
     ("lean_githash", toJson Lean.githash),
+    ("sysroot", toJson (← IO.FS.realPath sysroot).toString),
+    ("search_path", toJson (sp.map (·.toString))),
     ("module", toJson modStr),
     ("module_constant_count", toJson env.header.moduleData[modIdx.toNat]!.constNames.size),
     ("declarations", Json.arr out),
+    ("owners", Json.arr ownersJ),
     ("metadata", metadata env)]
   IO.FS.writeFile outPath (j.compress ++ "\n")
   return 0
