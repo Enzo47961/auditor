@@ -82,3 +82,25 @@ O relatório cobre as constantes do módulo-alvo que têm faixa de declaração 
 A Fase 0 verifica que a allow-list de projeto corresponde ao ambiente fixado (`env_pin` = `lean-toolchain` + bytes do `lake-manifest.json`), não que a classificação de cada comando é semanticamente correta para o alvo. Correção semântica da allow-list é Fase 1+.
 
 O pino não cobre o código-fonte do próprio projeto. Um comando que o projeto redefina entre a geração e a auditoria mantém a classificação antiga. Um comando novo do projeto cai em `unknown_command` (fail-closed). A sintaxe vinda de import é coberta pela Etapa B (L-2).
+
+## L-17. Critério para comandos `#…` e outros comandos de elaboração (Q8)
+**Critério normativo:** um comando é fail-closed na Etapa A se **pode executar código compilado em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente**. Decisões futuras sobre comandos devem ser derivadas deste critério, não de pesquisa caso a caso.
+
+**Por que este critério.** Um `@[extern]` ou `@[implemented_by]` malicioso em código de usuário pode executar I/O durante a elaboração, antes de qualquer auditoria. Bloquear esses comandos é defesa em profundidade contra **execução pré-auditoria**. A corrupção de axiomas não é o alvo aqui: ela é coberta pela Etapa B, que inspeciona o ambiente elaborado.
+
+Aplicação no toolchain fixado (`classification_version = "3"`):
+
+| Comando | Decisão | Razão |
+|---|---|---|
+| `#eval`, `#eval!` | fail-closed | executa código compilado |
+| `#reduce` | fail-closed | equiparado a `#eval` pelo revisor (D-1) |
+| `#guard`, `#widget` | fail-closed | chamam `evalExpr` (verificado no fonte do toolchain) |
+| `#guard_expr` | fail-closed | avalia a expressão em tempo de elaboração |
+| `#check_tactic`, `#check_tactic_failure` | fail-closed | rodam tática do usuário, que pode chamar `evalExpr`: contornam o bloqueio de `#eval` |
+| `#check` | permitido | só checa tipo; não executa nada |
+| `#synth` | permitido | síntese de typeclass é unificação; não executa `@[extern]` |
+| `#check_simp` | permitido, **revisado** | diagnóstico de `simp`: reduz termos, não executa `@[extern]` compilado |
+
+`#check_tactic_failure` não foi citado na decisão Q8. Foi incluído por derivação direta do critério, porque roda tática do usuário exatamente como `#check_tactic`.
+
+Limite: o critério cobre comandos que **aparecem no arquivo-alvo**. Código executado na elaboração de **dependências** (por exemplo, `initialize` num módulo importado) roda quando o `lake build` compila essas dependências, e isso está fora do alcance da Etapa A do alvo (L-2).

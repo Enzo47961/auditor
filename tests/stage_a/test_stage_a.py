@@ -122,9 +122,19 @@ def test_set_option_file_level(proj):
     ("#reduce 1 + 1\n", "metaprogramming_command"),
     ("#guard 1 + 1 == 2\n", "metaprogramming_command"),
     ("#widget w\n", "metaprogramming_command"),
+    # Q8 (critério do revisor): pode executar código compilado antes da Etapa B
+    ("#guard_expr 1 = 1\n", "metaprogramming_command"),
+    ("#check_tactic True ~> True by skip\n", "metaprogramming_command"),
+    ("#check_tactic_failure True by skip\n", "metaprogramming_command"),
 ])
 def test_risky_commands(proj, src, code):
     assert code in codes(run(proj, src).unrecognized)
+
+
+@pytest.mark.parametrize("src", ["#check 1\n", "#synth Inhabited Nat\n", "#check_simp 1 + 0 ~> 1\n"])
+def test_q8_reviewed_safe_commands_allowed(proj, src):
+    """Q8: revisados e mantidos permitidos (não executam código compilado; L-17)."""
+    assert run(proj, src).unrecognized == []
 
 
 def test_unknown_column_zero_command_fails_closed(proj):

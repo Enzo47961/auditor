@@ -2,10 +2,10 @@
 
 Exit codes (README; Q6):
   0 — toda declaração `verified`, nenhuma entrada não reconhecida no arquivo;
-  1 — alguma declaração não `verified`, alvo que não compila (Q6), arquivo sem declarações
-      ou conteúdo não reconhecido;
+  1 — alguma declaração não `verified`, alvo que não compila (Q6) ou conteúdo não reconhecido;
   2 — a ferramenta não conseguiu rodar: política inválida, ambiente não fixado ou
-      inconsistente, timeout, falha do inspetor.
+      inconsistente, timeout, falha do inspetor; ou arquivo sem declarações
+      (`no_declarations_found`, D-15 revisada), salvo com `--allow-empty`.
 Exit 0 nunca sai com input não reconhecido.
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ def seal(decl: dict, fp: str | None) -> str:
 
 
 def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: float,
-          timeout_s: float, timeout_test: str | None) -> tuple[dict, int]:
+          timeout_s: float, timeout_test: str | None, allow_empty: bool = False) -> tuple[dict, int]:
     infra: list[dict] = []
     file_unrecognized: list[dict] = []
     a_names = ag.stage_a_names(sa)
@@ -70,6 +70,7 @@ def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: fl
         decls = None
 
     tcb = build_tcb(sa, sb, policy, root)
+    empty_allowed = False
     if decls is None:
         b_names = [d["name"] for d in sb.declarations]
         reach, hb, so_file = ag.options_in_reach(policy, sa, b_names)
@@ -94,7 +95,14 @@ def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: fl
                 file_unrecognized.append({"code": "declaration_not_found_in_environment", "name": n,
                                           "line": v["line"]})
         if not decls:
-            file_unrecognized.append({"code": "no_declarations"})
+            # D-15 (revisada pelo revisor): sem declarações não há o que rejeitar. O usuário
+            # apontou o arquivo errado, um arquivo só de imports ou um script: exit 2, salvo
+            # pedido explícito (`--allow-empty`).
+            if allow_empty:
+                empty_allowed = True
+            else:
+                infra.append({"code": "no_declarations_found",
+                              "detail": "nenhuma declaração no arquivo; use --allow-empty se for intencional"})
 
     ag.fill_depends_on_rejected(decls)
     infra_status = "failed" if infra else "ok"
@@ -105,6 +113,7 @@ def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: fl
         "compilation": compilation,
         "timeout_s": timeout_s,
         "timeout_test": timeout_test,
+        "allow_empty": allow_empty,
         "platform": platform.platform(),
     }
     for d in decls:
@@ -129,7 +138,8 @@ def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: fl
         "infrastructure": {"status": infra_status, "reasons": infra},
         "file_findings": {
             "unrecognized": file_unrecognized,
-            "warnings": [{"code": w.code, "line": w.line, **w.detail} for w in sa.warnings],
+            "warnings": [{"code": w.code, "line": w.line, **w.detail} for w in sa.warnings]
+            + ([{"code": "empty_file_allowed"}] if empty_allowed else []),
             "stage_a_candidates": [{"code": f.code, "line": f.line, **f.detail} for f in sa.findings],
         },
         "declarations": decls,

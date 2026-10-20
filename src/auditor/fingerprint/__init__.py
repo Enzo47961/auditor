@@ -15,6 +15,7 @@ import subprocess
 from pathlib import Path
 
 import auditor
+from auditor import pydeps
 
 PKG = Path(auditor.__file__).resolve().parent
 REQUIRED = {
@@ -22,7 +23,7 @@ REQUIRED = {
     "toolchain": ("lean_toolchain",),
     "dependencies": ("lake_manifest_sha256",),
     "inspector": ("version", "source_sha256", "binary_sha256"),
-    "aggregator": ("version", "source_sha256", "python"),
+    "aggregator": ("version", "source_sha256", "python", "python_dependencies"),
     "stage_a_parser": ("version", "allowlist"),
     "policy": ("version", "sha256"),
     "metadata": ("simp", "ext", "reducible", "implemented_by"),
@@ -39,8 +40,12 @@ def aggregator_identity() -> dict:
     for f in sorted(PKG.rglob("*.py")):
         rel = f.relative_to(PKG).as_posix()
         h.update(rel.encode("utf-8") + b"\0" + f.read_bytes() + b"\0")
+    try:   # D-20: o validador do schema e o que ele puxa são código confiado
+        deps = pydeps.closure(pydeps.declared())
+    except pydeps.DependencyError:
+        deps = None                        # TCB incompleta → nenhuma `Validada`
     return {"version": auditor.__version__, "source_sha256": "sha256:" + h.hexdigest(),
-            "python": platform.python_version()}
+            "python": platform.python_version(), "python_dependencies": deps}
 
 
 def _git(root: Path, *args: str) -> str | None:

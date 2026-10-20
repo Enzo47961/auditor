@@ -9,11 +9,14 @@
 #                      alterar o ambiente ou extensões; OU é comando interno do
 #                      core (builtin_*, init_*) cujo uso fora do core é exótico;
 #                      OU oculta conteúdo da elaboração (#exit);
-#                      OU avalia termos durante a elaboração (D-1, decisão do
-#                      revisor: #reduce equiparado a #eval; #guard e #widget
-#                      executam código compilado via evalExpr).
+#                      OU pode executar código compilado em tempo de elaboração,
+#                      antes que a Etapa B possa inspecionar o ambiente
+#                      (critério do revisor, Q8; limitations.md L-17). Por ele:
+#                      #eval, #reduce, #guard, #widget, #guard_expr, #check_tactic,
+#                      #check_tactic_failure → fail-closed; #check, #synth,
+#                      #check_simp → allowed (revisados: não executam código compilado).
 # Na dúvida, classificar como fail-closed (assimetria de erro).
-classification_version = "2"
+classification_version = "3"
 
 syntax_extension = [
   "binder_predicate", "declare_syntax_cat", "declare_simp_like_tactic", "elab", "elab_rules",
@@ -23,7 +26,7 @@ syntax_extension = [
 
 metaprogramming = [
   "#eval", "#eval!", "#exit", "#with_exporting", "#dump_async_env_state",
-  "#reduce", "#guard", "#widget",
+  "#reduce", "#guard", "#widget", "#guard_expr", "#check_tactic", "#check_tactic_failure",
   "builtin_dsimproc", "builtin_dsimproc_decl", "builtin_grind_propagator", "builtin_initialize",
   "builtin_simproc", "builtin_simproc_decl", "«builtin_simproc_pattern%»",
   "declare_bitwise_int_theorems", "declare_bitwise_uint_theorems", "declare_command_config_elab",

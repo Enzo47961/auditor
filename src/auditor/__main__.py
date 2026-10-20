@@ -46,7 +46,8 @@ def check(args: argparse.Namespace) -> int:
     if policy_error is None:
         sb = stage_b.analyze(target, timeout_s=args.timeout)
     report, code = rp.build(target, sa, sb, policy, policy_error, started=started,
-                            timeout_s=args.timeout, timeout_test=args.timeout_test)
+                            timeout_s=args.timeout, timeout_test=args.timeout_test,
+                            allow_empty=args.allow_empty)
 
     errors = validation_errors(report)
     if errors:   # bug do agregador: nunca entregar relatório fora do schema como se fosse válido
@@ -81,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S, help="segundos (padrão: 300)")
     c.add_argument("--timeout-test", choices=["artificial"], default=None,
                    help="marca o relatório como teste de timeout com limite artificial (L-11)")
+    c.add_argument("--allow-empty", action="store_true",
+                   help="arquivo sem declarações (ex.: só imports) sai com exit 0 em vez de 2 (D-15)")
     try:
         args = ap.parse_args(argv)
     except SystemExit as e:

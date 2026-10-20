@@ -47,8 +47,11 @@
      "then": {"properties": {
        "infrastructure": {"properties": {"status": {"const": "ok"}}},
        "file_findings": {"properties": {"unrecognized": {"maxItems": 0}}},
-       "declarations": {"minItems": 1, "items": {"properties": {"overall_status": {"const": "verified"}}}}
-     }}}
+       "declarations": {"items": {"properties": {"overall_status": {"const": "verified"}}}}
+     }}},
+    {"$comment": "D-15 (revisada): exit 0 sem declarações só com --allow-empty explícito.",
+     "if": {"properties": {"exit_code": {"const": 0}, "declarations": {"maxItems": 0}}},
+     "then": {"properties": {"execution_metadata": {"properties": {"allow_empty": {"const": true}}}}}}
   ],
   "$defs": {
     "coded": {"type": "object", "required": ["code"], "properties": {"code": {"type": "string"}}},
@@ -148,7 +151,8 @@
         "toolchain": {"type": "object", "required": ["lean_toolchain"]},
         "dependencies": {"type": "object", "required": ["lake_manifest_sha256"]},
         "inspector": {"type": "object", "required": ["version", "source_sha256", "binary_sha256"]},
-        "aggregator": {"type": "object", "required": ["version", "source_sha256", "python"]},
+        "aggregator": {"type": "object", "required": ["version", "source_sha256", "python", "python_dependencies"],
+                       "properties": {"python_dependencies": {"type": "object", "required": ["jsonschema"]}}},
         "stage_a_parser": {"type": "object", "required": ["version", "allowlist"],
                            "properties": {"allowlist": {"type": "object"}}},
         "policy": {"type": "object", "required": ["version", "sha256"]},
@@ -163,13 +167,15 @@
     },
     "execution_metadata": {
       "type": "object",
-      "required": ["timestamp", "duration_s", "infrastructure_status", "compilation", "timeout_s", "timeout_test"],
+      "required": ["timestamp", "duration_s", "infrastructure_status", "compilation", "timeout_s", "timeout_test",
+                   "allow_empty"],
       "properties": {
         "timestamp": {"type": "string"}, "duration_s": {"type": "number"},
         "infrastructure_status": {"enum": ["ok", "failed"]},
         "compilation": {"$ref": "#/$defs/compilation"},
         "timeout_s": {"type": "number"},
-        "timeout_test": {"enum": [null, "artificial"]}
+        "timeout_test": {"enum": [null, "artificial"]},
+        "allow_empty": {"type": "boolean"}
       }
     }
   }

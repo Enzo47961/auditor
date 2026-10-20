@@ -50,20 +50,35 @@ def test_declaration_seen_only_by_stage_a_is_never_positive():
     assert code == 1
 
 
-def test_file_without_declarations_exits_1():
+def build_opts(sa, sb, **kw):
+    return rp.build("T.lean", sa, sb, POL, None, started=time.monotonic(), timeout_s=300,
+                    timeout_test=None, **kw)
+
+
+def test_file_without_declarations_is_infra():
+    """D-15 (revisada): nada a rejeitar → não é exit 1; é exit 2 (`no_declarations_found`)."""
     report, code = build(sa_with(), sb_with())
     assert report["declarations"] == []
-    assert [u["code"] for u in report["file_findings"]["unrecognized"]] == ["no_declarations"]
-    assert code == 1
+    assert [u["code"] for u in report["infrastructure"]["reasons"]] == ["no_declarations_found"]
+    assert report["file_findings"]["unrecognized"] == []
+    assert code == 2
     assert validation_errors(report) == []
 
 
-def test_file_level_unrecognized_alone_blocks_exit_0():
-    """Mesmo sem declaração não `verified`, entrada não reconhecida no arquivo impede exit 0."""
+def test_allow_empty_is_explicit():
+    report, code = build_opts(sa_with(), sb_with(), allow_empty=True)
+    assert code == 0 and report["execution_metadata"]["allow_empty"] is True
+    assert {"code": "empty_file_allowed"} in report["file_findings"]["warnings"]
+    assert validation_errors(report) == []
+    forged = dict(report, execution_metadata={**report["execution_metadata"], "allow_empty": False})
+    assert validation_errors(forged) != []          # exit 0 vazio sem a flag: schema rejeita
+
+
+def test_allow_empty_does_not_mask_other_problems():
+    """Entrada não reconhecida no arquivo impede exit 0 mesmo sem declarações e com a flag."""
     sa = sa_with()
     sa.unrecognized.append(Item("unknown_command", 1, 0, {"token": "lemma"}))
-    report, code = build(sa, sb_with())
-    assert code == 1
+    assert build_opts(sa, sb_with(), allow_empty=True)[1] == 1
 
 
 @pytest.mark.parametrize("comp", sorted(REQUIRED))

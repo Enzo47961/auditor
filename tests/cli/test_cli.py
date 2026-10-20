@@ -56,3 +56,18 @@ def test_seal_declares_what_was_not_verified(tmp_path):
         assert "Correspondência: Não Auditada" in d["seal"]
         assert "Não coberto: correspondência, kernel" in d["seal"]
         assert d["tcb"]["fingerprint"] in d["seal"]
+
+
+def test_empty_file_e2e(tmp_path):
+    """D-15 fim a fim: arquivo só com documentação → exit 2; com --allow-empty → exit 0."""
+    proj = tmp_path / "p"
+    shutil.copytree(CONFORMANCE / "01-sorry-target", proj, ignore=shutil.ignore_patterns(".lake"))
+    target = proj / "Fixture" / "Target.lean"
+    target.write_text("/-! Só documentação, nenhuma declaração. -/\n", encoding="utf-8")
+    out = tmp_path / "r.json"
+    base = ["check", str(target), "--output", str(out), "--policy", str(DEFAULT_POLICY)]
+    p = cli(*base)
+    assert p.returncode == 2, p.stderr
+    r = json.loads(out.read_text(encoding="utf-8"))
+    assert [x["code"] for x in r["infrastructure"]["reasons"]] == ["no_declarations_found"]
+    assert cli(*base, "--allow-empty").returncode == 0
