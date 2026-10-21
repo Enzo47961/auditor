@@ -16,7 +16,7 @@ quando cabe, **Abortar se**. Ao abortar: não tente consertar no meio; traga o q
 
 ## 0. Pré-condições (antes de qualquer ação pública)
 
-- [ ] Camada 1 fechada: a mutação dos 5 grupos tem 0 sobreviventes (`docs/proposed-improvements.md`,
+- [ ] Camada 1 fechada (2026-10-21: 115/115 mutações detectadas, suíte 558 passed): a mutação dos 5 grupos tem 0 sobreviventes (`docs/proposed-improvements.md`,
       "Rodada da instrução 13"), e a Q9 está decidida (opção a: `native_decide` nunca sai
       `verified` na Fase 0). A medição usa a política final.
 - [ ] Decidiu a visibilidade do repositório do auditor. **Restrição técnica:** o workflow do fork

@@ -153,6 +153,10 @@ Um teste verde só é evidência se ficar vermelho quando o código está errado
 | 2026-10-20 | `0b9d2bc` | `allowlist` | 9/9 | 0 |
 | 2026-10-21 | `0b9d2bc` | `stage_b` | 16/17 | **1 sobrevivente**: `.axiomInfo v => v.type.getUsedConstants` → `#[]` (o fecho não percorria o tipo de axioma em nenhum fixture). Teste novo: `edges`, `via_axiom_type` (chega a `sorryAx` só pelo tipo de `ax_over_sorry`). A mutação re-rodada sozinha foi detectada (`inspector_disagreement`). Resultado: 17/17. |
 | 2026-10-21 | `064f170` | `policy` | 45/45 (36 anteriores + 9 da allow-list de raízes, D-42) | 0 |
+| 2026-10-21 | `6532f5e` | `ci` | 22/22 | 0 |
+| 2026-10-21 | `6532f5e` | `stage_b` (re-rodado sobre o código final) | 17/17 | 0 |
+
+Os grupos `stage_a` e `allowlist` foram rodados no `0b9d2bc`. O código e os testes deles não mudaram até o `6532f5e` (`git diff --stat` vazio), então o resultado vale para o código final. **Estado em 2026-10-21: 5 grupos, 115/115 detectadas, 0 sobreviventes, 0 puladas.** A suíte inteira, rodada por partes, deu 558 passed e 0 falhas.
 
 ## Fixação de versões nos workflows (D-25)
 
