@@ -380,6 +380,16 @@ O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositóri
 - **L-25:** texto aprovado sem mudança. Entra no commit da classificação final.
 - **Pauta de relaxamento da Fase 1:** registrada no roadmap. São 10 itens distintos: os 9 ambíguos (que já incluem `#string_diagram` e `suppress_compilation`) e `#lint`.
 
+## Rodada da instrução 18 — segunda revisão da classificação do Mathlib
+
+- **Desvio do checklist, registrado.** O passo 3 exige que a classificação seja conferida por um segundo revisor que **não seja o autor** do rascunho. Uma revisão externa chegou sem identificação. O conteúdo citado existia, mas as 4 citações de linha não batiam com o commit fixado (`#lint`: citou Frontend.lean 23–26, o texto está em 42–45; `#string_diagram`: 35–37 → 51–52; `unset_option`: 20–23 → 43–45; `unsuppress_compilation`: 64–68 → 89–96). Por decisão do mantenedor, essa revisão foi descartada e **a segunda revisão foi feita pelo autor do rascunho (Claude)**. Ela não é independente; o primeiro revisor deve decidir se a aceita como tal.
+- **Decisões da segunda revisão:**
+  - `#lint` → fail-closed. `Batteries/Tactic/Lint/Basic.lean:131` executa o linter com `evalConstCheck`, e um arquivo pode definir o próprio com `@[env_linter]` (Frontend.lean:42–45). A premissa do rascunho ("linters fixos") era falsa.
+  - `#string_diagram` → fail-closed, por coerência com a regra de ambiguidade. O `Tactic.Monoidal.eval` é normalização Meta e não executa código compilado; o vetor "redução aciona `implemented_by`/`native_decide`" alegado na revisão externa não se sustenta no fonte.
+  - `unsuppress_compilation` → fail-closed (**achado novo**, que nem o rascunho nem a revisão externa tinham visto). A forma `unsuppress_compilation in cmd` expande para `… cmd suppress_compilation` (`Mathlib/Tactic/SuppressCompilation.lean:97–98`): reinstala, escondido da Etapa A, o elaborador local que deixa `suppress_compilation` fail-closed.
+  - `unset_option` → allowed. Só apaga a opção (`(← getOptions).erase`, `UnsetOption.lean:38`).
+- **Resultado final:** 60 `allowed`, 35 `metaprogramming`, 3 `syntax_extension`. A justificativa de cada comando fica em comentário no `classification.toml` do fork. A L-25 recebeu um parágrafo com os três acréscimos, e a pauta da Fase 1 (roadmap) passou a incluir `#lint` e `unsuppress_compilation`.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.
