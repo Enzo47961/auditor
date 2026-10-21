@@ -21,7 +21,8 @@ O SHA-256 do `lake-manifest.json` é do conteúdo com fim de linha normalizado (
 o mesmo commit dá o mesmo hash num clone Windows (`core.autocrlf=true`) e no Linux.
 
 `--check` num fork de medição (D-54, L-24): o `HEAD` pode diferir do commit gravado desde que
-esse commit seja ancestral do `HEAD` e a árvore de trabalho só difira dele em `.github/`, sem
+esse commit seja ancestral do `HEAD` e a árvore de trabalho só difira dele em `.github/` (workflows) e
+`.auditor/` (allow-list e classificação: configuração do auditor, fora do fecho de imports; D-59), sem
 nenhum `.lean`. O resto da comparação continua estrito. Fora disso, o commit tem de ser o mesmo.
 """
 from __future__ import annotations
@@ -144,9 +145,13 @@ def generate(sysroot: Path, project: Path, root: str) -> dict:
     }
 
 
+FORK_PREFIXES = (".github/", ".auditor/")   # D-54, D-59
+
+
 def fork_drift(project: Path, pinned: str) -> str | None:
-    """Por que a árvore de trabalho de `project` não é o commit `pinned` mais só `.github/` (D-54);
-    None se é. O invariante é "nenhum .lean muda"; restringir a `.github/` é o proxy estrito."""
+    """Por que a árvore de trabalho de `project` não é o commit `pinned` mais só `.github/` e
+    `.auditor/` (D-54, D-59); None se é. O invariante é "nenhum .lean muda"; restringir aos dois
+    prefixos é o proxy estrito."""
     def git(*args: str) -> subprocess.CompletedProcess:
         return subprocess.run(["git", "-C", str(project), *args], capture_output=True, text=True,
                               encoding="utf-8")
@@ -156,9 +161,9 @@ def fork_drift(project: Path, pinned: str) -> str | None:
     if d.returncode != 0:
         return f"git diff falhou: {d.stderr.strip()}"
     changed = [f for f in d.stdout.splitlines() if f]
-    outside = [f for f in changed if not f.startswith(".github/")]
+    outside = [f for f in changed if not f.startswith(FORK_PREFIXES)]
     if outside:
-        return f"mudanças fora de .github/: {outside[:10]}"
+        return f"mudanças fora de {'/'.join(FORK_PREFIXES)}: {outside[:10]}"
     lean = [f for f in changed if f.endswith(".lean")]
     if lean:
         return f"arquivos .lean mudaram: {lean[:10]}"
@@ -196,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             if why is not None:
                 sys.stderr.write(f"gen_tcb_roots: HEAD {head} não é o commit fixado {pinned}: {why}\n")
                 return 1
-            print(f"fork de medição: HEAD {head} = {pinned} + só .github/ (D-54)")
+            print(f"fork de medição: HEAD {head} = {pinned} + só .github/ e .auditor/ (D-54, D-59)")
             data["derived_from"]["commit"] = pinned
         if not out.is_file() or out.read_text(encoding="utf-8") != render(data):
             sys.stderr.write(f"gen_tcb_roots: {out} diverge do fecho calculado\n{render(data)}")

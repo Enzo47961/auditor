@@ -30,7 +30,7 @@ import tempfile
 import tomllib
 from pathlib import Path
 
-GENERATOR_VERSION = "3"
+GENERATOR_VERSION = "4"
 ENV_PIN_VERSION = "2"
 PKG = Path(__file__).resolve().parent
 DUMP = PKG / "lean" / "Dump.lean"
@@ -38,6 +38,11 @@ CORE_DIR = PKG / "data" / "allowlist"
 PROJECT_REL = Path(".auditor") / "allowlist.json"
 PROJECT_CLASSIFICATION_REL = Path(".auditor") / "classification.toml"
 CLASS_KEYS = ("allowed", "syntax_extension", "metaprogramming")
+# Declaração obrigatória de quem revisou a classificação (instrução 18, L-26): o relatório a repete em
+# `tcb.classification_review_status`, para nenhuma alegação de cobertura esconder uma auto-revisão.
+REVIEW_KEYS = ("reviewed_by", "reviewer_independence", "revision_note")
+REVIEW_STATUSES = {"author-self-review": "none", "human-reviewed": "independent",
+                   "independent-ai-reviewed": "independent"}
 
 
 class AllowlistError(Exception):
@@ -176,12 +181,21 @@ def build_project(project: Path, classification: Path | None, libs: list[str] | 
     cls: dict = {"classification_version": None, **{k: [] for k in CLASS_KEYS}}
     cls_sha = None
     if cls_path.is_file():
-        raw = cls_path.read_bytes()
+        raw = normalize_newlines(cls_path.read_bytes())      # mesmo hash em clone CRLF e LF (D-53)
         cls_sha = "sha256:" + hashlib.sha256(raw).hexdigest()
         cls = {**cls, **tomllib.loads(raw.decode("utf-8"))}
-        unknown_keys = set(cls) - {"classification_version", *CLASS_KEYS}
+        unknown_keys = set(cls) - {"classification_version", *CLASS_KEYS, *REVIEW_KEYS}
         if unknown_keys:
             raise AllowlistError(f"classificação com chaves desconhecidas: {sorted(unknown_keys)}")
+        reviewed_by = cls.get("reviewed_by")
+        if reviewed_by not in REVIEW_STATUSES:
+            raise AllowlistError(f"classificação sem `reviewed_by` válido ({sorted(REVIEW_STATUSES)}): "
+                                 f"{reviewed_by!r}")
+        if cls.get("reviewer_independence") != REVIEW_STATUSES[reviewed_by]:
+            raise AllowlistError(f"`reviewer_independence` deve ser {REVIEW_STATUSES[reviewed_by]!r} "
+                                 f"com `reviewed_by = {reviewed_by!r}`")
+        if not isinstance(cls.get("revision_note", ""), str):
+            raise AllowlistError("`revision_note` deve ser texto")
         listed = [c for k in CLASS_KEYS for c in cls[k]]
         dup = {c for c in listed if listed.count(c) > 1}
         if dup:
@@ -202,6 +216,7 @@ def build_project(project: Path, classification: Path | None, libs: list[str] | 
         "core_generator_version": core["generator_version"],
         "project_classification_version": cls["classification_version"],
         "project_classification_sha256": cls_sha,
+        "classification_review": {k: cls.get(k) for k in REVIEW_KEYS} if cls_sha else None,
         "libraries": libs,
         "module_count": len(modules),
         "extracted_command_count": len(extracted),

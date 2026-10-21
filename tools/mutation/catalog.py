@@ -65,6 +65,15 @@ GROUPS = {
              r'        libs = list(data.get("defaultTargets", []))'),
             (AL, r"    if not libs:", r"    if False:"),
             (AL, r"    manifest = normalize_newlines(manifest)", r"    manifest = manifest"),
+            # instrução 18: declaração de revisão da classificação (L-26); hash da classificação (D-53)
+            (AL, r"        if reviewed_by not in REVIEW_STATUSES:", r"        if False:"),
+            (AL, r'        if cls.get("reviewer_independence") != REVIEW_STATUSES[reviewed_by]:', r"        if False:"),
+            (AL, r'        "classification_review": {k: cls.get(k) for k in REVIEW_KEYS} if cls_sha else None,',
+             r'        "classification_review": None,'),
+            (AL, r"        raw = normalize_newlines(cls_path.read_bytes())", r"        raw = cls_path.read_bytes()"),
+            (SA, r'    return review.get("reviewed_by") or "undeclared"', r'    return "author-self-review"'),
+            (SA, r'    if allow.get("kind") != "project":' + "\n" + r'        return "core-only"',
+             r'    if False:' + "\n" + r'        return "core-only"'),
         ],
     },
     "stage_b": {
@@ -194,7 +203,9 @@ GROUPS = {
              r'"lake_manifest_sha256": hashlib.sha256(mf_bytes).hexdigest(),'),
             (GT, r'    if git("merge-base", "--is-ancestor", pinned, "HEAD").returncode != 0:', r"    if False:"),
             (GT, r'    d = git("diff", "--name-only", pinned)', r'    d = git("diff", "--name-only", pinned, "HEAD")'),
-            (GT, r'    outside = [f for f in changed if not f.startswith(".github/")]', r"    outside = []"),
+            (GT, r'    outside = [f for f in changed if not f.startswith(FORK_PREFIXES)]', r"    outside = []"),
+            # instrução 18 (D-59): voltar a rejeitar `.auditor/`
+            (GT, r'FORK_PREFIXES = (".github/", ".auditor/")', r'FORK_PREFIXES = (".github/",)'),
             (GT, r'    lean = [f for f in changed if f.endswith(".lean")]', r"    lean = []"),
             (GT, r'            data["derived_from"]["commit"] = pinned', r"            pass"),
             (GT, r"            if head != revs[name]:", r"            if False:"),

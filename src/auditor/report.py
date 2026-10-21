@@ -20,7 +20,7 @@ import auditor
 from auditor import aggregator as ag
 from auditor.fingerprint import build_tcb, is_complete
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"   # 1.1: tcb.classification_review_status (L-26)
 
 
 def _decl_hash(d: dict) -> str:

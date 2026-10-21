@@ -198,7 +198,18 @@ def test_check_accepts_fork_that_only_changes_github(tmp_path, capsys):
     assert "D-54" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("change", ["README.md", "P/M.lean", ".github/Gen.lean", "uncommitted", "not_ancestor"])
+def test_check_accepts_fork_with_auditor_config(tmp_path, capsys):
+    """D-59: o passo 3 commita `.auditor/` (classificação e allow-list) no fork; não entra no fecho."""
+    proj, args, out, commit = _fork_env(tmp_path)
+    commit(".github/workflows/auditor.yml", "on: push\n")
+    commit(".auditor/classification.toml", 'reviewed_by = "author-self-review"\n')
+    commit(".auditor/allowlist.json", "{}\n")
+    assert gen_tcb_roots.main([*args, "--check"]) == 0
+    assert "D-59" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("change", ["README.md", "P/M.lean", ".github/Gen.lean", ".auditor/X.lean",
+                                    ".auditorx/a.toml", "uncommitted", "not_ancestor"])
 def test_check_rejects_fork_with_other_changes(tmp_path, capsys, change):
     proj, args, out, commit = _fork_env(tmp_path)
     commit(".github/workflows/auditor.yml", "on: push\n")

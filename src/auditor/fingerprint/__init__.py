@@ -81,6 +81,8 @@ def build_tcb(sa, sb, policy, root: Path | None) -> dict:
         "stage_a_parser": {"version": sa.stage_a_version, "allowlist": sa.allowlist},
         "policy": {"version": policy.version, "sha256": policy.sha256} if policy else None,
         "metadata": sb.metadata if sb else None,
+        # L-26: declarado no relatório; entra no fingerprint (outra revisão = outra base de confiança)
+        "classification_review_status": (sa.allowlist or {}).get("classification_review_status"),
     }
     if sb is not None and sb.toolchain:
         # sem caminhos absolutos: o fingerprint identifica o ambiente, não a máquina

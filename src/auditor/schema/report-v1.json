@@ -135,12 +135,16 @@
     "tcb": {
       "type": "object",
       "required": ["kernel", "toolchain", "dependencies", "inspector", "aggregator", "stage_a_parser",
-                   "policy", "metadata", "fingerprint"],
+                   "policy", "metadata", "classification_review_status", "fingerprint"],
       "properties": {
         "kernel": {"$ref": "#/$defs/component"}, "toolchain": {"$ref": "#/$defs/component"},
         "dependencies": {"$ref": "#/$defs/component"}, "inspector": {"$ref": "#/$defs/component"},
         "aggregator": {"$ref": "#/$defs/component"}, "stage_a_parser": {"$ref": "#/$defs/component"},
         "policy": {"$ref": "#/$defs/component"}, "metadata": {"$ref": "#/$defs/component"},
+        "classification_review_status": {
+          "$comment": "L-26: quem revisou a classificação da allow-list em uso; null sem allow-list.",
+          "enum": ["author-self-review", "human-reviewed", "independent-ai-reviewed",
+                   "no-project-classification", "core-only", "undeclared", null]},
         "fingerprint": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
       }
     },

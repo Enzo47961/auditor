@@ -331,6 +331,18 @@ def load_project_allowlist(path: Path, root: Path, toolchain: str) -> tuple[dict
 PROJECT_ALLOWLIST_REL = Path(".auditor") / "allowlist.json"
 
 
+def classification_review_status(allow: dict) -> str:
+    """Quem revisou a classificação da allow-list em uso (L-26). `core-only`: só a do core;
+    `no-project-classification`: allow-list de projeto sem classificação (comandos do projeto
+    fail-closed); `undeclared`: classificação sem declaração de revisão (gerador antigo)."""
+    if allow.get("kind") != "project":
+        return "core-only"
+    if not allow.get("project_classification_sha256"):
+        return "no-project-classification"
+    review = allow.get("classification_review") or {}
+    return review.get("reviewed_by") or "undeclared"
+
+
 def analyze(target: Path, src: str | None = None, allowlist_file: Path | None = None) -> StageAResult:
     """`allowlist_file`: allow-list de projeto explícita. Sem ela, usa
     `<raiz>/.auditor/allowlist.json` se existir; senão, a do core para o toolchain."""
@@ -365,6 +377,7 @@ def analyze(target: Path, src: str | None = None, allowlist_file: Path | None = 
             res.allowlist = {k: allow.get(k) for k in (
                 "kind", "toolchain", "env_pin", "generator_version", "classification_version",
                 "project_classification_sha256")}
+            res.allowlist["classification_review_status"] = classification_review_status(allow)
 
     try:
         toks = lex(src)

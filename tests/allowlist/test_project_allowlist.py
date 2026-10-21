@@ -14,9 +14,11 @@ import pytest
 
 from auditor import allowlist
 from auditor.tier1 import stage_a
-from conftest import ROOT, require_lake
+from conftest import ROOT, require_lake, run_auditor
 
 MINI = ROOT / "tests" / "allowlist" / "mini-project"
+# declaração de revisão obrigatória em toda classificação de projeto (L-26)
+REVIEW = 'reviewed_by = "author-self-review"\nreviewer_independence = "none"\n'
 TOOLCHAIN = (ROOT / "lean-toolchain").read_text(encoding="utf-8").strip()
 
 
@@ -55,12 +57,14 @@ def test_generated_is_pinned_to_environment(generated):
     assert data["unclassified"] == ["my_lemma"]
     assert "theorem" in data["allowed"] and "macro" in data["syntax_extension"]
     assert data["project_classification_sha256"] is None
+    assert data["classification_review"] is None
 
 
 def test_stage_a_uses_project_allowlist(generated):
     r = stage_a.analyze(generated / "Mini" / "Use.lean")
     assert r.allowlist["kind"] == "project"
     assert r.allowlist["env_pin"] == read_allowlist(generated)["env_pin"]
+    assert r.allowlist["classification_review_status"] == "no-project-classification"
 
 
 def test_unclassified_project_command_fails_closed(generated):
@@ -72,18 +76,47 @@ def test_core_allowlist_alone_does_not_know_project_command(proj):
     (proj / ".auditor" / "allowlist.json").unlink()
     r = stage_a.analyze(proj / "Mini" / "Use.lean")
     assert r.allowlist["kind"] == "core"
+    assert r.allowlist["classification_review_status"] == "core-only"
     assert [i.detail["token"] for i in codes(r.unrecognized, "unknown_command")] == ["my_lemma"]
 
 
 def test_classified_project_command_accepted(proj):
     cls = proj / ".auditor" / "classification.toml"
-    cls.write_text('classification_version = "1"\nallowed = ["my_lemma"]\n', encoding="utf-8")
+    cls.write_text('classification_version = "1"\n' + REVIEW + 'revision_note = "teste"\n'
+                   'allowed = ["my_lemma"]\n', encoding="utf-8")
     assert allowlist.main(["--project", str(proj)]) == 0
     data = read_allowlist(proj)
     assert data["unclassified"] == [] and "my_lemma" in data["allowed"]
     assert data["project_classification_sha256"].startswith("sha256:")
+    assert data["classification_review"] == {"reviewed_by": "author-self-review",
+                                             "reviewer_independence": "none", "revision_note": "teste"}
     r = stage_a.analyze(proj / "Mini" / "Use.lean")
     assert r.unrecognized == []
+    assert r.allowlist["classification_review_status"] == "author-self-review"
+
+
+def test_report_declares_classification_review_status(proj, tmp_path):
+    """L-26: o relatório repete, no bloco `tcb`, quem revisou a classificação em uso."""
+    (proj / ".auditor" / "classification.toml").write_text(
+        REVIEW + 'allowed = ["my_lemma"]\n', encoding="utf-8")
+    assert allowlist.main(["--project", str(proj)]) == 0
+    r = run_auditor(proj / "Mini" / "Use.lean", tmp_path)
+    assert r.report["tcb"]["classification_review_status"] == "author-self-review"
+    assert all(d["tcb"]["classification_review_status"] == "author-self-review"
+               for d in r.report["declarations"])
+    assert r.exit_code == 0
+
+
+def test_classification_hash_ignores_crlf(proj):
+    """D-53 também no SHA-256 da classificação: o mesmo arquivo em CRLF e LF dá o mesmo hash."""
+    cls = proj / ".auditor" / "classification.toml"
+    text = REVIEW + 'allowed = ["my_lemma"]\n'
+    cls.write_bytes(text.encode("utf-8"))
+    assert allowlist.main(["--project", str(proj)]) == 0
+    h_lf = read_allowlist(proj)["project_classification_sha256"]
+    cls.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+    assert allowlist.main(["--project", str(proj), "--check"]) == 0
+    assert read_allowlist(proj)["project_classification_sha256"] == h_lf
 
 
 @pytest.mark.parametrize("mutate", ["manifest", "toolchain_field", "env_pin_field", "kind_field"])
@@ -119,10 +152,17 @@ def test_check_detects_drift(proj):
 
 
 @pytest.mark.parametrize("toml", [
-    'allowed = ["not_a_project_command"]\n',   # classificação apodrecida
-    'allowed = ["theorem"]\n',                 # comando do core: não é do projeto
-    'allowed = ["my_lemma"]\nmetaprogramming = ["my_lemma"]\n',
-    'permitidos = ["my_lemma"]\n',             # chave desconhecida
+    REVIEW + 'allowed = ["not_a_project_command"]\n',   # classificação apodrecida
+    REVIEW + 'allowed = ["theorem"]\n',                 # comando do core: não é do projeto
+    REVIEW + 'allowed = ["my_lemma"]\nmetaprogramming = ["my_lemma"]\n',
+    REVIEW + 'permitidos = ["my_lemma"]\n',             # chave desconhecida
+    # L-26: declaração de revisão obrigatória e coerente
+    'allowed = ["my_lemma"]\n',                                              # sem reviewed_by
+    'reviewed_by = "revisado"\nreviewer_independence = "none"\nallowed = ["my_lemma"]\n',
+    'reviewed_by = "author-self-review"\nallowed = ["my_lemma"]\n',         # sem independência
+    'reviewed_by = "author-self-review"\nreviewer_independence = "independent"\nallowed = ["my_lemma"]\n',
+    'reviewed_by = "human-reviewed"\nreviewer_independence = "none"\nallowed = ["my_lemma"]\n',
+    REVIEW + 'revision_note = 1\nallowed = ["my_lemma"]\n',
 ])
 def test_bad_classification_rejected(proj, toml):
     (proj / ".auditor" / "classification.toml").write_text(toml, encoding="utf-8")

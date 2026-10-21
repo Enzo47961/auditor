@@ -15,6 +15,7 @@ def test_07_module_header_and_synthetic_holes_verified(tmp_path):
     both = r.decl("both")
     assert state(both) == ("Validada", "Conforme", "verified")
     assert both["admissions"] == [] and both["axioms"] == []
+    assert r.report["tcb"]["classification_review_status"] == "core-only"   # L-26: sem allow-list de projeto
 
 
 def test_07_sorry_still_rejected_under_module_header(tmp_path):

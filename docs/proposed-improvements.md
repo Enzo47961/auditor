@@ -390,6 +390,31 @@ O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositóri
   - `unset_option` → allowed. Só apaga a opção (`(← getOptions).erase`, `UnsetOption.lean:38`).
 - **Resultado final:** 60 `allowed`, 35 `metaprogramming`, 3 `syntax_extension`. A justificativa de cada comando fica em comentário no `classification.toml` do fork. A L-25 recebeu um parágrafo com os três acréscimos, e a pauta da Fase 1 (roadmap) passou a incluir `#lint` e `unsuppress_compilation`.
 
+## Rodada da instrução 19 (arquivo `instrução17`) — fumaça aprovada, D-59, declaração de auto-revisão
+
+- **Marco:** o terceiro `auditor-prep` (run 39680033069) aprovou o teste de fumaça: `Hydra.lean` com 20/20 `verified`, `exit_code` 0 e `unclassified` vazio. Registrado no CHANGELOG.
+- **D-59: aprovada.** O `--check` de fork aceita `.github/` e `.auditor/` (`FORK_PREFIXES`). Continuam valendo: nenhum `.lean`, ancestralidade e comparação estrita do fecho.
+  - **Testes:**
+    - aceito com `.auditor/classification.toml` e `.auditor/allowlist.json`;
+    - rejeitados: `README.md`, `.lean`, `.github/Gen.lean`, `.auditor/X.lean`, `.auditorx/a.toml`, mudança não commitada, não ancestral.
+  - **Mutação:** voltar a só `.github/`. L-24 atualizada.
+- **Segunda revisão da classificação: auto-revisão, decisão final do mantenedor.** As 4 mudanças foram aprovadas (`#lint`, `#string_diagram`, `unsuppress_compilation` → fail-closed; `unset_option` → allowed). Final: 60/35/3.
+- **Declaração de auto-revisão (obrigação de transparência):**
+  1. **No `classification.toml`:** `reviewed_by = "author-self-review"`, `reviewer_independence = "none"` e `revision_note`. Agora são chaves validadas pelo gerador, não comentário.
+  2. **L-26** em `limitations.md`, com o texto dado e a mecânica.
+  3. **No relatório:** `tcb.classification_review_status`, obrigatório no schema `1.1.0`.
+  - **Testes:** declaração propagada até o relatório (mini-projeto `author-self-review`; fixture 07 `core-only`); seis classificações sem declaração ou incoerentes → exit 2.
+  - **Mutações:** 6 (validação, coerência, propagação e o status `core-only`).
+- **Achado da mesma família da D-53, corrigido junto:** o SHA-256 do `classification.toml` também era dos bytes crus. Com um `classification.toml` commitado no fork, o `--check` da allow-list divergiria entre clone CRLF e LF. Normalizado, com teste e mutação.
+- **Achado da mesma família, NÃO corrigido (proposta D-60):** `fingerprint.dependencies()` grava `lake_manifest_sha256` dos bytes crus do manifesto (`src/auditor/fingerprint/__init__.py`, `dependencies`). O fingerprint do relatório difere entre um clone CRLF e um LF do mesmo commit. Não afeta o resultado da auditoria, mas afeta a reprodutibilidade do fingerprint. Proposta: usar `normalize_newlines`, como nos outros três hashes.
+- **Bug do workflow do fork (corrigido no fork):** no `auditor-prep`, `grep … | tee … || echo "nenhum sinal de ambiente"` nunca imprimia a linha, porque o `||` decidia pelo `tee` (sempre 0), não pelo `grep`. Agora o resultado do `grep` é testado diretamente.
+- **Origem da revisão externa descartada (pergunta do revisor): ainda sem resposta.** O que se sabe do próprio documento:
+  - ele começava com uma instrução a quem revisaria a revisão ("Revise criticamente a resposta de segundo revisor abaixo…");
+  - a assinatura era "Segundo Revisor Independente", sem nome;
+  - as 4 citações traziam texto correto do commit fixado, mas em linhas deslocadas (+16 a +25), compatível com citação de memória, ou de outra versão dos arquivos, sem o fonte do commit fixado aberto.
+
+  Este autor não sabe de onde o documento veio (não foi produzido nesta sessão). A pergunta foi repassada ao mantenedor; a resposta, quando vier, entra aqui.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

@@ -6,6 +6,17 @@ sem período de transição.
 
 ## Não lançado
 
+### Marco: primeiro resultado ponta a ponta (2026-10-21)
+- **Teste de fumaça da camada 2 aprovado.** No fork `Enzo47961/mathlib4` (`auditor-base` sobre o
+  Mathlib `e1b2403b`), no GitHub Actions, `Mathlib/Logic/Hydra.lean` saiu com 20 de 20 declarações
+  `Validada`/`Conforme`/`verified`, `exit_code` 0, nenhum item não reconhecido, com a allow-list do
+  Mathlib sem comandos sem classificação (run 39680033069, auditor `6568835`). É o primeiro
+  resultado ponta a ponta do projeto num arquivo real do Mathlib.
+- **Estado da validação (referência para os PRs de medição):** suíte no `ci.yml` (Linux) 609 passed,
+  0 failed (`e6e9f62`); mutação em 6 grupos 118/118 detectadas, 0 sobreviventes, 0 puladas.
+- **Classificação dos comandos do Mathlib: auto-revisão (L-26).** Os relatórios declaram
+  `classification_review_status: author-self-review`.
+
 ### Incompatível
 - **Toolchain fixado: `leanprover/lean4:v4.22.0` → `leanprover/lean4:v4.36.0-rc1`** (a versão do
   Mathlib `master` em 2026-10-20, commit `e1b2403b`; instrução 12, opção X). A allow-list do
@@ -68,6 +79,14 @@ sem período de transição.
   cujo token é símbolo (`?`, `$`) só são procurados no início de comando: antes, todo `?_` de
   `refine ⟨?_, ?_⟩` virava `syntax_extension_declared`. Palavras reservadas (`macro`, `#eval`, …)
   continuam detectadas em qualquer posição. Fixture de conformidade novo: `07-module-header`.
+
+- **Relatório: schema `1.1.0`, campo obrigatório `tcb.classification_review_status`** (L-26).
+  Classificação de projeto (`.auditor/classification.toml`) passa a exigir `reviewed_by` e
+  `reviewer_independence` coerentes (`revision_note` opcional); sem eles, `auditor-gen-allowlist`
+  sai com exit 2. A allow-list gerada ganha `classification_review` (`generator_version` `4`). O
+  SHA-256 da classificação usa fim de linha normalizado, como o do manifesto (D-53).
+- **`gen_tcb_roots.py --check` em fork aceita também `.auditor/`** (D-59, L-24): a allow-list e a
+  classificação que o passo 3 do checklist commita no fork. Continua: nenhum `.lean`, ancestralidade.
 
 ### Caminhos do Mathlib que mudaram
 - **`Mathlib/Logic/Basic.lean` não existe mais** no commit fixado (`e1b2403b`). O equivalente é
