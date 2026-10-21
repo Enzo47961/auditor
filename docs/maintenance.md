@@ -156,6 +156,11 @@ Um teste verde só é evidência se ficar vermelho quando o código está errado
 | 2026-10-21 | `6532f5e` | `ci` | 22/22 | 0 |
 | 2026-10-21 | `6532f5e` | `stage_b` (re-rodado sobre o código final) | 17/17 | 0 |
 
+| 2026-10-21 | `b73bc6d` (renome `target_trusted_roots`) | `policy` | 45/45 | 0 |
+| 2026-10-21 | `b73bc6d` | `stage_b` | 17/17 | 0 |
+
+Depois do renome (`b73bc6d`), a suíte inteira deu 558 passed. O `ci` não mudou desde o `6532f5e`.
+
 Os grupos `stage_a` e `allowlist` foram rodados no `0b9d2bc`. O código e os testes deles não mudaram até o `6532f5e` (`git diff --stat` vazio), então o resultado vale para o código final. **Estado em 2026-10-21: 5 grupos, 115/115 detectadas, 0 sobreviventes, 0 puladas.** A suíte inteira, rodada por partes, deu 558 passed e 0 falhas.
 
 ## Fixação de versões nos workflows (D-25)
