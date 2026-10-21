@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "toolchain": "leanprover/lean4:v4.36.0-rc1",
+  "roots": [
+    "Init",
+    "Lake",
+    "Lean",
+    "Std"
+  ],
+  "declared_by_toolchain": [
+    "Init",
+    "Lake",
+    "LakeMain",
+    "Lean",
+    "LeanChecker",
+    "LeanExport",
+    "LeanIR",
+    "Leanc",
+    "Std"
+  ],
+  "modules_in_closure": {
+    "Init": 668,
+    "Lake": 1,
+    "Lean": 741,
+    "Std": 215
+  },
+  "derived_from": {
+    "root": "Mathlib",
+    "commit": "e1b2403bdd31a2756e30282d62b3fa54cc95c869",
+    "lake_manifest_sha256": "c9b51d7223122783d2545ac8d05628d1d175280bacf66f0e26be5167988a06e9",
+    "packages": {
+      "Cli": "34d2efffcb6dc8d5f3537cf6a7f88bfaa999ec49",
+      "LeanSearchClient": "9d39f9bb0c30aa2f6200808805ff16e6ce950890",
+      "Qq": "6d26f8bb4b2bb78f929ad160feac508866821316",
+      "aesop": "29c64c56cc38211d39b306db2df11701e3d3de11",
+      "batteries": "8e746d768c73b716c7d4bc07bd8e73f2a75bdb60",
+      "importGraph": "19a8e822bfeace1ae4e090045aad81e0c930e6cf",
+      "plausible": "c2d7840c65673533e15b499f25beecdc6227f7d8",
+      "proofwidgets": "ff78fbc75a9bffb4ef08f8c290e268d120cd27d7"
+    },
+    "closure_modules": 10527
+  }
+}

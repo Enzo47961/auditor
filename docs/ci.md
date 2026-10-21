@@ -73,7 +73,21 @@ Não há peso por uso: uma aresta é um `import`, não uma referência a constan
 **(c) Como é testado** (`tests/maintenance/test_layer2_tools.py`):
 - cabeçalho: comentários aninhados, `module`, `public import`, vários módulos por linha, comentário no fim da linha, parada no primeiro comando (um `import` depois de um `theorem` não conta);
 - nome ilegível → erro;
-- grafo sintético de 5 módulos com dependência transitiva, import externo descartado e módulo raiz: valores exatos de `direct`, `transitive` e `imports_transitive` e a ordem do ranking.
+- grafo sintético de 5 módulos com dependência transitiva, import externo descartado e módulo raiz: valores exatos de `direct`, `transitive` e `imports_transitive` e a ordem do ranking;
+- procedência e `--expect-commit`: commit diferente do esperado → exit 2, sem ranking.
+
+**(d) Reprodutibilidade: a escolha não depende do `master` do dia** (instrução 13).
+- A ferramenta não acessa a rede nem o `master`: lê só o checkout passado como argumento. O
+  resultado é função do commit do checkout, e só dele.
+- A saída JSON registra a procedência: o commit do checkout (`git rev-parse HEAD`), o SHA-256 do
+  `lake-manifest.json` e o `lean-toolchain`. O grafo só tem módulos do projeto, então as
+  dependências do manifest não mudam o ranking. O hash do manifest fica registrado para provar
+  que o checkout é o fixado, e não porque o ranking dependa dele.
+- `--expect-commit <sha>`: se o checkout não estiver nesse commit, a ferramenta sai com 2 e não
+  imprime o ranking. O checklist da camada 2 (passo 6) passa `e1b2403bdd31…`.
+- Não existe "teste de drift da D-38" contra o Mathlib real na suíte: a suíte não baixa o
+  Mathlib. A garantia é esta procedência, conferida no momento da medição. O teste da suíte cobre
+  o mecanismo (grafo sintético e conferência do commit).
 
 ## Evidência pendente (camada 2): roteiro
 
@@ -82,7 +96,7 @@ A Fase 0 só fecha com esta evidência. A Fase 1 não começa antes dela.
 | Item da DoD | Como produzir |
 |---|---|
 | Primeiro run no fork | PR qualquer; registrar `cache_state` (`cold` esperado), `first_run`, `elapsed_s` e se houve `cache_cold_extension` |
-| 3 PRs de medição no steady-state | **trivial** (ex.: docstring num arquivo folha), **médio** (um lema novo num arquivo de tamanho típico), **arquivo de maior fanout**, escolhido mecanicamente com `python tools/layer2/fanout.py <fork> --root Mathlib` (anexar a tabela; não só `Mathlib/Logic/Basic.lean`) |
+| 3 PRs de medição no steady-state | **trivial** (ex.: docstring num arquivo folha), **médio** (um lema novo num arquivo de tamanho típico), **arquivo de maior fanout**, escolhido mecanicamente com `python tools/layer2/fanout.py <fork> --root Mathlib --expect-commit <base>` (anexar a tabela; o antigo `Mathlib/Logic/Basic.lean` não existe no commit fixado: é `Mathlib/Basic/Logic/Basic.lean`) |
 | Tempos por `cache_state` | baixar o artefato `auditor-report` de cada execução e rodar `python tools/layer2/timings.py <diretórios>`: total, preparação, auditoria e p95 por arquivo, separados por `cold`/`delta`/`warm` |
 | Caminho de timeout (`auditor-failed-infra`, sem bloquear) | PR com `timeout-file-seconds` artificial pequeno (ex.: 5): o PR sai com exit 2, o job fica verde e o PR recebe o label |
 | Action integrada e testada em fork | os itens acima + um `@auditor report` de um colaborador |

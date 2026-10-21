@@ -38,7 +38,8 @@ REPORTED = {
            "consumes_justified", "consumes_unjustified"},
     "edges": {"secret", "I", "I.mk", "uses_I", "_private.Fixture.Edges.0.hidden", "uses_hidden",
               "outer", "outer.aux", "m", "P", "P.mk", "P.x", "instInhabitedP", "loop",
-              "local_ax", "uses_local", "uses_spoof", "uses_spoof_bad"},
+              "local_ax", "uses_local", "uses_spoof", "uses_spoof_bad",
+              "hidden_prop", "ax_over_sorry", "via_axiom_type"},
     "macro": {"two_plus_two", "tacticObviously"},   # `macro` gera o parser como constante
     "unicode": {"«Nat​Extra».trivially"},
 }
@@ -225,6 +226,13 @@ def test_edges_axiom_reached_only_through_constructor_type():
     assert d["axioms_official"] == ["secret"]
     refs = {x["name"] for ref in d["axiom_referrers"] for x in ref["referrers"]}
     assert "I.mk" in refs
+
+
+def test_edges_closure_walks_axiom_type():
+    """O fecho independente percorre o tipo de um axioma, como o `collectAxioms` oficial."""
+    d = decl(inspect("edges"), "via_axiom_type")
+    assert d["axioms_official"] == ["ax_over_sorry", "sorryAx"]
+    assert d["axioms_closure"] == d["axioms_official"]
 
 
 def test_edges_private_declaration_reported_and_owned():

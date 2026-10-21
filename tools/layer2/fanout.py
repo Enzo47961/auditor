@@ -3,17 +3,22 @@ direta ou transitivamente (fecho reverso do grafo de imports).
 
 Uso (camada 2, escolha do "arquivo de maior fanout" de forma mecânica e reprodutível):
     python tools/layer2/fanout.py <raiz-do-projeto> --root Mathlib [--top 20] [--json saida.json]
+        [--expect-commit <sha>]
 
 Lê só o cabeçalho de imports de cada `.lean` sob `<raiz>/<root>/` (e `<raiz>/<root>.lean`):
-comentários, `prelude`, `module` e linhas `import` (com modificadores `public`/`meta`/`private`).
-O primeiro comando de outro tipo encerra o cabeçalho. Imports fora do projeto (Init, Std, Lean,
-dependências) não entram no grafo. Determinístico: empates são ordenados pelo nome.
+comentários, `prelude`, `module` e linhas `import` (com modificadores `public`/`meta`/`private`
+antes e `all` depois do `import`). O primeiro comando de outro tipo encerra o cabeçalho. Imports
+fora do projeto (Init, Std, Lean, dependências) não entram no grafo. Determinístico: empates são
+ordenados pelo nome. Não acessa a rede: o resultado é função do checkout, cuja procedência
+(commit, SHA-256 do lake-manifest.json, lean-toolchain) vai na saída JSON (docs/ci.md, D-38 (d)).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
+import subprocess
 import sys
 from collections import deque
 from pathlib import Path
@@ -51,7 +56,10 @@ def header_imports(text: str) -> list[str]:
                 rest = m.group(1).split("--", 1)[0]
                 if "/-" in rest:
                     raise HeaderError(f"comentário de bloco dentro de import: {raw!r}")
-                for name in rest.split():
+                names = rest.split()
+                if names[:1] == ["all"]:           # `import all M`: M com as definições privadas
+                    names = names[1:]
+                for name in names:
                     if not MODULE_NAME.match(name):
                         raise HeaderError(f"nome de módulo ilegível: {name!r}")
                     out.append(name)
@@ -95,6 +103,21 @@ def fanout(g: dict[str, list[str]]) -> dict[str, dict[str, int]]:
             for m in g}
 
 
+def provenance(project: Path) -> dict:
+    """De onde veio o checkout: sem isso, o ranking não é atribuível a um commit."""
+    def read(name: str) -> bytes | None:
+        p = project / name
+        return p.read_bytes() if p.is_file() else None
+    try:
+        commit = subprocess.run(["git", "-C", str(project), "rev-parse", "HEAD"], capture_output=True,
+                                text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        commit = None
+    mf, tc = read("lake-manifest.json"), read("lean-toolchain")
+    return {"commit": commit, "lake_manifest_sha256": hashlib.sha256(mf).hexdigest() if mf is not None else None,
+            "lean_toolchain": tc.decode("utf-8").strip() if tc is not None else None}
+
+
 def ranking(project: Path, root: str) -> list[dict]:
     fo = fanout(graph(project, root))
     rows = [{"module": m, "file": str(Path(*m.split(".")).with_suffix(".lean")).replace("\\", "/"), **v}
@@ -108,14 +131,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--root", required=True, help="biblioteca do projeto (ex.: Mathlib)")
     ap.add_argument("--top", type=int, default=20)
     ap.add_argument("--json")
+    ap.add_argument("--expect-commit", help="falha (exit 2) se o checkout não estiver neste commit")
     a = ap.parse_args(argv)
+    prov = provenance(Path(a.project))
+    if a.expect_commit and prov["commit"] != a.expect_commit:
+        sys.stderr.write(f"fanout: checkout em {prov['commit']!r}, esperado {a.expect_commit!r}\n")
+        return 2
     try:
         rows = ranking(Path(a.project), a.root)
     except HeaderError as e:
         sys.stderr.write(f"fanout: {e}\n")
         return 2
     if a.json:
-        Path(a.json).write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        Path(a.json).write_text(json.dumps({"provenance": prov, "rows": rows}, ensure_ascii=False, indent=2)
+                                + "\n", encoding="utf-8")
+    print(f"commit {prov['commit']}; lake-manifest.json sha256 {prov['lake_manifest_sha256']}; "
+          f"{prov['lean_toolchain']}")
     print(f"{len(rows)} módulos em {a.root}")
     print("| Módulo | Arquivo | Dependentes diretos | Dependentes transitivos | Imports transitivos |\n"
           "|---|---|---|---|---|")

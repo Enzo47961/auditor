@@ -41,3 +41,9 @@ axiom spoof._native.native_decide.ax_1 : (true && false) = true
 theorem uses_spoof : (true && false) = true := spoof._native.native_decide.ax_1
 axiom spoof_bad._native.native_decide.ax_1 : False
 theorem uses_spoof_bad : False := spoof_bad._native.native_decide.ax_1
+
+-- O fecho percorre o TIPO de um axioma (como o `collectAxioms` da v4.36): `via_axiom_type` só
+-- chega a `sorryAx` pelo tipo de `ax_over_sorry`; o próprio enunciado é `True`.
+def hidden_prop : Prop := sorry
+axiom ax_over_sorry : hidden_prop
+theorem via_axiom_type : True := (fun _ => trivial) ax_over_sorry

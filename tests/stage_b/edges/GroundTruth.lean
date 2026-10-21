@@ -18,3 +18,6 @@ import Fixture.Edges
 #print axioms uses_local
 #print axioms uses_spoof
 #print axioms uses_spoof_bad
+#print axioms hidden_prop
+#print axioms ax_over_sorry
+#print axioms via_axiom_type

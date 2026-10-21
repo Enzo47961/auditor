@@ -54,17 +54,44 @@ passo encontrou.
    resultado: o segundo tipo é decisão de política, vai para o revisor, e enquanto isso o
    comportamento é fail-closed. *Na v4.36: `native_decide` passou a adicionar um axioma por uso
    (L-19, Q9); a convenção da dona de `where` mudou (L-4).*
-8. **Fronteira de TCB.** O canário `test_06_tcb_boundary_canary` confere a lista exata de raízes
-   declaradas pelo toolchain. Se mudou, a mudança vai para revisão por quem não é o autor
-   (`docs/tcb.md`, (ii)). *Na v4.36: `LeanChecker`, `LeanExport`, `LeanIR` (D-42).*
+8. **Fronteira de TCB.** As raízes de TCB são uma allow-list por toolchain
+   (`src/auditor/data/tcb_roots/<toolchain>.json`): as raízes que o projeto-alvo de fato usa,
+   **não** todas as que o toolchain declara (D-42). Regenerar com o Mathlib no commit fixado
+   e as dependências nas revisões exatas do seu `lake-manifest.json`:
+   `python tools/gen_tcb_roots.py --sysroot <sysroot> --project <mathlib> --root Mathlib`.
+   O gerador confere cada pacote contra o manifest (commit = `rev`) e recusa se não bater. O
+   canário `test_06_tcb_boundary_canary` confere a lista declarada pelo toolchain, e o cenário
+   `06-tcb-boundary` tem uma declaração por raiz da allow-list (`uses_<raiz>`) que precisa sair
+   TCB. Raiz nova ou removida vai para revisão por quem não é o autor (`docs/tcb.md`, (ii)).
+   *Na v4.36: o toolchain passou a declarar `LeanChecker`, `LeanExport` e `LeanIR`; o fecho do
+   Mathlib usa só `Init`, `Lake`, `Lean` e `Std` (D-42, D-47).*
 9. **Ground truth.** `tests/conformance/test_ground_truth.py` roda `#print axioms` do próprio Lean
    nos fixtures. Atualizar só o que o Lean passou a imprimir de outro jeito, nunca o veredito dos
    enunciados falsos (as negações continuam compilando).
-10. **Mutação.** Rodar `python tools/mutation/run.py` (todos os grupos) e conferir 0 sobreviventes.
+10. **Mutação.** Rodar `python tools/mutation/run.py <grupo>` **um grupo por vez**, nesta ordem:
+    `stage_a`, `allowlist`, `stage_b`, `policy`, `ci`. Conferir 0 sobreviventes e fazer commit
+    entre os grupos. Se o processo for interrompido no meio, `git status` mostra o arquivo que
+    ficou mutado: restaurar com `git checkout -- <arquivo>` antes de qualquer outra coisa. O
+    grupo `policy` é o mais pesado, porque roda a conformance a cada mutação.
 11. **Registrar.** `CHANGELOG.md` (incompatível: toolchain fixado), README ("Ambientes"),
     `docs/tcb.md` (raízes), e as decisões novas em `docs/proposed-improvements.md`.
 12. **Revisão.** Classificação de comandos, fronteira de TCB e qualquer mudança de veredito exigem
     revisão por alguém que não é o autor.
+
+## Orçamentos de tempo do CI (D-21, D-28, D-36)
+
+Três limites, com nomes que dizem o que medem (D-36):
+
+| Limite | CLI | Entrada do workflow | Padrão | O que é |
+|---|---|---|---|---|
+| Total do PR | `auditor-ci run --timeout-total` | `timeout-total-seconds` | 300 s | **O** orçamento: o SLA de 5 min, em steady-state (`cache_state` `warm`/`delta`). Relógio desde o trigger, preparação incluída. |
+| Total do PR com cache frio | `auditor-ci run --timeout-total-first-run` | `timeout-total-first-run-seconds` | 900 s | **Orçamento estendido de um run com cache frio**, não segundo orçamento permanente. Só vale com evidência positiva de `cache_state: cold`, o que acontece no primeiro run do fork ou depois de o cache ser despejado. Sinal ausente conta como cache quente. |
+| Por arquivo | `auditor check --timeout-file` / `auditor-ci run --timeout-file` | `timeout-file-seconds` | 90 s | Limite de um arquivo; estourar encerra a auditoria do PR (exit 2). |
+
+O run com cache frio declara `first_run: true`. Se passar dos 300 s sem estourar os 900 s, não
+falha: ganha `cache_cold_extension: true` e o label `auditor-first-run`. Medições da camada 2
+nunca usam um run `cold` como steady-state (`docs/layer2-checklist.md`, passo 7). Mudar um
+padrão é mudança de SLA: vai para o revisor e para o `CHANGELOG.md`.
 
 ## Tabela de confusables (TR39)
 
@@ -116,6 +143,15 @@ Um teste verde só é evidência se ficar vermelho quando o código está errado
 **Armadilhas já encontradas:**
 - O pytest com `pythonpath = ["src"]` importa o código do repositório. Mutar uma cópia em outro diretório faz toda mutação "sobreviver" falsamente; o executor muta no lugar.
 - Strings com barra invertida em scripts gerados via heredoc do shell perdem o escape; o catálogo usa strings *raw* num arquivo Python.
+- **Processo morto de fora não restaura o arquivo.** A restauração em caso de erro cobre exceções, não um processo encerrado pelo sistema (falta de memória, instrução 12). Depois de uma interrupção, `git status` mostra o arquivo mutado; conferir o diff (deve ser exatamente uma mutação do catálogo) e restaurar com `git checkout -- <arquivo>`. Por isso a mutação roda um grupo por vez, com commit entre os grupos.
+
+**Registro de execuções** (uma linha por grupo; commit entre grupos):
+
+| Data | Commit do código | Grupo | Detectadas | Sobreviventes / puladas |
+|---|---|---|---|---|
+| 2026-10-20 | `0b9d2bc` (v4.36.0-rc1) | `stage_a` | 9/9 | 0 |
+| 2026-10-20 | `0b9d2bc` | `allowlist` | 9/9 | 0 |
+| 2026-10-21 | `0b9d2bc` | `stage_b` | 16/17 | **1 sobrevivente**: `.axiomInfo v => v.type.getUsedConstants` → `#[]` (o fecho não percorria o tipo de axioma em nenhum fixture). Teste novo: `edges`, `via_axiom_type` (chega a `sorryAx` só pelo tipo de `ax_over_sorry`). A mutação re-rodada sozinha foi detectada (`inspector_disagreement`). Resultado: 17/17. |
 
 ## Fixação de versões nos workflows (D-25)
 

@@ -16,10 +16,9 @@ quando cabe, **Abortar se**. Ao abortar: não tente consertar no meio; traga o q
 
 ## 0. Pré-condições (antes de qualquer ação pública)
 
-- [ ] Leu as decisões pendentes da instrução 12 (`docs/proposed-improvements.md`, "Rodada da
-      instrução 12"): Q9, D-39 a D-43. A camada 2 **pode** rodar com a Q9 pendente: o comportamento
-      atual é fail-closed (nenhum `native_decide` sai `verified`). Se a Q9 for decidida antes,
-      melhor: a medição já usa a política final.
+- [ ] Camada 1 fechada: a mutação dos 5 grupos tem 0 sobreviventes (`docs/proposed-improvements.md`,
+      "Rodada da instrução 13"), e a Q9 está decidida (opção a: `native_decide` nunca sai
+      `verified` na Fase 0). A medição usa a política final.
 - [ ] Decidiu a visibilidade do repositório do auditor. **Restrição técnica:** o workflow do fork
       chama o workflow reutilizável do auditor (`uses: $ME/auditor/...@$AUD`). Um fork público do
       Mathlib só consegue chamar um workflow reutilizável de repositório **público** (ou do mesmo
@@ -87,8 +86,19 @@ python -c "import json;print(json.load(open('.auditor/allowlist.json'))['unclass
 git add .auditor && git commit -m "auditor: allow-list do Mathlib (e1b2403b, v4.36.0-rc1)"
 ```
 
+**Raízes de TCB (D-42).** A allow-list de raízes do auditor foi gerada a partir deste mesmo commit.
+Conferir que o fork não divergiu dela (com as dependências baixadas pelo `cache get` acima):
+
+```bash
+python <auditor>/tools/gen_tcb_roots.py --sysroot "$(lean --print-prefix)" --project . --root Mathlib --check
+```
+
+**Verificar:** sai com 0. O gerador confere cada pacote de `.lake/packages` contra o `rev` do
+`lake-manifest.json` e o fecho de imports contra `src/auditor/data/tcb_roots/<toolchain>.json`.
+
 **Abortar se:** `lake exe cache get` falhar; o gerador falhar ao importar o Mathlib (traga a
-saída); a lista `unclassified` tiver comandos cujo efeito não dá para determinar lendo a definição.
+saída); a lista `unclassified` tiver comandos cujo efeito não dá para determinar lendo a definição;
+`gen_tcb_roots.py --check` sair com algo diferente de 0 (traga a saída: a fronteira de TCB mudou).
 
 **Nota de segurança:** o gerador executa os initializers do Mathlib (D-39). Rode-o só sobre o
 commit fixado acima, nunca sobre um branch de PR.
@@ -141,8 +151,16 @@ não de medição); o job estourar o `timeout-minutes` de 45; o label aplicado f
 ## 6. Escolha mecânica dos arquivos
 
 ```bash
-python <auditor>/tools/layer2/fanout.py . --root Mathlib --top 40 --json fanout.json > fanout.md
+python <auditor>/tools/layer2/fanout.py . --root Mathlib --top 40 --json fanout.json --expect-commit e1b2403bdd31a2756e30282d62b3fa54cc95c869 > fanout.md
+python <auditor>/tools/layer2/native_usage.py . --root Mathlib --json native_usage.json > native_usage.md
 ```
+
+**Verificar:** os dois saem com 0. O `fanout.json` traz `provenance.commit` igual ao commit base. Se
+o checkout estiver em outro commit, o `fanout.py` sai com 2 e não imprime ranking: voltar ao
+branch `auditor-base`. O `native_usage.md` responde à pergunta da instrução 13: que proporção das
+declarações do Mathlib usa avaliação nativa, e em que áreas. Valor esperado no commit `e1b2403b`:
+nenhuma declaração da biblioteca `Mathlib` (o linter do Mathlib proíbe; o uso fica em
+`MathlibTest`, que não faz parte da biblioteca).
 
 Resultado observado no commit `e1b2403b` (8651 módulos): as 19 primeiras posições são
 infraestrutura (`Mathlib.Init`, `Mathlib.Tactic.*`, `Mathlib.Lean.*`, `Mathlib.Util.*`), que a
@@ -215,7 +233,13 @@ python <auditor>/tools/layer2/timings.py l2 > l2/timings.md
    | PR | arquivo | mudança | `cache_state` | `first_run` | preparação (s) | auditoria (s) | total (s) | duração do arquivo (s) | `exit_code` | contagem verified/rejected/unresolved | labels | conclusão do job |
    |---|---|---|---|---|---|---|---|---|---|---|---|---|
 
-3. `l2/timings.md` (saída do `timings.py`) e `fanout.md` (top 40), com a escolha dos arquivos.
-4. Os artefatos completos: `l2/pr-*/outcome.json`, `summary.md`, `report-*.json`.
-5. Observações: qualquer abortar/repetir, com o motivo; tamanho de `~/.cache/mathlib` (log do
+3. `l2/timings.md` (saída do `timings.py`) e `fanout.md` (top 40), com a escolha dos arquivos e o
+   `provenance` do `fanout.json`.
+4. **Avaliação nativa** (instrução 13), em duas medidas:
+   - no Mathlib inteiro: `native_usage.md`, com a proporção de declarações que usam `native_decide`,
+     `+native`, `native := …` ou `bv_decide`, total e por área (`Mathlib/<Área>`);
+   - em cada PR: quantas declarações do relatório têm `native_auxiliary_axiom` entre as razões.
+     Esperado: 0 nos PRs de medição. Diferente de 0 é achado.
+5. Os artefatos completos: `l2/pr-*/outcome.json`, `summary.md`, `report-*.json`.
+6. Observações: qualquer abortar/repetir, com o motivo; tamanho de `~/.cache/mathlib` (log do
    passo "cache do Mathlib (salvar)"); se `updated_at` do evento coincidiu com o push (D-30).

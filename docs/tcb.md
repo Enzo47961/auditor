@@ -30,13 +30,15 @@ A especificação original não tinha esta seção, e duas decisões tropeçaram
 
 Esta seção fecha a lacuna de forma sistemática, não só para a Q7.
 
-**Decisão (Q7, opção a).** A confiança é transitiva a partir do kernel e das dependências que o toolchain declara. As regras de `@[extern]` e `@[implemented_by]` (candidato; padrão combinado com `Lean.ofReduceBool`/`Lean.ofReduceNat` → `Rejeitada`) só se aplicam a declarações **user-level**. Declarações **Lean-level** são TCB e não disparam as regras. `native_decide` de usuário continua exigindo justificativa (o cenário 05c continua `verified`). `Nat.add` (`@[extern]` do toolchain) não dispara nada (cenário 06).
+**Decisão (Q7, opção a).** A confiança é transitiva a partir do kernel e das dependências que o toolchain declara. As regras de `@[extern]` e `@[implemented_by]` (candidato; padrão combinado com `Lean.ofReduceBool`/`Lean.ofReduceNat` → `Rejeitada`) só se aplicam a declarações **user-level**. Declarações **Lean-level** são TCB e não disparam as regras. `native_decide` de usuário continua exigindo justificativa; desde a v4.36 ele também nunca sai `verified` (Q9-a, L-19). `Nat.add` (`@[extern]` do toolchain) não dispara nada (cenário 06).
 
 ### (i) A fronteira é declarada, não inferida pelo nome
 
 Duas fontes declaram a fronteira. O nome do módulo nunca decide, porque um pacote do usuário pode ter um módulo chamado `Init.Algo`.
 
-- **O toolchain fixado declara suas raízes de biblioteca:** os `.olean` de primeiro nível em `<sysroot>/lib/lean`. No `leanprover/lean4:v4.36.0-rc1` são `Init`, `Lake`, `LakeMain`, `Lean`, `LeanChecker`, `LeanExport`, `LeanIR`, `Leanc` e `Std` (na v4.22.0 eram seis: sem `LeanChecker`, `LeanExport` e `LeanIR`; a mudança está em revisão, D-42).
+- **O toolchain fixado declara suas raízes de biblioteca:** os `.olean` de primeiro nível em `<sysroot>/lib/lean`. No `leanprover/lean4:v4.36.0-rc1` são `Init`, `Lake`, `LakeMain`, `Lean`, `LeanChecker`, `LeanExport`, `LeanIR`, `Leanc` e `Std` (na v4.22.0 eram seis: sem `LeanChecker`, `LeanExport` e `LeanIR`).
+- **Das raízes declaradas, só as que o projeto-alvo usa são TCB** (D-42, condição do revisor). A allow-list fica em `src/auditor/data/tcb_roots/<toolchain>.json`: as raízes do toolchain que aparecem no fecho de imports da biblioteca do Mathlib, no commit fixado, com as dependências nas revisões exatas do seu `lake-manifest.json`. É gerada por `tools/gen_tcb_roots.py` e registra o commit do projeto, o SHA-256 do manifest, a revisão de cada pacote e quantos módulos de cada raiz o fecho usa. No `v4.36.0-rc1` com o Mathlib `e1b2403b`, o resultado é `Init`, `Lake`, `Lean` e `Std`. `LakeMain`, `Leanc`, `LeanChecker`, `LeanExport` e `LeanIR` ficam de fora. Princípio: a allow-list contém "as raízes que o projeto-alvo efetivamente usa", não "todas as raízes do Lean".
+  - Em tempo de execução, a allow-list também precisa ser consistente com o toolchain. Se faltar o arquivo para o toolchain do projeto, se o arquivo declarar outro toolchain, se a lista de raízes declaradas gravada nele diferir da do sysroot (drift), ou se uma raiz da allow-list não for declarada pelo toolchain, o resultado é `tcb_boundary_undeclared` (exit 2).
 - **O `lake-manifest.json` declara os pacotes do usuário.** Cada pacote (`git`: `<packagesDir>/<nome>`; `path`: `dir`), além do próprio projeto, contribui uma raiz de usuário `<pacote>/.lake/build/lib/lean`.
 
 O `<sysroot>` é obtido de duas formas independentes: pelo inspetor (`findSysroot`, sob `lake env`) e pelo elan (`lean --print-prefix` na raiz do projeto). As duas precisam coincidir; senão, `sysroot_mismatch` (exit 2). O search path efetivo do inspetor também é conferido: toda entrada precisa ser o diretório do toolchain ou uma raiz derivada do manifest; senão, `search_path_unrecognized` (exit 2).
@@ -54,7 +56,7 @@ Implementado em `src/auditor/tcb_boundary.py`, com testes unitários em `tests/t
 **Passos:**
 1. Se `P` está sob uma raiz de usuário e não sob `<sysroot>/lib/lean`, o resultado é **user**.
 2. Se `P` está sob `<sysroot>/lib/lean` e não sob raiz de usuário, o resultado é **tcb** somente se as três condições abaixo valem:
-   - (a) a raiz do nome de `M` é declarada pelo toolchain;
+   - (a) a raiz do nome de `M` é declarada pelo toolchain **e** está na allow-list de raízes (senão, razão `module_root_not_declared_by_toolchain` ou `module_root_not_used_by_target_project`);
    - (b) `P` é exatamente `<sysroot>/lib/lean/<M como caminho>.olean`;
    - (c) nenhuma raiz de usuário fornece um `.olean` para `M` (sombreamento).
 3. Em qualquer outro caso, o resultado é **unresolved**: a declaração fica `Não resolvida`, razão `tcb_boundary_unresolved` (fail-closed).
@@ -64,7 +66,7 @@ Manifest com versão fora de `1.x`, pacote sem nome, tipo de pacote desconhecido
 ### (ii) Mudança de fronteira exige revisão da política
 
 A fronteira depende do toolchain fixado. Ao subir o `lean-toolchain`:
-1. rodar `tests/tcb` e `tests/stage_b` (o teste do canário confere a lista exata de raízes declaradas);
+1. regenerar a allow-list de raízes (`docs/maintenance.md`, passo 8) e rodar `tests/tcb`, `tests/stage_b` e `tests/conformance/test_06_tcb_boundary.py`. O canário confere a lista exata de raízes declaradas, e o cenário 06 tem uma declaração por raiz da allow-list, que precisa sair TCB;
 2. se as raízes mudaram, ou se uma implementação nativa mudou de módulo, a política precisa ser revista por alguém que não é o autor da mudança, como qualquer mudança de regra;
 3. registrar a mudança no histórico de `policy.toml` (`policy_version`).
 
