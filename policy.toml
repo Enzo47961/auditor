@@ -21,6 +21,12 @@ forbidden = []
 # justificativa malformada → `Não conforme`, `native_decide_justification_malformed`;
 # dona não resolvida → `Não resolvida`, `native_decide_owner_unresolved`.
 native_evaluation = ["Lean.ofReduceBool", "Lean.ofReduceNat"]
+# Axioma auxiliar de avaliação nativa (v4.36+: `native_decide`/`bv_decide` adicionam, por uso,
+# um axioma `<dona>._native.<tática>.ax_…` : `e = true` que o kernel não reconfere). Reconhecido
+# pela FORMA (nome + tipo), que não prova a origem. Até a decisão da Q9, a única ação é:
+#   "fail_closed" → `Não resolvido`, razão `native_auxiliary_axiom`. As regras de justificativa
+#   (acima) e o padrão combinado (abaixo) também valem para ele.
+native_auxiliary_action = "fail_closed"
 # Axioma fora de todas as listas (lacuna B):
 #   "fail_closed"        → `Não resolvido`, razão `unknown_axiom` (default);
 #   "allow_with_warning" → `Conforme` com aviso; exige `unknown_axiom_justification`

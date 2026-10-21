@@ -27,7 +27,7 @@ from pathlib import Path
 from auditor import tcb_boundary as tb
 
 STAGE_B_VERSION = "1"
-INSPECTOR_VERSION = "2"            # deve bater com `inspectorVersion` em Inspect.lean
+INSPECTOR_VERSION = "4"            # deve bater com `inspectorVersion` em Inspect.lean
 PKG = Path(__file__).resolve().parent.parent
 INSPECT_SRC = PKG / "lean" / "Inspect.lean"
 INSPECTOR_LAKEFILE = """import Lake
@@ -282,6 +282,10 @@ def _ingest(res: StageBResult, facts: dict, expected_version: str) -> None:
         if sorted(d["axioms_official"]) != sorted(d["axioms_closure"]):
             res.anomalies.append({"declaration": name, "code": "inspector_disagreement",
                                   "detail": {"official": d["axioms_official"], "closure": d["axioms_closure"]}})
+        if not isinstance(d.get("native_auxiliary"), list):
+            res.anomalies.append({"declaration": name, "code": "inspector_field_missing",
+                                  "detail": {"field": "native_auxiliary"}})
+            d["native_auxiliary"] = []
         if d["missing"]:
             res.anomalies.append({"declaration": name, "code": "missing_constants",
                                   "detail": {"constants": d["missing"]}})

@@ -16,3 +16,5 @@ import Fixture.Edges
 #print axioms uses_I
 #print axioms uses_hidden
 #print axioms uses_local
+#print axioms uses_spoof
+#print axioms uses_spoof_bad

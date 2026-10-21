@@ -32,8 +32,8 @@ def test_fanout_is_transitive_and_ranked(tmp_path):
     (lib / "Other.lean").write_text("import L.Base\n", encoding="utf-8")
     (tmp_path / "L.lean").write_text("import L.Sub.Top\nimport L.Other\n", encoding="utf-8")
     rows = fanout.ranking(tmp_path, "L")
-    assert [(r["module"], r["direct"], r["transitive"]) for r in rows] == [
-        ("L.Base", 2, 4), ("L.Mid", 1, 2), ("L.Other", 1, 1), ("L.Sub.Top", 1, 1), ("L", 0, 0)]
+    assert [(r["module"], r["direct"], r["transitive"], r["imports_transitive"]) for r in rows] == [
+        ("L.Base", 2, 4, 0), ("L.Mid", 1, 2, 1), ("L.Other", 1, 1, 1), ("L.Sub.Top", 1, 1, 2), ("L", 0, 0, 4)]
     assert rows[0]["file"] == "L/Base.lean"
 
 

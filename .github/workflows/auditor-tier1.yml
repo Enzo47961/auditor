@@ -31,12 +31,12 @@ on:
         description: "caminho da política no repositório-alvo; vazio = política default do auditor"
         type: string
         default: ""
-      budget-seconds:
-        description: "orçamento do PR no steady-state (s), do trigger ao relatório; spec: 300"
+      timeout-total-seconds:
+        description: "wall-clock total do PR no steady-state (s), do trigger ao relatório; spec: 300"
         type: number
         default: 300
-      first-run-budget-seconds:
-        description: "orçamento do PR com cache cold (s)"
+      timeout-total-first-run-seconds:
+        description: "wall-clock total do PR com cache cold (s)"
         type: number
         default: 900
       timeout-file-seconds:
@@ -134,8 +134,8 @@ jobs:
         timeout-minutes: 30
         env:
           POLICY_INPUT: ${{ inputs.policy }}
-          BUDGET: ${{ inputs.budget-seconds }}
-          FIRST_RUN_BUDGET: ${{ inputs.first-run-budget-seconds }}
+          TIMEOUT_TOTAL: ${{ inputs.timeout-total-seconds }}
+          TIMEOUT_TOTAL_FIRST_RUN: ${{ inputs.timeout-total-first-run-seconds }}
           TIMEOUT_FILE: ${{ inputs.timeout-file-seconds }}
           CACHE_GET: ${{ inputs.cache-get }}
           CACHE_HIT: ${{ steps.mathlib-cache.outputs.cache-hit }}
@@ -154,8 +154,8 @@ jobs:
           else start="$JOB_START"; kind=job_start; fi
           rc=0
           auditor-ci run --files-from "$RUNNER_TEMP/files.txt" --policy "$policy" \
-            --out-dir "$RUNNER_TEMP/auditor-out" --budget "$BUDGET" \
-            --first-run-budget "$FIRST_RUN_BUDGET" --timeout-file "$TIMEOUT_FILE" \
+            --out-dir "$RUNNER_TEMP/auditor-out" --timeout-total "$TIMEOUT_TOTAL" \
+            --timeout-total-first-run "$TIMEOUT_TOTAL_FIRST_RUN" --timeout-file "$TIMEOUT_FILE" \
             --build-cache "$build_cache" --started-at "$start" --started-at-kind "$kind" \
             --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT" || rc=$?
           # 0 ok · 1 rejeição (o passo seguinte falha o job) · 2 infraestrutura (label, não bloqueia)

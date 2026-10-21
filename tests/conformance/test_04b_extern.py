@@ -26,7 +26,9 @@ def test_04b_a_candidate(result, name):
 @pytest.mark.parametrize("name", ["e_bad", "e_mixed"])
 def test_04b_bc_combined_pattern_rejected(result, name):
     d = result.decl(name)
-    assert state(d) == ("Rejeitada", "Conforme", "rejected")       # ofReduceBool justificado
+    # justificado; premissas `Não resolvido` pelo axioma auxiliar nativo (v4.36, Q9 pendente)
+    assert state(d) == ("Rejeitada", "Não resolvido", "rejected")
+    assert "native_auxiliary_axiom" in reasons(d, "premises_status")
     assert "extern_reaches_native_eval" in reasons(d, "proof_status")
     assert "native_decide_unjustified" not in violation_rules(d)
     assert result.exit_code == 1

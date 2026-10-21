@@ -203,9 +203,58 @@ Nenhuma é urgente para a Policy: a Policy foi implementada sem depender de veto
 - **D-33. Labels.** `auditor-failed-infra` vence `auditor-first-run`: cache cold que estoura o orçamento estendido é infraestrutura. `auditor-first-run` só quando `cache_cold_extension` (cold, sem infraestrutura, total > 5 min). O workflow de label aceita só esses dois nomes.
 - **D-34. Inspetor compilado antes do primeiro arquivo.** Com o binário fora do cache, o `auditor-ci` o compila antes de auditar: o custo entra no orçamento do PR, não no timeout de 90 s de um arquivo.
 - **D-35. Correção da D-25 original: o elan não estava fixado.** O `elan-init.sh` tirado da tag `v4.2.4` baixa a release **`latest`** do elan (`releases/latest/download/...`). O relatório anterior dizia "elan fixado em v4.2.4", o que só era verdade para o script. Agora os workflows baixam `elan-x86_64-unknown-linux-gnu.tar.gz` da release `v4.2.4` e conferem o SHA-256 antes de executar. Resíduos (L-18): o toolchain Lean baixado pelo elan e as dependências Python instaladas pelo pip não são conferidos por hash no CI.
-- **D-36. `--timeout` continua aceito** como sinônimo de `--timeout-file` na CLI (mesmo destino; o default é 90 s).
+- **D-36. `--timeout` continua aceito** como sinônimo de `--timeout-file` na CLI (mesmo destino; o default é 90 s). **Rejeitada na instrução 12** (ver lá).
 - **D-37. `outcome.json` passou a `auditor-ci-outcome/2`.** O `label-decision` rejeita a versão anterior (resulta em `auditor-failed-infra`, fail-closed).
 - **D-38. Fanout para escolher o arquivo da medição.** `tools/layer2/fanout.py`: fanout = número de módulos do projeto que importam o módulo, direta ou transitivamente, a partir do cabeçalho de imports. Nome de import ilegível (ex.: com `«»`) é erro, não é ignorado.
+
+## Rodada da instrução 12 — resoluções
+
+- **Aceitas:** D-29, D-30, D-31, D-32, D-33, D-34, D-35, D-37.
+- **L-18 → roadmap (Fase 1):** toolchain Lean e dependências Python verificados por hash (`docs/roadmap.md`).
+- **D-36 — REJEITADA e aplicada:** `auditor check --timeout` foi removido (sem sinônimo). Os nomes "total" foram para o orçamento do PR no `auditor-ci`: `--budget` → `--timeout-total`, `--first-run-budget` → `--timeout-total-first-run`; entradas do workflow `budget-seconds` → `timeout-total-seconds`, `first-run-budget-seconds` → `timeout-total-first-run-seconds`. O timeout por arquivo continua `--timeout-file` (D-21 aceita). Registrado em `CHANGELOG.md`. **Interpretação a confirmar:** a instrução diz "renomeie `--timeout` para `--timeout-total`". Na CLI `auditor check`, que audita um arquivo, `--timeout` era o timeout por arquivo, que já se chama `--timeout-file`. Renomeá-lo para `--timeout-total` desfaria a D-21. Por isso o nome "total" foi aplicado ao que de fato é total: o orçamento do PR. Se a intenção era outra, a troca é mecânica.
+- **D-38 — detalhes:** `docs/ci.md`, "Escolha do arquivo de maior fanout (D-38)": (a) algoritmo, (b) justificativa e alternativas, (c) testes. Rodado no Mathlib real (commit `e1b2403b`, 8651 módulos, sem erro de cabeçalho). Foi acrescentado o fecho direto (`imports_transitive`), porque o custo da auditoria de um arquivo cresce com ele, e não com o fanout.
+- **Bloqueio da camada 2 — opção (X) executada:** toolchain do auditor `v4.22.0` → **`v4.36.0-rc1`** (o do Mathlib `master`, commit `e1b2403b`, em 2026-10-20). Allow-list regenerada, inspetor portado, fixtures recompilados, suíte inteira rodada. Procedimento em `docs/maintenance.md`, "Procedimento ao subir o toolchain". Dois achados mudam significado (D-39, D-43) e um muda a fronteira (D-42).
+- **Executar ou preparar — preparar:** `docs/layer2-checklist.md`. Nada público foi executado.
+- **Confirmações pedidas:**
+  - (a) `docs/invalidation.md` existe (versionado desde o commit `09a8550`);
+  - (b) D-18 está em `docs/roadmap.md` (linha "Hash de declaração resistente a colisão"), junto com o item novo de L-18;
+  - (c) o Mathlib `master` usa `leanprover/lean4:v4.36.0-rc1` (commit do Lean `c9afcddf`), lido do `lean-toolchain` do commit `e1b2403bdd31a2756e30282d62b3fa54cc95c869` em 2026-10-20.
+
+## Q9. `native_decide` na v4.36 — PERGUNTA (comportamento atual: fail-closed)
+
+**O que mudou.** Na v4.22, `native_decide` produzia um termo com `Lean.ofReduceBool`, um axioma fixo e conhecido; a política o tratava como avaliação nativa com justificativa (O-1). Na v4.36.0-rc1 (`Lean.Meta.nativeEqTrue`), o tático compila e avalia `e`, e então **adiciona ao ambiente um axioma novo, por uso**: `<dona>._native.native_decide.ax_N : e = true` (o mesmo vale para `bv_decide`). O kernel nunca reconfere esse axioma.
+
+**O problema.** O ambiente não registra que o axioma veio do tático. Um `axiom` escrito à mão com o mesmo nome e o mesmo tipo é indistinguível (demonstrado: fixture `edges`, `uses_spoof`, travado por teste). Uma tática importada (outro arquivo do PR, ou uma dependência) também pode adicionar um axioma com essa forma sem que a Etapa A do arquivo-alvo veja nada.
+
+**Comportamento atual (D-43), fail-closed.** O inspetor reconhece a forma (`native_auxiliary`). A política aplica as regras de justificativa e do padrão combinado como antes, e **além disso** deixa as premissas `Não resolvido` (`native_auxiliary_axiom`). Efeito na conformance: só os casos justificados mudaram, de `verified` para `unresolved` (`nd_justified`, `consumes_justified`, `add_native`); `f_bad`/`e_bad`/`e_mixed` continuam `Rejeitada`, com premissas `Não resolvido` em vez de `Conforme`. Nenhuma rejeição se perdeu.
+
+**Opções:**
+- **(a) Fail-closed permanente na Fase 0** (o atual): `native_decide` nunca sai `verified`. A justificativa O-1 continua obrigatória (sem ela, `Não conforme`), mas não basta. Simples e correto. Custo: quem usa `native_decide` com justificativa perde o `verified`. O Mathlib já proíbe `native_decide` por política própria, então o impacto no alvo principal é pequeno.
+- **(b) Corroboração.** Aceitar o axioma auxiliar como avaliação nativa (e, com justificativa válida, `verified`) só se: a forma bate; a dona está no arquivo auditado; a Etapa A viu `native_decide`/`bv_decide` dentro da declaração dona; nenhum `axiom` com esse nome no arquivo; nenhum comando fail-closed no arquivo. **Não é sólido contra adversário:** `first | native_decide | tatica_importada_maliciosa` satisfaz tudo, com o axioma forjado pela tática importada.
+- **(c) Reavaliação pelo auditor.** O auditor compila e avalia `e` de novo, num processo separado. Volta a executar código do PR no auditor (contra D-39) e dá a mesma confiança no compilador que o `native_decide`. Pesado.
+- **(d) Reconferência pelo kernel.** O inspetor tenta reduzir `e` a `true` com o kernel (`Kernel.whnf`), com limite de esforço. Se conseguir, o axioma é admissível sem confiar no compilador: `verified` sem avaliação nativa. Se não conseguir dentro do limite, `Não resolvido`. É sólido. Mas o `native_decide` existe justamente onde o kernel é lento, então na maioria dos casos o resultado seria `Não resolvido`, como em (a), com custo de CPU.
+
+**Recomendação: (a) na Fase 0, e (d) como item a avaliar na Fase 1.** (b) dá uma aparência de verificação que um adversário contorna. (c) contradiz D-39.
+
+## Decisões locais da instrução 12 (para veto)
+
+- **D-39. O inspetor não executa código do ambiente importado.** Na v4.36, `importModules (loadExts := true)` exige `enableInitializersExecution`, que executaria os `initialize` dos módulos importados — inclusive os do PR — dentro do inspetor. O inspetor passou a importar com `loadExts := false` e a ler cada extensão pelas entradas dos módulos. Consequências:
+  - o `collectAxioms` oficial, sem a extensão de axiomas pré-calculados, percorre os corpos (L-20);
+  - docstring Verso (sem texto bruto) conta como justificativa ausente;
+  - `@[simp]`/`@[ext]` do fingerprint vêm das entradas globais gravadas, não do estado final; um `attribute [-simp]` global não é descontado (o fingerprint muda de definição; o inspetor subiu para a versão 4).
+
+  Só o gerador da allow-list executa initializers, em manutenção, sobre código revisado.
+- **D-40. Classificação dos 40 comandos novos da v4.36** (`classification_version = "4"`):
+  - `allowed` (11): `#check_assertions`, `#import_path`, `#show_deprecated_modules`, `assert_not_exists`, `assert_not_imported`, `deprecated_module`, `deprecated_syntax`, `grind_annotated`, `coinductive` (declaração; entrou também nas palavras de declaração da Etapa A), `recall`, `unlock_limits` (D-41);
+  - `metaprogramming`/fail-closed (29): `#guard_panic`, `#grind_lint`, `reprove` (roda tática sem resultado inspecionável, como `#check_tactic`), `with_weak_namespace` (o comando envolvido fica indentado e escaparia da checagem de coluna 0), `docs_to_verso`, a família `cbv_simproc` (6), os `declare_*config_elab*` e `def_eval_config_item` (5), os `declare_decidable_*`/`declare_eval_bin*` (5), os `register_*` (6) e `set_library_suggestions` (avalia um termo como motor de sugestões; substitui `set_premise_selector`, que era fail-closed).
+
+  Removido: `set_premise_selector`.
+- **D-41. `unlock_limits`** (zera `maxRecDepth`, `maxHeartbeats` e `synthInstance.maxHeartbeats`) é registrado pela Etapa A como os três `set_option … 0`, com `via: "unlock_limits"`, inclusive na forma `unlock_limits in`. A política existente decide: `maxHeartbeats 0` → `Rejeitada`. Testado de ponta a ponta (fixture `set-option`, `unlocked`).
+- **D-42. Raízes do toolchain mudaram:** a v4.36.0-rc1 declara também `LeanChecker`, `LeanExport` e `LeanIR` (todas da distribuição do Lean). Pela regra da Q7-a (raiz declarada pelo toolchain = TCB), elas entram automaticamente. Pelo `docs/tcb.md` (ii), isso exige revisão por quem não é o autor: **pedida aqui**.
+- **D-43. Axioma auxiliar nativo: fail-closed provisório.** O inspetor emite `native_auxiliary` (forma: nome `…._native.<tática>.ax_…` e tipo `@Eq.{1} Bool e Bool.true`, `e` fechado). A política tem `axioms.native_auxiliary_action`, cuja única opção é `"fail_closed"`; o schema ganhou a classificação `native_auxiliary`. Fica assim até a Q9.
+- **D-44. Um toolchain suportado por vez.** A allow-list do core da v4.22.0 foi removida: sem inspetor e suíte correspondentes, ela seria promessa não verificada.
+- **D-45. Fixture próprio do CI** (`tests/ci/clean-project`): os testes do `auditor-ci` usavam o cenário 06 como "projeto que passa inteiro". Com a Q9, ele deixou de passar; o fixture novo separa os testes do CI da decisão de política.
+- **D-46. Convenção da dona em auxiliares `where` mudou** (L-4): o axioma auxiliar de `outer.aux` é referenciado pelo próprio `outer.aux`, que vira a dona (antes, `outer`). A justificativa passa a ser procurada onde o `native_decide` está escrito. Travado por teste.
 
 ## Correções feitas na retomada (sessão no Windows)
 

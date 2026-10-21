@@ -110,6 +110,23 @@ def test_set_option_file_level(proj):
     assert r.findings[0].detail["applies_to"] is None
 
 
+def test_unlock_limits_in_is_recorded_as_the_three_options(proj):
+    """D-41: `unlock_limits` (v4.36) zera `maxRecDepth`, `maxHeartbeats` e
+    `synthInstance.maxHeartbeats`; a Etapa A o registra como os `set_option … 0` equivalentes."""
+    r = run(proj, "unlock_limits in\n/-- doc -/\ntheorem t : True := trivial\n")
+    assert [f.detail for f in r.findings] == [
+        {"option": o, "value": "0", "via": "unlock_limits", "scope": "in", "applies_to": "t"}
+        for o in ("maxRecDepth", "maxHeartbeats", "synthInstance.maxHeartbeats")]
+    assert r.unrecognized == []
+
+
+def test_unlock_limits_file_level_and_chained(proj):
+    r = run(proj, "unlock_limits\ntheorem t : True := trivial\n")
+    assert {(f.detail["scope"], f.detail["applies_to"]) for f in r.findings} == {("file_or_section", None)}
+    r = run(proj, "set_option autoImplicit true in\nunlock_limits in\ntheorem u : True := trivial\n")
+    assert {f.detail["applies_to"] for f in r.findings} == {"u"} and len(r.findings) == 4
+
+
 # ------------------------------------------------------------------ allow-list
 
 @pytest.mark.parametrize("src,code", [

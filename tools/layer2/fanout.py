@@ -74,21 +74,25 @@ def graph(project: Path, root: str) -> dict[str, list[str]]:
             for m, f in mods.items()}
 
 
+def _reach(adj: dict[str, list[str]], start: str) -> int:
+    seen, q = set(), deque(adj[start])
+    while q:
+        x = q.popleft()
+        if x not in seen:
+            seen.add(x)
+            q.extend(adj[x])
+    return len(seen)
+
+
 def fanout(g: dict[str, list[str]]) -> dict[str, dict[str, int]]:
+    """`direct`/`transitive`: dependentes (fecho reverso); `imports_transitive`: fecho direto,
+    que é o que pesa no custo da auditoria do próprio arquivo (docs/ci.md, D-38)."""
     rev: dict[str, list[str]] = {m: [] for m in g}
     for m, imps in g.items():
         for i in imps:
             rev[i].append(m)
-    out = {}
-    for m in g:
-        seen, q = set(), deque(rev[m])
-        while q:
-            x = q.popleft()
-            if x not in seen:
-                seen.add(x)
-                q.extend(rev[x])
-        out[m] = {"direct": len(rev[m]), "transitive": len(seen)}
-    return out
+    return {m: {"direct": len(rev[m]), "transitive": _reach(rev, m), "imports_transitive": _reach(g, m)}
+            for m in g}
 
 
 def ranking(project: Path, root: str) -> list[dict]:
@@ -113,9 +117,10 @@ def main(argv: list[str] | None = None) -> int:
     if a.json:
         Path(a.json).write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{len(rows)} módulos em {a.root}")
-    print("| Módulo | Arquivo | Dependentes diretos | Dependentes transitivos |\n|---|---|---|---|")
+    print("| Módulo | Arquivo | Dependentes diretos | Dependentes transitivos | Imports transitivos |\n"
+          "|---|---|---|---|---|")
     for r in rows[:a.top]:
-        print(f"| `{r['module']}` | `{r['file']}` | {r['direct']} | {r['transitive']} |")
+        print(f"| `{r['module']}` | `{r['file']}` | {r['direct']} | {r['transitive']} | {r['imports_transitive']} |")
     return 0
 
 

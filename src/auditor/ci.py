@@ -11,7 +11,7 @@ Orçamento e timeouts (instrução 11: D-21, D-28):
   * o orçamento é wall-clock do PR, do trigger até o relatório, e inclui a preparação
     (`lake exe cache get`); `--started-at` dá a origem do relógio;
   * 5 min valem para o steady-state (cache `warm` ou `delta`). Com cache `cold` (primeiro run
-    num fork, cache despejado), o orçamento é o estendido (`--first-run-budget`, 15 min) e o
+    num fork, cache despejado), o orçamento é o estendido (`--timeout-total-first-run`, 15 min) e o
     resultado declara `first_run: true`; se passar dos 5 min sem estourar o estendido, não é
     falha: `cache_cold_extension` e label `auditor-first-run`;
   * cada arquivo tem timeout próprio (`--timeout-file`, 90 s). Arquivo que estoura o timeout
@@ -294,9 +294,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--files-from", help="arquivo com um caminho por linha")
     r.add_argument("--policy", required=True)
     r.add_argument("--out-dir", required=True)
-    r.add_argument("--budget", type=float, default=DEFAULT_BUDGET_S, help="steady-state (s); spec: 300")
-    r.add_argument("--first-run-budget", type=float, default=DEFAULT_FIRST_RUN_BUDGET_S,
-                   help="orçamento com cache cold (s)")
+    r.add_argument("--timeout-total", dest="budget", type=float, default=DEFAULT_BUDGET_S,
+                   help="wall-clock total do PR no steady-state (s); spec: 300")
+    r.add_argument("--timeout-total-first-run", dest="first_run_budget", type=float,
+                   default=DEFAULT_FIRST_RUN_BUDGET_S, help="wall-clock total do PR com cache cold (s)")
     r.add_argument("--timeout-file", type=float, default=DEFAULT_TIMEOUT_FILE_S, help="timeout por arquivo (s)")
     r.add_argument("--build-cache", choices=BUILD_CACHE, default="none",
                    help="restauração do cache de build do alvo: hit (chave exata), partial, miss, none")

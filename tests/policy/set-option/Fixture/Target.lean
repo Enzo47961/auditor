@@ -14,6 +14,10 @@ theorem fine_opt : True := trivial
 set_option tactic.hygienic false in
 theorem unknown_opt : True := trivial
 
+-- `unlock_limits` (v4.36) zera os limites: equivale a `set_option maxHeartbeats 0` (D-41).
+unlock_limits in
+theorem unlocked : True := trivial
+
 set_option autoImplicit true
 
 theorem after_file_opt : True := trivial

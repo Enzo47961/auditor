@@ -36,7 +36,7 @@ Esta seção fecha a lacuna de forma sistemática, não só para a Q7.
 
 Duas fontes declaram a fronteira. O nome do módulo nunca decide, porque um pacote do usuário pode ter um módulo chamado `Init.Algo`.
 
-- **O toolchain fixado declara suas raízes de biblioteca:** os `.olean` de primeiro nível em `<sysroot>/lib/lean`. No `leanprover/lean4:v4.22.0` são `Init`, `Lake`, `LakeMain`, `Lean`, `Leanc` e `Std`.
+- **O toolchain fixado declara suas raízes de biblioteca:** os `.olean` de primeiro nível em `<sysroot>/lib/lean`. No `leanprover/lean4:v4.36.0-rc1` são `Init`, `Lake`, `LakeMain`, `Lean`, `LeanChecker`, `LeanExport`, `LeanIR`, `Leanc` e `Std` (na v4.22.0 eram seis: sem `LeanChecker`, `LeanExport` e `LeanIR`; a mudança está em revisão, D-42).
 - **O `lake-manifest.json` declara os pacotes do usuário.** Cada pacote (`git`: `<packagesDir>/<nome>`; `path`: `dir`), além do próprio projeto, contribui uma raiz de usuário `<pacote>/.lake/build/lib/lean`.
 
 O `<sysroot>` é obtido de duas formas independentes: pelo inspetor (`findSysroot`, sob `lake env`) e pelo elan (`lean --print-prefix` na raiz do projeto). As duas precisam coincidir; senão, `sysroot_mismatch` (exit 2). O search path efetivo do inspetor também é conferido: toda entrada precisa ser o diretório do toolchain ou uma raiz derivada do manifest; senão, `search_path_unrecognized` (exit 2).
@@ -70,7 +70,7 @@ A fronteira depende do toolchain fixado. Ao subir o `lean-toolchain`:
 
 ### (iii) O canário: `06-tcb-boundary`
 
-O cenário `tests/conformance/06-tcb-boundary` usa `Nat.add` (`@[extern]` de `Init.Prelude`) com e sem `native_decide` e exige `verified` nos dois casos. Sem esse teste, a opção (a) seria afirmação não testada. Ele falha se:
+O cenário `tests/conformance/06-tcb-boundary` usa `Nat.add` (`@[extern]` de `Init.Prelude`) com e sem `native_decide` e exige que nenhuma regra de `@[extern]`/`@[implemented_by]` dispare nos dois casos (sem `native_decide`: `verified`; com: `unresolved` só pelo axioma auxiliar nativo, Q9). Sem esse teste, a opção (a) seria afirmação não testada. Ele falha se:
 - o Lean mudar onde `Nat.add` vive;
 - o Lean deixar de declarar `Init` como raiz;
 - a classificação passar a marcar implementações do toolchain como user-level ou indecidíveis.
@@ -81,3 +81,11 @@ O caso (c) do `04b-extern` testa o lado oposto: `@[extern]` de usuário que ment
 
 - Um bug no runtime ou no compilador do Lean fica fora do alcance. Isso já valia antes da Q7 (L-1).
 - `@[implemented_by]` em pacotes do usuário, inclusive o Mathlib, continua disparando as regras. A magnitude no Mathlib só aparece nas medições da camada 2.
+
+## O inspetor não executa código do ambiente importado (D-39)
+
+Desde a v4.36, carregar as extensões do ambiente (`importModules (loadExts := true)`) exige `enableInitializersExecution`, que executa os `initialize` dos módulos importados — inclusive os do PR auditado — dentro do processo do inspetor. Código do PR rodando no inspetor poderia reescrever os fatos que ele emite. Por isso o inspetor importa com `loadExts := false` e lê cada extensão pelas entradas gravadas em cada módulo (`getModuleEntries`), que a importação disponibiliza sem executar nada.
+
+Consequência para `#print axioms`: na v4.36, `Lean.collectAxioms` usa, para declarações importadas, axiomas pré-calculados gravados em cada `.olean` (`exportedAxiomsExt`). Sem as extensões carregadas, essa tabela está vazia e o algoritmo percorre os corpos de todas as constantes. O resultado do auditor, portanto, não depende de um resumo gravado no `.olean` pelo build do PR. A comparação entre o resumo gravado e o percurso dos corpos não é feita (o estado e a extensão são privados ao módulo `Lean.Util.CollectAxioms`); ver L-20.
+
+O gerador da allow-list (`Dump.lean`) é a única peça que executa initializers: o parser de comandos dos módulos só existe com as extensões carregadas. Ele roda em manutenção, sobre código revisado (o core do toolchain, ou o projeto num commit aceito), nunca sobre código de PR.

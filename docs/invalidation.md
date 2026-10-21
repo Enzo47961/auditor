@@ -50,12 +50,12 @@ Selo com `fingerprint: null` (TCB incompleta) não é armazenável como selo: o 
 
 | `kind` | Efeito nos selos selecionados | Exemplo |
 |---|---|---|
-| `revocation` | `revogado` | bug no kernel 4.22.0; defeito no inspetor v2 que omitia axiomas; política v1 tinha regra errada |
+| `revocation` | `revogado` | bug no kernel 4.36.0-rc1; defeito no inspetor v2 que omitia axiomas; política v1 tinha regra errada |
 | `retraction` | anula o efeito de um evento anterior (`supersedes`) | revogação emitida para a versão errada |
 | `advisory` | nenhum efeito no estado; o aviso aparece para o consumidor | regra de política reconsiderada, sem erro demonstrado |
 
 **Seletor (`selector`):** conjunção de condições sobre campos do selo. Exemplos:
-- `{"tcb.kernel.lean_version": "4.22.0"}`
+- `{"tcb.kernel.lean_version": "4.36.0-rc1"}`
 - `{"tcb.inspector.source_sha256": "sha256:…"}`
 - `{"tcb.policy.sha256": "sha256:…", "declaration_name": "foo"}`
 - `{"fingerprint": "sha256:…"}`

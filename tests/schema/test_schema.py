@@ -41,9 +41,13 @@ def test_every_report_validates(t, tmp_path_factory):
 
 
 def _verified(tmp_path_factory):
-    r = report(TARGETS[6], tmp_path_factory)      # 06: tudo verified, exit 0
-    assert r["exit_code"] == 0
-    return copy.deepcopy(r)
+    """Relatório válido com exit 0 e só declarações `verified`: as do cenário 06 (na v4.36,
+    `add_native` sai `unresolved` pelo axioma auxiliar nativo e é retirada)."""
+    r = copy.deepcopy(report(TARGETS[6], tmp_path_factory))
+    r["declarations"] = [d for d in r["declarations"] if d["overall_status"] == "verified"]
+    r["exit_code"] = 0
+    assert r["declarations"] and validation_errors(r) == []
+    return r
 
 
 @pytest.mark.parametrize("break_it", [

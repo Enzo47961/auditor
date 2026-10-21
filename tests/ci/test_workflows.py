@@ -87,7 +87,7 @@ def test_audit_job_is_read_only_and_does_not_persist_credentials():
     upload = [s for s in job["steps"] if s.get("uses", "").startswith("actions/upload-artifact")][0]
     assert upload["if"] == "always()" and upload["with"]["name"] == "auditor-report"
     run_step = [s for s in job["steps"] if s.get("id") == "audit"][0]
-    assert "--budget" in run_step["run"] and "$GITHUB_STEP_SUMMARY" in run_step["run"]
+    assert "--timeout-total" in run_step["run"] and "$GITHUB_STEP_SUMMARY" in run_step["run"]
 
 
 def test_audit_step_budget_clock_cache_and_job_result():
@@ -95,13 +95,16 @@ def test_audit_step_budget_clock_cache_and_job_result():
     rejeição (D-22), não por infraestrutura (exit 2)."""
     d = load(WF / "auditor-tier1.yml")
     inputs = d["on"]["workflow_call"]["inputs"]
-    assert inputs["budget-seconds"]["default"] == 300 and inputs["first-run-budget-seconds"]["default"] == 900
+    assert inputs["timeout-total-seconds"]["default"] == 300
+    assert inputs["timeout-total-first-run-seconds"]["default"] == 900
+    assert not {"budget-seconds", "first-run-budget-seconds"} & set(inputs)
     assert inputs["timeout-file-seconds"]["default"] == 90
     job = d["jobs"]["audit"]
     names = [s.get("id") for s in job["steps"]]
     assert names.index("clock") == 0                         # relógio antes de qualquer preparação
     run_step = [s for s in job["steps"] if s.get("id") == "audit"][0]
-    for flag in ("--timeout-file", "--first-run-budget", "--build-cache", "--started-at", "--started-at-kind"):
+    for flag in ("--timeout-file", "--timeout-total", "--timeout-total-first-run", "--build-cache",
+                 "--started-at", "--started-at-kind"):
         assert flag in run_step["run"]
     assert "|| rc=$?" in run_step["run"]                     # exit 2 não falha o passo
     assert run_step["env"]["TRIGGER_AT"] == "${{ github.event.pull_request.updated_at }}"

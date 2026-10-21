@@ -15,8 +15,19 @@
 #                      #eval, #reduce, #guard, #widget, #guard_expr, #check_tactic,
 #                      #check_tactic_failure → fail-closed; #check, #synth,
 #                      #check_simp → allowed (revisados: não executam código compilado).
+#                      OU envolve outro comando de forma que ele escape da checagem de
+#                      coluna 0 da allow-list (with_weak_namespace: o comando envolvido
+#                      fica indentado, por exigência do parser).
 # Na dúvida, classificar como fail-closed (assimetria de erro).
-classification_version = "3"
+#
+# Revisão da subida para v4.36.0-rc1 (40 comandos novos; D-40). Ficaram em `allowed`, por
+# não executarem código e terem efeito visível à Etapa B ou nenhum: #check_assertions,
+# #import_path, #show_deprecated_modules (só leem o ambiente); assert_not_exists,
+# assert_not_imported, deprecated_module, deprecated_syntax, grind_annotated (metadados);
+# coinductive (declaração, como inductive); recall (só confere declaração existente);
+# unlock_limits (a Etapa A o registra como os três `set_option … 0` que ele aplica, e a
+# política de set_option decide; D-41). Os demais novos estão abaixo.
+classification_version = "4"
 
 syntax_extension = [
   "binder_predicate", "declare_syntax_cat", "declare_simp_like_tactic", "elab", "elab_rules",
@@ -35,7 +46,17 @@ metaprogramming = [
   "grind_propagator", "init_grind_norm", "init_quot", "initialize", "register_builtin_option",
   "register_label_attr", "register_linter_set", "register_option", "register_simp_attr",
   "register_tactic_tag", "«reset_grind_attrs%»", "run_cmd", "run_elab", "run_meta", "simproc",
-  "simproc_decl", "«simproc_pattern%»", "set_premise_selector", "tactic_extension", "test_extern",
+  "simproc_decl", "«simproc_pattern%»", "tactic_extension", "test_extern",
+  # novos em v4.36.0-rc1 (D-40)
+  "#guard_panic", "#grind_lint", "reprove", "with_weak_namespace", "docs_to_verso",
+  "builtin_cbv_simproc", "builtin_cbv_simproc_decl", "«builtin_cbv_simproc_pattern%»",
+  "cbv_simproc", "cbv_simproc_decl", "«cbv_simproc_pattern%»",
+  "declare_command_config_elab_legacy", "declare_config_elab_legacy", "declare_core_config_elab",
+  "declare_term_config_elab", "def_eval_config_item",
+  "declare_decidable_int_quantifiers", "declare_decidable_uint_quantifiers",
+  "declare_eval_bin", "declare_eval_bin_bitwise", "declare_eval_bin_bool_pred",
+  "register_error_explanation", "register_grind_attr", "register_sym_dsimp", "register_sym_simp",
+  "register_sym_simp_attr", "register_try?_tactic", "set_library_suggestions",
 ]
 
 # Tokens que não são comandos mas aparecem legitimamente na coluna 0 como

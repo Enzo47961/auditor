@@ -16,8 +16,8 @@ A lógica fica em `auditor-ci` (`src/auditor/ci.py`), testada em `tests/ci`. Os 
 
 - **Roda em todo PR que toca `.lean`**: o modelo filtra por `paths: ["**.lean"]`, e o job audita os arquivos `.lean` alterados entre base e head que ainda existem.
 - **Orçamento do PR = wall-clock do trigger até o relatório (D-28).** O relógio começa no evento do PR (`github.event.pull_request.updated_at`; numa re-execução, no início do job) e **inclui a preparação**: instalação, `lake exe cache get` e compilação do inspetor. O `outcome.json` declara `clock_origin`, `setup_elapsed_s`, `audit_elapsed_s` e `elapsed_s`.
-  - **Steady-state (`cache_state` `warm` ou `delta`): 5 min** (`budget-seconds`, padrão 300).
-  - **Cache `cold`: orçamento estendido** (`first-run-budget-seconds`, padrão 900) e `first_run: true`. Se a auditoria passar dos 5 min sem estourar o estendido, o PR **não falha**: `cache_cold_extension: true` e label `auditor-first-run` (diferente de `auditor-failed-infra`). O SLA de 5 min é declarado como steady-state.
+  - **Steady-state (`cache_state` `warm` ou `delta`): 5 min** (`timeout-total-seconds`; `auditor-ci run --timeout-total`; padrão 300).
+  - **Cache `cold`: orçamento estendido** (`timeout-total-first-run-seconds`; `--timeout-total-first-run`; padrão 900) e `first_run: true`. Se a auditoria passar dos 5 min sem estourar o estendido, o PR **não falha**: `cache_cold_extension: true` e label `auditor-first-run` (diferente de `auditor-failed-infra`). O SLA de 5 min é declarado como steady-state.
 - **`cache_state`** vem de dois sinais medidos, nunca de suposição:
   - cache de build do alvo (`~/.cache/mathlib`, restaurado por `actions/cache/restore`): `hit` (chave exata: mesmo commit base), `partial` (só `restore-keys`), `miss`, ou `none` (alvo sem `cache-get`);
   - binário do inspetor no cache local (`hit`/`miss`, medido pelo `auditor-ci`).
@@ -42,11 +42,38 @@ PRs do Mathlib frequentemente vêm de forks. O job que audita precisa compilar o
 ## Instalação no fork do Mathlib (camada 2)
 
 1. Fixar o auditor num commit: `AUDITOR_SHA`.
-   - **Toolchain:** o auditor traz allow-list do core só para os toolchains em `src/auditor/data/allowlist/` (hoje, `leanprover/lean4:v4.22.0`). A base dos PRs de medição precisa usar um desses: no Mathlib, a tag `v4.22.0`. Com outro toolchain, todo arquivo sai `allowlist_unavailable` (fail-closed). Para medir no Mathlib atual, primeiro subir o toolchain do auditor (procedimento em `docs/maintenance.md`), o que também revalida o inspetor contra a API nova do Lean.
+   - **Toolchain:** o auditor traz allow-list do core só para o toolchain fixado (`src/auditor/data/allowlist/`; hoje, `leanprover/lean4:v4.36.0-rc1`, o do Mathlib `master` no commit `e1b2403b`). A base dos PRs de medição precisa usar esse toolchain. Se o Mathlib subir de versão antes da medição, há duas saídas: fixar o fork no commit `e1b2403b` (ou outro com o mesmo `lean-toolchain`), ou subir o toolchain do auditor de novo (`docs/maintenance.md`). Com outro toolchain, todo arquivo sai `allowlist_unavailable` (fail-closed).
 2. Copiar `ci/templates/*.yml` para `.github/workflows/` do fork e substituir `OWNER/auditor` e `AUDITOR_SHA`.
 3. Gerar e versionar a allow-list do Mathlib: `auditor-gen-allowlist --project .` depois de `lake exe cache get`, e classificar os comandos em `.auditor/classification.toml` (ver `docs/maintenance.md`). Sem ela, todo arquivo do Mathlib sai `Não resolvida` por `unknown_command`.
 4. Fazer o **primeiro run** (cache cold): um PR qualquer que toque um `.lean`. Ele declara `first_run: true` e popula os caches. Não é medição de steady-state.
 5. Abrir os PRs de medição, **depois** do primeiro run.
+
+## Escolha do arquivo de maior fanout (D-38)
+
+`tools/layer2/fanout.py <projeto> --root Mathlib` ordena os módulos do projeto por fanout.
+
+**(a) Como é calculado.**
+1. Lista os `.lean` sob `<projeto>/<root>/` e `<projeto>/<root>.lean`; o nome do módulo é o caminho relativo com `/` → `.`.
+2. Lê só o **cabeçalho** de cada arquivo: linhas em branco, comentários de linha (`--`) e de bloco (`/- … -/`, com aninhamento), `prelude`, `module` e linhas `import` (com os modificadores `public`, `meta`, `private`; vários módulos por linha). O primeiro comando de outro tipo encerra o cabeçalho, como no Lean. Nome de módulo ilegível (ex.: com `«»`) ou comentário de bloco dentro de uma linha `import` é erro (exit 2), nunca ignorado.
+3. Monta o grafo de imports **restrito ao projeto**: imports de fora (`Init`, `Std`, `Lean`, dependências) são descartados.
+4. Inverte as arestas e calcula, por busca em largura, para cada módulo:
+   - `direct`: quantos módulos o importam diretamente;
+   - `transitive`: quantos módulos dependem dele direta ou transitivamente (fecho reverso);
+   - `imports_transitive`: quantos módulos do projeto ele mesmo importa, direta ou transitivamente (fecho direto).
+5. Ordena por `transitive` decrescente, depois `direct` decrescente, depois nome. Determinístico.
+
+Não há peso por uso: uma aresta é um `import`, não uma referência a constante.
+
+**(b) Por que essa definição.**
+- O fanout reverso transitivo é a medida de "raio de invalidação": mudar o módulo invalida o `.olean` de todos os dependentes. No Mathlib, isso decide quanto do cache do `lake exe cache get` deixa de corresponder ao commit do PR. Se isso pesa no tempo é **hipótese a medir**, não fato: o `lake build` do módulo-alvo só precisa dos módulos que ele importa, não dos dependentes; o efeito esperado está na preparação (`cache get`), que o orçamento de 5 min passou a incluir (D-28).
+- Restringir ao projeto e usar só o cabeçalho torna a ferramenta barata (não precisa compilar nada nem carregar `.olean`) e reprodutível a partir do checkout.
+- Peso por uso (contar referências a constantes) exigiria o ambiente elaborado de todo o Mathlib e mediria outra coisa: o quanto as provas dependem do módulo, não o quanto do build é invalidado. Fica fora.
+- **Ressalva, para a medição não ser mal lida:** o custo da **auditoria** de um arquivo (o `lake build` do módulo-alvo e a leitura do ambiente pelo inspetor) cresce com o fecho **direto** (`imports_transitive`), não com o fanout. Um arquivo de fanout máximo tende a estar na base da hierarquia, com fecho direto pequeno. Por isso a ferramenta também imprime `imports_transitive`; o arquivo "médio" ou um quarto PR pode ser escolhido pelo maior fecho direto, se o revisor quiser medir o pior caso da auditoria em si.
+
+**(c) Como é testado** (`tests/maintenance/test_layer2_tools.py`):
+- cabeçalho: comentários aninhados, `module`, `public import`, vários módulos por linha, comentário no fim da linha, parada no primeiro comando (um `import` depois de um `theorem` não conta);
+- nome ilegível → erro;
+- grafo sintético de 5 módulos com dependência transitiva, import externo descartado e módulo raiz: valores exatos de `direct`, `transitive` e `imports_transitive` e a ordem do ranking.
 
 ## Evidência pendente (camada 2): roteiro
 

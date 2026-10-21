@@ -13,9 +13,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from auditor import ci
-from conftest import CONFORMANCE, DEFAULT_POLICY, require_lake
+from conftest import CONFORMANCE, DEFAULT_POLICY, ROOT, require_lake
 
-PASS = str(CONFORMANCE / "06-tcb-boundary" / "Fixture" / "Target.lean")
+PASS = str(ROOT / "tests" / "ci" / "clean-project" / "Fixture" / "Target.lean")   # tudo verified
 FAIL = str(CONFORMANCE / "01-sorry-target" / "Fixture" / "Target.lean")
 
 
@@ -23,9 +23,17 @@ def run(tmp_path, files, budget=300.0, extra=()):
     out = tmp_path / "out"
     gh = tmp_path / "gh_output"
     code = ci.main(["run", *files, "--policy", str(DEFAULT_POLICY), "--out-dir", str(out),
-                    "--budget", str(budget), "--github-output", str(gh), *extra])
+                    "--timeout-total", str(budget), "--github-output", str(gh), *extra])
     outcome = json.loads((out / "outcome.json").read_text(encoding="utf-8"))
     return code, outcome, (out / "summary.md").read_text(encoding="utf-8"), gh.read_text(encoding="utf-8")
+
+
+def test_old_budget_flags_removed(tmp_path):
+    """D-36 (instrução 12): `--budget`/`--first-run-budget` viraram `--timeout-total`/
+    `--timeout-total-first-run`; os nomes antigos não são aceitos."""
+    for old in ("--budget", "--first-run-budget"):
+        with pytest.raises(SystemExit):
+            ci.main(["run", "--policy", str(DEFAULT_POLICY), "--out-dir", str(tmp_path), old, "5"])
 
 
 def ago(seconds):

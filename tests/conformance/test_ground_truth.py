@@ -11,20 +11,26 @@ import pytest
 
 from conftest import CONFORMANCE, ROOT, parse_print_axioms, require_lake
 
+def nax(owner):
+    """v4.36: `native_decide` adiciona, por uso, o axioma `<dona>._native.native_decide.ax_1_1`
+    (`Lean.Meta.nativeEqTrue`); na v4.22 era `Lean.ofReduceBool`."""
+    return f"{owner}._native.native_decide.ax_1_1"
+
+
 EXPECTED_AXIOMS = {
     "01-sorry-target": {"foo": {"sorryAx"}, "ok": set()},
     "02-sorry-transitive": {"a_main": {"sorryAx"}, "a_clean": set()},
     "03-axiom-unknown": {"usa_axioma": {"minhaAxioma"}, "nao_usa": set()},
-    "04-implemented-by": {"f_bad": {"Lean.ofReduceBool"}, "f_bad_is_false": set(), "g_zero": set()},
-    "04b-extern": {"e_bad": {"Lean.ofReduceBool"}, "e_bad_is_false": set(), "e_zero": set(),
-                   "h_zero": set(), "e_mixed": {"Lean.ofReduceBool"}, "e_mixed_is_false": set()},
-    "06-tcb-boundary": {"add_native": {"Lean.ofReduceBool"}, "add_kernel": set(),
+    "04-implemented-by": {"f_bad": {nax("f_bad")}, "f_bad_is_false": set(), "g_zero": set()},
+    "04b-extern": {"e_bad": {nax("e_bad")}, "e_bad_is_false": set(), "e_zero": set(),
+                   "h_zero": set(), "e_mixed": {nax("e_mixed")}, "e_mixed_is_false": set()},
+    "06-tcb-boundary": {"add_native": {nax("add_native")}, "add_kernel": set(),
                         "add_native_kernel": set()},
     "05-native-decide": {
-        **{n: {"Lean.ofReduceBool"} for n in (
+        **{n: {nax(n)} for n in (
             "nd_nodoc", "nd_plain_doc", "nd_justified", "drift_victim", "bad_multiline",
-            "bad_escape", "bad_no_reviewer", "bad_handle", "bad_duplicate",
-            "consumes_justified", "consumes_unjustified")},
+            "bad_escape", "bad_no_reviewer", "bad_handle", "bad_duplicate")},
+        "consumes_justified": {nax("nd_justified")}, "consumes_unjustified": {nax("nd_nodoc")},
         "drift_holder": set(),
     },
 }

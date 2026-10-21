@@ -26,7 +26,9 @@ def test_04a_candidate(result, name):
 
 def test_04b_combined_pattern_rejected(result):
     d = result.decl("f_bad")
-    assert state(d) == ("Rejeitada", "Conforme", "rejected")   # ofReduceBool justificado
+    # justificado; premissas `Não resolvido` pelo axioma auxiliar nativo (v4.36, Q9 pendente)
+    assert state(d) == ("Rejeitada", "Não resolvido", "rejected")
+    assert "native_auxiliary_axiom" in reasons(d, "premises_status")
     assert "implemented_by_reaches_native_eval" in reasons(d, "proof_status")
     assert "native_decide_unjustified" not in violation_rules(d)
     assert "implemented_by_reaches_native_eval" in violation_rules(d)

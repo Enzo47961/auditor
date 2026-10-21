@@ -36,6 +36,7 @@ class Policy:
     allowed_options: tuple[str, ...]
     exemption_paths: tuple[str, ...]
     exemption_reason: str
+    native_auxiliary_action: str = "fail_closed"
 
     def option_recognized(self, option: str) -> bool:
         return any(option == a or (a.endswith(".") and option.startswith(a)) for a in self.allowed_options)
@@ -44,12 +45,14 @@ class Policy:
 SCHEMA = {
     "": {"policy_version": str, "axioms": dict, "native_implementations": dict, "set_option": dict},
     "axioms": {"allowed": list, "admissions": list, "forbidden": list, "native_evaluation": list,
+               "native_auxiliary_action": str,
                "unknown_axiom_action": str, "unknown_axiom_justification": str},
     "native_implementations": {"attributes": list, "trusted_boundary": str},
     "set_option": {"forbidden": list, "allowed": list, "heartbeat_exemption": dict},
     "set_option.heartbeat_exemption": {"paths": list, "reason": str},
 }
 UNKNOWN_AXIOM_ACTIONS = ("fail_closed", "allow_with_warning")
+NATIVE_AUXILIARY_ACTIONS = ("fail_closed",)    # única opção até a decisão da Q9
 KNOWN_ATTRIBUTES = ("implemented_by", "extern")
 KNOWN_BOUNDARIES = ("toolchain",)
 
@@ -99,6 +102,9 @@ def load_policy(path: Path) -> Policy:
             if n in seen:
                 raise PolicyError(f"axioma {n!r} em duas listas: {seen[n]} e {k}")
             seen[n] = k
+    if ax["native_auxiliary_action"] not in NATIVE_AUXILIARY_ACTIONS:
+        raise PolicyError(f"native_auxiliary_action desconhecida: {ax['native_auxiliary_action']!r} "
+                          f"(conhecidas: {NATIVE_AUXILIARY_ACTIONS})")
     if ax["unknown_axiom_action"] not in UNKNOWN_AXIOM_ACTIONS:
         raise PolicyError(f"unknown_axiom_action desconhecida: {ax['unknown_axiom_action']!r}")
     if ax["unknown_axiom_action"] == "allow_with_warning" and not ax["unknown_axiom_justification"].strip():
@@ -134,6 +140,7 @@ def load_policy(path: Path) -> Policy:
         native_attributes=attrs, trusted_boundary=ni["trusted_boundary"],
         forbidden_options=tuple(forbidden_opts), allowed_options=allowed_opts,
         exemption_paths=paths, exemption_reason=ex["reason"],
+        native_auxiliary_action=ax["native_auxiliary_action"],
     )
 
 

@@ -10,27 +10,40 @@ Uso: `inspect <Módulo> <saída.json>`, rodado sob `lake env` no projeto-alvo
 (o `LEAN_PATH` vem do ambiente fixado do projeto).
 
 Para cada declaração do módulo-alvo escrita no fonte:
-* `axioms_official` — `Lean.collectAxioms`, o mesmo algoritmo de `#print axioms`;
-* `axioms_closure`  — fecho de dependências calculado aqui, de forma independente,
-  com o mesmo percurso; divergência entre os dois é exposta, não resolvida;
+* `axioms_official` — `Lean.collectAxioms`, o código de `#print axioms`. Desde a v4.36 ele usa,
+  para declarações importadas, axiomas pré-calculados gravados em cada `.olean`
+  (`exportedAxiomsExt`). Sem `loadExts` essa extensão está vazia, e o algoritmo percorre os
+  corpos de todas as constantes: o resultado não depende de resumo gravado no `.olean`;
+* `axioms_closure`  — fecho de dependências calculado aqui, de forma independente, com o mesmo
+  percurso; divergência entre os dois é exposta, não resolvida;
 * `axiom_referrers` — para cada axioma, as constantes do fecho que o referenciam
   diretamente, e a declaração dona de cada uma (componentes internos removidos);
 * `implemented_by`, `extern` — constantes do fecho com esses atributos, com o módulo e o
   caminho real do `.olean` de origem (a classificação TCB/usuário é do Python: Q7);
+* `native_auxiliary` — axiomas do fecho com a FORMA de axioma auxiliar de avaliação nativa
+  (v4.36: `native_decide`/`bv_decide` adicionam, por uso, um axioma `<dona>._native.<tática>.ax_…`
+  com tipo `@Eq Bool e true`, `e` fechado; o kernel não o reconfere). Fato bruto: a forma não
+  prova a origem — um `axiom` escrito à mão pode ter a mesma (Q9);
 * `missing` — constantes referenciadas que não existem no ambiente (o algoritmo
   oficial as ignora em silêncio);
 * `docstring`, `depends_on` (outras declarações do alvo no fecho).
 No nível do arquivo: `sysroot`, `search_path` (para conferência contra o manifest),
 `owners` (docstring de toda declaração dona encontrada, inclusive fora do alvo).
 Também emite os metadados do fingerprint (`@[simp]`, `@[ext]`, `@[reducible]`,
-`@[implemented_by]` de todo o ambiente importado). -/
+`@[implemented_by]` de todo o ambiente importado).
 
-def inspectorVersion : String := "2"
+O ambiente é importado SEM carregar as extensões (`loadExts := false`): carregá-las exige
+`enableInitializersExecution`, que executaria código dos módulos importados — inclusive do
+PR auditado — dentro deste processo (D-39). Toda extensão é lida pelas entradas gravadas em
+cada módulo (`getModuleEntries`), que a importação disponibiliza sem executar nada. -/
 
-/-- Dependências diretas, espelhando `Lean.CollectAxioms.collect` (v4.22.0). -/
+def inspectorVersion : String := "4"
+
+/-- Dependências diretas, espelhando `Lean.CollectAxioms.collect` (v4.36.0-rc1: o tipo de um
+axioma também é percorrido). -/
 def directDeps (ci : ConstantInfo) : Array Name :=
   match ci with
-  | .axiomInfo _    => #[]
+  | .axiomInfo v    => v.type.getUsedConstants
   | .defnInfo v     => v.type.getUsedConstants ++ v.value.getUsedConstants
   | .thmInfo v      => v.type.getUsedConstants ++ v.value.getUsedConstants
   | .opaqueInfo v   => v.type.getUsedConstants ++ v.value.getUsedConstants
@@ -96,6 +109,27 @@ def nameJ (n : Name) : Json := toJson n.toString
 def nameArr (ns : Array Name) : Json :=
   Json.arr ((ns.qsort (·.toString < ·.toString)).map nameJ)
 
+/-- Docstring como texto bruto (a gramática da justificativa é casada sobre ele). Docstring
+Verso não tem texto bruto: vira `none`, e a justificativa conta como ausente (fail-closed). -/
+def rawDocString? (env : Environment) (n : Name) : IO (Option String) := do
+  match ← findInternalDocString? env n (includeBuiltin := false) with
+  | some (.inl s) => return some s
+  | _ => return none
+
+/-- Tática de um axioma com a forma de auxiliar de avaliação nativa (`Lean.Meta.nativeEqTrue`,
+v4.36.0-rc1): nome `p._native.<tática>.ax_…` e tipo `@Eq.{1} Bool e Bool.true`, `e` fechado. -/
+def nativeAuxTactic? (ci : ConstantInfo) : Option Name :=
+  match ci, ci.name with
+  | .axiomInfo v, .str (.str (.str _ "_native") tac) last =>
+    if !last.startsWith "ax_" then none else
+    let t := v.type
+    if t.isAppOfArity ``Eq 3 && t.getAppFn.constLevels! == [levelOne]
+        && t.getArg! 0 == mkConst ``Bool && t.getArg! 2 == mkConst ``Bool.true then
+      let e := t.getArg! 1
+      if e.hasLooseBVars || e.hasFVar || e.hasMVar then none else some (.mkSimple tac)
+    else none
+  | _, _ => none
+
 /-- Declarações do alvo escritas no fonte: têm faixa de declaração e não são detalhe interno. -/
 def targetDecls (env : Environment) (modIdx : ModuleIdx) : Array Name := Id.run do
   let mut out := #[]
@@ -129,7 +163,8 @@ def inspectDecl (c : Ctx) (targets : NameSet) (n : Name) : IO (Json × Array Nam
           referrers := referrers.insert d ((referrers.getD d #[]).push cur)
         unless visited.contains d do stack := stack.push d
   -- algoritmo oficial
-  let official := (((CollectAxioms.collect n).run env).run {}).2.axioms
+  let (official, _) ← (collectAxioms n : CoreM (Array Name)).toIO
+    { fileName := "<inspect>", fileMap := default } { env }
   let mut implBy := #[]
   let mut ext := #[]
   let mut dependsOn := #[]
@@ -147,7 +182,11 @@ def inspectDecl (c : Ctx) (targets : NameSet) (n : Name) : IO (Json × Array Nam
   let owners := axioms.foldl (init := #[]) fun acc ax =>
     (referrers.getD ax #[]).foldl (init := acc) fun acc r =>
       match ownerOf env r with | some o => acc.push o | none => acc
-  let doc ← findDocString? env n (includeBuiltin := false)
+  let doc ← rawDocString? env n
+  let nativeAux := axioms.qsort (·.toString < ·.toString) |>.filterMap fun ax =>
+    (env.find? ax).bind nativeAuxTactic? |>.map fun tac =>
+      Json.mkObj [("axiom", nameJ ax), ("tactic", nameJ tac),
+                  ("owner", toJson ((ownerOf env ax).map toString))]
   return (·, owners) <| Json.mkObj [
     ("name", nameJ n),
     ("kind", toJson (kindOf ci)),
@@ -159,17 +198,25 @@ def inspectDecl (c : Ctx) (targets : NameSet) (n : Name) : IO (Json × Array Nam
     ("axiom_referrers", Json.arr refJ),
     ("implemented_by", Json.arr implBy),
     ("extern", Json.arr ext),
+    ("native_auxiliary", Json.arr nativeAux),
     ("missing", nameArr missing),
     ("depends_on", nameArr dependsOn),
     ("closure_size", toJson visited.size)]
 
-/-- Metadados do fingerprint: nomes ordenados de todo o ambiente importado. -/
+/-- Metadados do fingerprint: nomes ordenados de todo o ambiente importado. `@[simp]` e
+`@[ext]` vêm das entradas globais gravadas nos módulos (sem `loadExts`). -/
 def metadata (env : Environment) : Json := Id.run do
-  let simp := Meta.simpExtension.getState env
-  let mut simpNames : Array Name := simp.toUnfold.toList.toArray
-  for o in simp.lemmaNames.toList do
-    if let .decl d .. := o then simpNames := simpNames.push d
-  let extNames := (Meta.Ext.extExtension.getState env).tree.values.map (·.declName)
+  let mut simpNames : Array Name := #[]
+  let mut extNames : Array Name := #[]
+  for i in Array.range env.header.moduleNames.size do
+    for e in Meta.simpExtension.ext.getModuleEntries env i do
+      if let .global se := e then
+        match se with
+        | .thm t => if let .decl d .. := t.origin then simpNames := simpNames.push d
+        | .toUnfold d => simpNames := simpNames.push d
+        | .toUnfoldThms d _ => simpNames := simpNames.push d
+    for e in Meta.Ext.extExtension.ext.getModuleEntries env i do
+      if let .global t := e then extNames := extNames.push t.declName
   let mut red := #[]
   let mut impl := #[]
   for (n, _) in env.constants.toList do
@@ -177,7 +224,7 @@ def metadata (env : Environment) : Json := Id.run do
     if let some i := Compiler.implementedByAttr.getParam? env n then
       impl := impl.push (Name.mkStr n s!"→{i}")
   return Json.mkObj [
-    ("simp", nameArr simpNames.toList.eraseDups.toArray), ("ext", nameArr extNames),
+    ("simp", nameArr simpNames.toList.eraseDups.toArray), ("ext", nameArr extNames.toList.eraseDups.toArray),
     ("reducible", nameArr red), ("implemented_by", nameArr impl)]
 
 def main (args : List String) : IO UInt32 := do
@@ -186,7 +233,7 @@ def main (args : List String) : IO UInt32 := do
   let sysroot ← findSysroot
   initSearchPath sysroot
   let mod := modStr.toName
-  let env ← importModules #[{module := mod}] {} (loadExts := true)
+  let env ← importModules #[{module := mod}] {} (loadExts := false)
   let some modIdx := env.getModuleIdx? mod
     | IO.eprintln s!"módulo não encontrado no ambiente: {mod}"; return 2
   let c : Ctx := { env, deps := ← IO.mkRef {}, oleans := ← IO.mkRef {} }
@@ -201,7 +248,7 @@ def main (args : List String) : IO UInt32 := do
   let mut ownersJ := #[]
   for o in owners.toArray.qsort (·.toString < ·.toString) do
     ownersJ := ownersJ.push <| Json.mkObj [("name", nameJ o),
-      ("docstring", toJson (← findDocString? env o (includeBuiltin := false))),
+      ("docstring", toJson (← rawDocString? env o)),
       ("module", toJson ((c.moduleOf o).map toString))]
   let sp ← searchPathRef.get
   let j := Json.mkObj [

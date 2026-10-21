@@ -38,7 +38,7 @@ REPORTED = {
            "consumes_justified", "consumes_unjustified"},
     "edges": {"secret", "I", "I.mk", "uses_I", "_private.Fixture.Edges.0.hidden", "uses_hidden",
               "outer", "outer.aux", "m", "P", "P.mk", "P.x", "instInhabitedP", "loop",
-              "local_ax", "uses_local"},
+              "local_ax", "uses_local", "uses_spoof", "uses_spoof_bad"},
     "macro": {"two_plus_two", "tacticObviously"},   # `macro` gera o parser como constante
     "unicode": {"«Nat​Extra».trivially"},
 }
@@ -124,6 +124,15 @@ def test_02_transitive_sorry_traced_to_d():
     assert owners(a, "sorryAx") == {"d_lemma"}
 
 
+def nax(owner):
+    """Axioma auxiliar de `native_decide` na v4.36 (`<dona>._native.native_decide.ax_1_1`)."""
+    return f"{owner}._native.native_decide.ax_1_1"
+
+
+def native_aux(d):
+    return {(a["axiom"], a["tactic"], a["owner"]) for a in d["native_auxiliary"]}
+
+
 def test_03_unknown_axiom_is_a_fact_not_a_judgement():
     d = decl(inspect("03"), "usa_axioma")
     assert d["axioms_official"] == ["minhaAxioma"]
@@ -136,8 +145,9 @@ def test_04_implemented_by_facts():
     assert ib("g") == ib("g_zero") == {("g", "gImpl", "user")}
     assert ib("f") == ib("f_bad") == {("f", "fImpl", "user")}
     assert ib("gImpl") == ib("fImpl") == set()
-    assert decl(r, "f_bad")["axioms_official"] == ["Lean.ofReduceBool"]
-    assert owners(decl(r, "f_bad"), "Lean.ofReduceBool") == {"f_bad"}
+    assert decl(r, "f_bad")["axioms_official"] == [nax("f_bad")]
+    assert native_aux(decl(r, "f_bad")) == {(nax("f_bad"), "native_decide", "f_bad")}
+    assert owners(decl(r, "f_bad"), nax("f_bad")) == {"f_bad"}
     assert decl(r, "g_zero")["axioms_official"] == []
 
 
@@ -146,7 +156,7 @@ def test_04b_extern_facts():
     assert externs(decl(r, "e_bad"), "user") == {"myF"}
     assert externs(decl(r, "e_zero"), "user") == {"myF"}
     assert externs(decl(r, "h"), "user") == externs(decl(r, "h_zero"), "user") == {"h"}
-    assert owners(decl(r, "e_bad"), "Lean.ofReduceBool") == {"e_bad"}
+    assert owners(decl(r, "e_bad"), nax("e_bad")) == {"e_bad"}
     myf = [e for e in decl(r, "e_bad")["extern"] if e["name"] == "myF"][0]
     assert myf["module"] == "Fixture.Dep"
 
@@ -164,7 +174,9 @@ def test_06_tcb_boundary_canary():
     toolchain, e nada no fecho é user-level. Se o Lean mover `Nat.add` ou a fronteira mudar,
     este teste falha e a política precisa ser revista (docs/tcb.md)."""
     r = inspect("06")
-    assert r.boundary["toolchain_roots"] == ["Init", "Lake", "LakeMain", "Lean", "Leanc", "Std"]
+    # v4.36.0-rc1 declara LeanChecker, LeanExport e LeanIR além das raízes da v4.22 (D-42).
+    assert r.boundary["toolchain_roots"] == ["Init", "Lake", "LakeMain", "Lean", "LeanChecker",
+                                             "LeanExport", "LeanIR", "Leanc", "Std"]
     for n in ("add_native", "add_kernel"):
         d = decl(r, n)
         nat_add = [e for e in d["extern"] if e["name"] == "Nat.add"]
@@ -191,9 +203,10 @@ def test_owner_docstrings_include_owners_outside_target():
 def test_05_owner_attribution():
     r = inspect("05")
     for n in REPORTED["05"] - {"drift_holder", "consumes_justified", "consumes_unjustified"}:
-        assert owners(decl(r, n), "Lean.ofReduceBool") == {n}, n
-    assert owners(decl(r, "consumes_justified"), "Lean.ofReduceBool") == {"nd_justified"}
-    assert owners(decl(r, "consumes_unjustified"), "Lean.ofReduceBool") == {"nd_nodoc"}
+        assert owners(decl(r, n), nax(n)) == {n}, n
+        assert native_aux(decl(r, n)) == {(nax(n), "native_decide", n)}, n
+    assert owners(decl(r, "consumes_justified"), nax("nd_justified")) == {"nd_justified"}
+    assert owners(decl(r, "consumes_unjustified"), nax("nd_nodoc")) == {"nd_nodoc"}
     assert decl(r, "drift_holder")["axioms_official"] == []
     assert decl(r, "consumes_unjustified")["depends_on"] == ["nd_nodoc"]
 
@@ -219,13 +232,31 @@ def test_edges_private_declaration_reported_and_owned():
     assert owners(decl(r, "uses_hidden"), "sorryAx") == {"_private.Fixture.Edges.0.hidden"}
 
 
-def test_edges_where_auxiliary_owned_by_top_level_declaration():
-    """Convenção observada (L-4): o `native_decide` de `outer.aux` gera `outer._proof_N`,
-    então a dona é `outer`. Justificativa em `outer.aux` não é encontrada → violação
-    (direção segura). Se a convenção mudar, este teste acusa."""
+def test_edges_where_auxiliary_owned_by_declaration_that_uses_it():
+    """Convenção observada (L-4), v4.36.0-rc1: o `native_decide` de `outer.aux` adiciona o
+    axioma `outer._native.native_decide.ax_1_1` (nome derivado da declaração de topo), mas quem
+    o referencia é o próprio `outer.aux`: a dona (por referenciador) é `outer.aux`. Na v4.22 a
+    referência passava por `outer._proof_N` e a dona era `outer`. Se a convenção mudar, este
+    teste acusa."""
     r = inspect("edges")
-    assert owners(decl(r, "outer.aux"), "Lean.ofReduceBool") == {"outer"}
-    assert owners(decl(r, "outer"), "Lean.ofReduceBool") == {"outer"}
+    ax = nax("outer")
+    assert owners(decl(r, "outer.aux"), ax) == {"outer.aux"}
+    assert owners(decl(r, "outer"), ax) == {"outer.aux"}
+    assert native_aux(decl(r, "outer.aux")) == {(ax, "native_decide", "outer")}
+
+
+def test_edges_native_auxiliary_recognized_by_form_only():
+    """Q9: o reconhecimento é pela forma (nome `…._native.<tática>.ax_…` + tipo `@Eq Bool e true`,
+    `e` fechado). Um `axiom` escrito à mão com a mesma forma é reconhecido igual — por isso a
+    política o trata como fail-closed. Nome certo com tipo errado não é reconhecido."""
+    r = inspect("edges")
+    ax = "spoof._native.native_decide.ax_1"
+    assert native_aux(decl(r, "uses_spoof")) == {(ax, "native_decide", None)}
+    assert decl(r, "uses_spoof")["axioms_official"] == [ax]
+    assert decl(r, "uses_spoof_bad")["native_auxiliary"] == []
+    assert decl(r, "uses_spoof_bad")["axioms_official"] == ["spoof_bad._native.native_decide.ax_1"]
+    for n in ("uses_I", "uses_hidden", "uses_local", "m", "loop"):
+        assert decl(r, n)["native_auxiliary"] == [], n
 
 
 def test_edges_internal_names_never_reported():
@@ -324,8 +355,8 @@ def test_unrecognized_toolchain_format(scratch):
 def _facts(**over):
     d = {"name": "x", "kind": "theorem", "axioms_official": [], "axioms_closure": [],
          "axiom_referrers": [], "implemented_by": [], "extern": [], "missing": [],
-         "depends_on": [], "docstring": None}
-    f = {"inspector_version": B.INSPECTOR_VERSION, "lean_version": "4.22.0", "lean_githash": "x",
+         "depends_on": [], "docstring": None, "native_auxiliary": []}
+    f = {"inspector_version": B.INSPECTOR_VERSION, "lean_version": "4.36.0-rc1", "lean_githash": "x",
          "module": "M", "declarations": [d],
          "metadata": {k: [] for k in ("simp", "ext", "reducible", "implemented_by")}}
     for k, v in over.items():
@@ -335,7 +366,7 @@ def _facts(**over):
 
 def _ingest(facts):
     r = B.StageBResult(file="M.lean", module="M")
-    B._ingest(r, facts, "4.22.0")
+    B._ingest(r, facts, "4.36.0-rc1")
     return r
 
 
@@ -345,6 +376,7 @@ def test_ingest_clean():
 
 
 @pytest.mark.parametrize("over,code", [
+    ({"native_auxiliary": None}, "inspector_field_missing"),
     ({"axioms_official": ["sorryAx"], "axioms_closure": []}, "inspector_disagreement"),
     ({"missing": ["Ghost"]}, "missing_constants"),
     ({"axiom_referrers": [{"axiom": "sorryAx", "referrers": [{"name": "_x", "owner": None}]}]},

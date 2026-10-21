@@ -186,6 +186,52 @@ def test_attribute_not_in_policy_is_ignored_by_rule():
     assert ev(fact(ext=[("h", "user")]), policy=pol)[0] == "Validada"
 
 
+# ------------------------------------------------------------------ axioma auxiliar nativo (v4.36, Q9)
+
+AUX = "t._native.native_decide.ax_1_1"
+
+
+def aux_fact(name="t", owner="t", doc=None, **kw):
+    d = fact(name=name, axioms=[AUX], refs={AUX: [(owner, owner)]}, doc=doc, **kw)
+    d["native_auxiliary"] = [{"axiom": AUX, "tactic": "native_decide", "owner": "t"}]
+    return d
+
+
+def test_native_auxiliary_justified_is_unresolved_never_verified():
+    """Até a Q9: a forma não prova a origem, então nem a justificativa válida chega a `verified`."""
+    p, m, o, r = ev(aux_fact(doc=JUST), owner_docs={"t": {"docstring": JUST}})
+    assert (p, m, o) == ("Validada", "Não resolvido", "unresolved")
+    assert codes(r, "premises_status") == {"native_auxiliary_axiom"}
+    assert r["justification"] == {"reason": "motivo", "reviewer": "@rev"} and r["policy_violations"] == []
+    assert [a["classification"] for a in r["axioms"]] == ["native_auxiliary"]
+
+
+def test_native_auxiliary_unjustified_keeps_o1_rule():
+    p, m, o, r = ev(aux_fact(), owner_docs={"t": {"docstring": None}})
+    assert (p, m, o) == ("Validada", "Não conforme", "rejected")
+    assert r["policy_violations"] == [{"rule": "native_decide_unjustified", "owner": "t"}]
+
+
+def test_native_auxiliary_justification_is_not_orphan():
+    _, _, _, r = ev(aux_fact(doc=JUST), owner_docs={"t": {"docstring": JUST}})
+    assert "orphan_justification" not in codes(r, "proof_status")
+
+
+@pytest.mark.parametrize("attr", ["implemented_by", "extern"])
+def test_native_auxiliary_combined_pattern_rejected(attr):
+    d = aux_fact(doc=JUST, **{"ib" if attr == "implemented_by" else "ext": [("g", "user")]})
+    p, m, _, r = ev(d, owner_docs={"t": {"docstring": JUST}})
+    assert (p, m) == ("Rejeitada", "Não resolvido")
+    assert r["policy_violations"] == [{"rule": f"{attr}_reaches_native_eval", "constants": ["g"]}]
+
+
+def test_axiom_with_auxiliary_name_but_not_recognized_is_unknown():
+    """Só o fato do inspetor (`native_auxiliary`) classifica; o nome sozinho não basta."""
+    p, m, o, r = ev(fact(axioms=[AUX]))
+    assert (p, m, o) == ("Validada", "Não resolvido", "unresolved")
+    assert codes(r, "premises_status") == {"unknown_axiom"}
+
+
 # ------------------------------------------------------------------ justificativa órfã (Q3b)
 
 def test_orphan_justification_rejected():

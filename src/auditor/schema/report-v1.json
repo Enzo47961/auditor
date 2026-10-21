@@ -92,7 +92,7 @@
         "axioms": {"type": "array", "items": {
           "type": "object", "required": ["name", "classification", "origins"],
           "properties": {"name": {"type": "string"},
-                         "classification": {"enum": ["allowed", "admission", "native_evaluation", "forbidden", "unknown"]},
+                         "classification": {"enum": ["allowed", "admission", "native_evaluation", "native_auxiliary", "forbidden", "unknown"]},
                          "origins": {"type": "array", "items": {"type": ["string", "null"]}}}}},
         "admissions": {"type": "array", "items": {
           "type": "object", "required": ["name", "origins"],

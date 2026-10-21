@@ -79,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--output", required=True)
     c.add_argument("--policy", required=True)
     c.add_argument("--allowlist", help="allow-list de projeto explícita (padrão: <projeto>/.auditor/allowlist.json)")
-    c.add_argument("--timeout-file", "--timeout", dest="timeout", type=float, default=DEFAULT_TIMEOUT_S,
+    c.add_argument("--timeout-file", dest="timeout", type=float, default=DEFAULT_TIMEOUT_S,
                    help="timeout deste arquivo em segundos (padrão: 90)")
     c.add_argument("--timeout-test", choices=["artificial"], default=None,
                    help="marca o relatório como teste de timeout com limite artificial (L-11)")

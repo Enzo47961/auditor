@@ -18,6 +18,7 @@ def test_default_policy_loads():
     assert p.native_evaluation == {"Lean.ofReduceBool", "Lean.ofReduceNat"}
     assert p.native_attributes == ("implemented_by", "extern") and p.trusted_boundary == "toolchain"
     assert p.exemption_paths == ()                   # isenção de heartbeat: nunca, por default
+    assert p.native_auxiliary_action == "fail_closed"
 
 
 @pytest.mark.parametrize("mutate", [
@@ -31,6 +32,8 @@ def test_default_policy_loads():
     lambda s: s.replace('{ option = "maxHeartbeats", value = "0" }', '{ option = "maxHeartbeats" }'),
     lambda s: s.replace('reason = "test-only heartbeat exemption"', 'reason = ""'),
     lambda s: s.replace('[axioms]', '[axioms'),                                     # TOML inválido
+    lambda s: s.replace('native_auxiliary_action = "fail_closed"', 'native_auxiliary_action = "allow"'),
+    lambda s: s.replace('native_auxiliary_action = "fail_closed"\n', ''),          # chave obrigatória
     lambda s: s.replace('allowed = ["Classical.choice", "propext", "Quot.sound"]', 'allowed = "propext"'),
 ])
 def test_invalid_policy_rejected(tmp_path, mutate):

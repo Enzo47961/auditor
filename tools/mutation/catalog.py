@@ -31,6 +31,10 @@ GROUPS = {
             (SA, r"            if word in risky_syntax:", r"            if False:"),
             (SA, r"            elif word in risky_meta:", r"            elif False:"),
             (SA, r'res.unrecognized.append(Item("unknown_command"', r'res.warnings.append(Item("unknown_command"'),
+            # instrução 12 (D-41): unlock_limits = os três set_option … 0
+            (SA, r'        elif t.text == "unlock_limits":', r"        elif False:"),
+            (SA, "                and toks[k + 1].text == \"in\":\n            k += 2",
+             "                and toks[k + 1].text == \"in\":\n            k += 1"),
         ],
     },
     "allowlist": {
@@ -67,6 +71,12 @@ GROUPS = {
             (SB, '    if b.returncode != 0:\n        res.build["cycle_detected"]',
              '    if False:\n        res.build["cycle_detected"]'),
             (SB, r'                if e["level"] == tb.UNRESOLVED:', r"                if False:"),
+            # instrução 12: inspetor v4 (D-39, D-43)
+            (INS, '.str (.str (.str _ "_native") tac) last', '.str (.str (.str _ "_nativeX") tac) last'),
+            (INS, "importModules #[{module := mod}] {} (loadExts := false)",
+             "importModules #[{module := mod}] {} (loadExts := true)"),
+            (INS, "  | .axiomInfo v    => v.type.getUsedConstants\n", "  | .axiomInfo _    => #[]\n"),
+            (SB, r'        if not isinstance(d.get("native_auxiliary"), list):', r"        if False:"),
         ],
     },
     "policy": {
@@ -114,6 +124,10 @@ GROUPS = {
             (PD, "            if has_marker:\n                continue\n            raise DependencyError",
              "            if True:\n                continue\n            raise DependencyError"),
             (PD, r'            if "extra" in marker:', r"            if True:"),
+            # instrução 12: axioma auxiliar nativo (D-43)
+            (AG, r"        elif ax in aux:", r"        elif False:"),
+            (AG, "        {a[\"axiom\"] for a in d.get(\"native_auxiliary\", [])}", "        set()"),
+            (PO, r'    if ax["native_auxiliary_action"] not in NATIVE_AUXILIARY_ACTIONS:', r"    if False:"),
         ],
     },
     "ci": {

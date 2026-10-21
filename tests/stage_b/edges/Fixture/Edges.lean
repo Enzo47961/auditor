@@ -33,3 +33,11 @@ partial def loop (n : Nat) : Nat := if n = 0 then 0 else loop (n - 1)
 -- axioma declarado no próprio alvo, e uma declaração que o usa
 axiom local_ax : (0 : Nat) = 1
 theorem uses_local : (0 : Nat) = 1 := local_ax
+
+-- Q9: axioma escrito à mão com a FORMA de axioma auxiliar de `native_decide` (v4.36). O
+-- inspetor o reconhece pela forma, porque a forma é tudo o que o ambiente registra: ela não
+-- prova a origem. `spoof_bad` tem o nome certo e o tipo errado, e não é reconhecido.
+axiom spoof._native.native_decide.ax_1 : (true && false) = true
+theorem uses_spoof : (true && false) = true := spoof._native.native_decide.ax_1
+axiom spoof_bad._native.native_decide.ax_1 : False
+theorem uses_spoof_bad : False := spoof_bad._native.native_decide.ax_1

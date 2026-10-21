@@ -74,12 +74,13 @@ def test_empty_file_e2e(tmp_path):
 
 
 def test_timeout_file_default_is_90_and_timeout_is_alias(tmp_path, monkeypatch):
-    """Instrução 11 (D-21): o timeout por arquivo tem padrão de 90 s; `--timeout` é sinônimo."""
+    """Instrução 11 (D-21): o timeout por arquivo tem padrão de 90 s. Instrução 12 (D-36
+    rejeitada): `--timeout`, ambíguo, foi removido; usá-lo é erro de argumento (exit 2)."""
     import auditor.__main__ as m
     seen = []
     monkeypatch.setattr(m, "check", lambda a: seen.append(a.timeout) or 0)
     base = ["check", "T.lean", "--output", "r.json", "--policy", "p.toml"]
     m.main(base)
-    m.main(base + ["--timeout", "12"])
+    assert m.main(base + ["--timeout", "12"]) == 2
     m.main(base + ["--timeout-file", "7"])
-    assert seen == [90.0, 12.0, 7.0]
+    assert seen == [90.0, 7.0]

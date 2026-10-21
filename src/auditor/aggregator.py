@@ -51,6 +51,13 @@ def _owners(d: dict, axioms: set[str]) -> list[str | None]:
     return sorted(set(out), key=lambda x: (x is None, x or ""))
 
 
+def _native_axioms(policy: Policy, d: dict) -> set[str]:
+    """Axiomas de avaliação nativa da declaração: os da política (`ofReduceBool`, …) e os
+    auxiliares por uso da v4.36 (forma reconhecida pelo inspetor)."""
+    return (set(d["axioms_official"]) & policy.native_evaluation) | \
+        {a["axiom"] for a in d.get("native_auxiliary", [])}
+
+
 # --------------------------------------------------------------------------- regras
 
 def rule_admissions(policy: Policy, d: dict) -> tuple[list[Effect], list[dict]]:
@@ -67,11 +74,17 @@ def rule_admissions(policy: Policy, d: dict) -> tuple[list[Effect], list[dict]]:
 def rule_axioms(policy: Policy, d: dict) -> tuple[list[Effect], list[dict], list[dict]]:
     """Classifica cada axioma transitivo. Proibido → Não conforme; desconhecido → lacuna B."""
     effects, listing, warnings = [], [], []
+    aux = {a["axiom"]: a for a in d.get("native_auxiliary", [])}
     for ax in d["axioms_official"]:
         if ax in policy.admissions:
             cls = "admission"
         elif ax in policy.native_evaluation:
             cls = "native_evaluation"
+        elif ax in aux:
+            cls = "native_auxiliary"
+            effects.append(M("unresolved", "native_auxiliary_axiom", {
+                "axiom": ax, "tactic": aux[ax]["tactic"], "owner": aux[ax]["owner"],
+                "action": policy.native_auxiliary_action}))
         elif ax in policy.allowed_axioms:
             cls = "allowed"
         elif ax in policy.forbidden_axioms:
@@ -92,7 +105,7 @@ def rule_axioms(policy: Policy, d: dict) -> tuple[list[Effect], list[dict], list
 
 def rule_native_evaluation(policy: Policy, d: dict, owner_docs: dict) -> list[Effect]:
     """`Lean.ofReduceBool`/`ofReduceNat` exigem justificativa válida na docstring da DONA (O-1/B)."""
-    native = set(d["axioms_official"]) & policy.native_evaluation
+    native = _native_axioms(policy, d)
     if not native:
         return []
     effects = []
@@ -115,7 +128,7 @@ def rule_native_evaluation(policy: Policy, d: dict, owner_docs: dict) -> list[Ef
 def rule_native_implementations(policy: Policy, d: dict) -> list[Effect]:
     """`@[implemented_by]`/`@[extern]` USER-LEVEL (Q7-a). Sozinho → candidato; com avaliação
     nativa nos axiomas → padrão combinado, Rejeitada. Fronteira indecidível → Não resolvida."""
-    native = bool(set(d["axioms_official"]) & policy.native_evaluation)
+    native = bool(_native_axioms(policy, d))
     effects = []
     for attr in policy.native_attributes:
         entries = d.get(attr, [])
@@ -138,7 +151,7 @@ def rule_orphan_justification(policy: Policy, d: dict, heartbeat_bound: bool) ->
     j = parse_justification(d.get("docstring"))
     if j.status == "absent" or heartbeat_bound:
         return []
-    owned = set(_owners(d, set(d["axioms_official"]) & policy.native_evaluation))
+    owned = set(_owners(d, _native_axioms(policy, d)))
     if d["name"] in owned:
         return []
     return [P("rejected", "orphan_justification", {}, {"rule": "orphan_justification"})]

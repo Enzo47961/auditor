@@ -27,7 +27,7 @@ ZERO_WIDTH = {0x180E, 0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF}
 
 NOT_IDENT_LETTERS = {"λ", "Π", "Σ"}  # letras gregas que o Lean reserva como símbolos
 DECL_KEYWORDS = {"theorem", "lemma", "def", "abbrev", "instance", "example", "structure",
-                 "class", "inductive", "opaque", "axiom"}
+                 "class", "inductive", "coinductive", "opaque", "axiom"}
 ANONYMOUS_OK = {"instance", "example"}
 
 
@@ -442,6 +442,17 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
             n1 = nxt(k)
             res.findings.append(Item("implemented_by", t.line, t.col,
                                      {"implementation": n1.text if n1 and n1.kind == "ident" else None}))
+        elif t.text == "unlock_limits":
+            # `unlock_limits` zera os limites de recurso (doc do comando em v4.36.0-rc1): é
+            # registrado como os `set_option … 0` equivalentes, para a política decidir (D-41).
+            n1 = nxt(k)
+            scoped = n1 is not None and n1.kind == "ident" and n1.text == "in"
+            for opt in UNLOCK_LIMITS_OPTIONS:
+                res.findings.append(Item("set_option", t.line, t.col, {
+                    "option": opt, "value": "0", "via": "unlock_limits",
+                    "scope": "in" if scoped else "file_or_section",
+                    "applies_to": _bound_declaration(toks, k + 2, ns) if scoped else None,
+                }))
         elif t.text == "set_option":
             n1, n2, n3 = nxt(k), nxt(k, 2), nxt(k, 3)
             scoped = n3 is not None and n3.kind == "ident" and n3.text == "in"
@@ -468,6 +479,8 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
                 res.findings.append(Item("axiom", t.line, t.col, {"name": name}))
 
 
+UNLOCK_LIMITS_OPTIONS = ("maxRecDepth", "maxHeartbeats", "synthInstance.maxHeartbeats")
+
 MODIFIERS = {"private", "protected", "noncomputable", "partial", "unsafe", "nonrec", "public", "meta"}
 
 
@@ -490,6 +503,9 @@ def _bound_declaration(toks: list[Token], k: int, ns: list[str | None]) -> str |
         elif t.kind == "ident" and t.text == "set_option" and k + 3 < len(toks) \
                 and toks[k + 3].text == "in":
             k += 4
+        elif t.kind == "ident" and t.text == "unlock_limits" and k + 1 < len(toks) \
+                and toks[k + 1].text == "in":
+            k += 2
         elif t.kind == "ident" and t.text in DECL_KEYWORDS and t.text not in ANONYMOUS_OK \
                 and k + 1 < len(toks) and toks[k + 1].kind == "ident":
             raw = toks[k + 1].text

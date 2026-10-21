@@ -21,11 +21,50 @@ Em tempo de execução, a Etapa A seleciona a allow-list pelo `lean-toolchain` *
 
 ## Procedimento ao subir o toolchain
 
-1. Atualizar `lean-toolchain` na raiz e nos fixtures (o teste `test_fixture_toolchain_matches_root` aponta cópias divergentes).
-2. Rodar `python tools/gen_allowlist/gen.py` e ler o diff do JSON gerado.
-3. Para cada comando novo, aplicar o critério de `classification.toml` e classificá-lo. Na dúvida, fail-closed.
-4. Atualizar a classificação, regenerar, e rodar a suíte inteira.
-5. A mudança de classificação é mudança de política: exige revisão por alguém que não é o autor.
+É o procedimento de cada bump do Mathlib. Foi executado de ponta a ponta na subida
+`v4.22.0 → v4.36.0-rc1` (instrução 12); as notas "Na subida para a v4.36" registram o que cada
+passo encontrou.
+
+1. **Fixar a versão alvo.** Ler o `lean-toolchain` do Mathlib no commit escolhido e anotar o
+   commit. Instalar: `elan toolchain install <toolchain>`.
+2. **Atualizar `lean-toolchain`** na raiz e em todos os fixtures (`git ls-files | grep lean-toolchain$`;
+   `test_fixture_toolchain_matches_root` aponta cópias divergentes).
+3. **Extrator da allow-list.** Rodar `python tools/gen_allowlist/gen.py`. Se `Dump.lean` não
+   compilar, ajustar à API nova. *Na v4.36: `String.trim` → `trimAscii`; `importModules
+   (loadExts := true)` passou a exigir `enableInitializersExecution` (aceito só no gerador; ver
+   `docs/tcb.md`, D-39).*
+4. **Classificar os comandos novos.** O gerador lista o que mudou e recusa classificação que cite
+   comando inexistente. Comando novo não classificado cai em `allowed`, então **cada um** passa pelo
+   critério de `classification.toml` (L-17), lendo a definição no fonte do toolchain. Na dúvida,
+   fail-closed. Comando com efeito equivalente a uma opção da política (ex.: `unlock_limits`) é
+   registrado pela Etapa A como essa opção. Subir `classification_version`. *Na v4.36: 40 comandos
+   novos e 1 removido (`set_premise_selector`); classificação `4` (D-40, D-41).*
+5. **Remover a allow-list do toolchain anterior.** O auditor só suporta o toolchain testado; uma
+   allow-list sem inspetor e suíte correspondentes seria promessa não verificada.
+6. **Inspetor.** Compilar (`stage_b.ensure_inspector`) e ajustar à API nova. Comparar
+   `src/lean/Lean/Util/CollectAxioms.lean` do toolchain novo com `directDeps` em `Inspect.lean`
+   (o fecho independente precisa espelhar o percurso oficial). Conferir que o inspetor continua
+   sem executar código importado (`loadExts := false`). Subir `inspectorVersion` e
+   `INSPECTOR_VERSION` juntos. *Na v4.36: `CollectAxioms.collect` virou privado e passou a usar
+   axiomas pré-calculados nos `.olean`; o tipo de um axioma passou a ser percorrido; docstrings
+   lidas com `findInternalDocString?` (texto bruto); `@[simp]`/`@[ext]` lidos das entradas dos
+   módulos.*
+7. **Rodar a suíte inteira** e tratar cada falha como sinal de que a Etapa A ou B dependia de um
+   detalhe da versão. Separar o que é mudança mecânica (nomes, API) do que muda o significado de um
+   resultado: o segundo tipo é decisão de política, vai para o revisor, e enquanto isso o
+   comportamento é fail-closed. *Na v4.36: `native_decide` passou a adicionar um axioma por uso
+   (L-19, Q9); a convenção da dona de `where` mudou (L-4).*
+8. **Fronteira de TCB.** O canário `test_06_tcb_boundary_canary` confere a lista exata de raízes
+   declaradas pelo toolchain. Se mudou, a mudança vai para revisão por quem não é o autor
+   (`docs/tcb.md`, (ii)). *Na v4.36: `LeanChecker`, `LeanExport`, `LeanIR` (D-42).*
+9. **Ground truth.** `tests/conformance/test_ground_truth.py` roda `#print axioms` do próprio Lean
+   nos fixtures. Atualizar só o que o Lean passou a imprimir de outro jeito, nunca o veredito dos
+   enunciados falsos (as negações continuam compilando).
+10. **Mutação.** Rodar `python tools/mutation/run.py` (todos os grupos) e conferir 0 sobreviventes.
+11. **Registrar.** `CHANGELOG.md` (incompatível: toolchain fixado), README ("Ambientes"),
+    `docs/tcb.md` (raízes), e as decisões novas em `docs/proposed-improvements.md`.
+12. **Revisão.** Classificação de comandos, fronteira de TCB e qualquer mudança de veredito exigem
+    revisão por alguém que não é o autor.
 
 ## Tabela de confusables (TR39)
 
