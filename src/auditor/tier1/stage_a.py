@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-STAGE_A_VERSION = "1"
+STAGE_A_VERSION = "2"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
 DATA = Path(__file__).resolve().parent.parent / "data"
 CONFUSABLES_FILE = DATA / "unicode" / "confusables-16.0.0.txt"
 
@@ -391,20 +391,28 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
         first_on_line = t.line != prev_line
         prev_line = t.line
 
+        at_command_start = first_on_line and t.col == 0
+
         # --- comandos na coluna 0 contra a allow-list
-        if allow is not None and first_on_line and t.col == 0:
+        # `module` (sistema de módulos, v4.36) é palavra de cabeçalho, não comando: só é aceito
+        # como primeiro token do arquivo (comentários não viram token), antes dos imports (D-57).
+        header_module = k == 0 and t.kind == "ident" and not t.quoted and t.text == "module"
+        if allow is not None and at_command_start and not header_module:
             key = t.text if t.kind in ("ident", "symbol", "hashcmd") else (
                 t.text[:3] if t.kind == "doc" else None)
             if key is not None and key not in allow["allowed"] and key not in allow["continuation"] \
                     and key not in risky_syntax and key not in risky_meta and key not in unclassified:
                 res.unrecognized.append(Item("unknown_command", t.line, t.col, {"token": key}))
 
-        # --- comandos de risco em qualquer posição (são tokens reservados)
+        # --- comandos de risco: palavras reservadas em qualquer posição; comandos cujo token é
+        # símbolo (`?`, `«$»`) só no início de comando, porque o símbolo aparece em termos
+        # (`?_`, `?m`: metavariáveis sintéticas; D-56)
         word = t.text
         if t.kind == "ident" and (n1 := nxt(k)) is not None and n1.text == "%" \
                 and (word + "%") in (risky_syntax | risky_meta):
             word = word + "%"
-        if t.kind in ("ident", "hashcmd", "symbol") and not t.quoted:
+        if (t.kind in ("ident", "hashcmd") and not t.quoted) or \
+                (at_command_start and t.kind in ("ident", "symbol")):
             if word in risky_syntax:
                 res.unrecognized.append(Item("syntax_extension_declared", t.line, t.col, {"command": word}))
             elif word in risky_meta:

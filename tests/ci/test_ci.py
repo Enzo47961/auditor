@@ -9,6 +9,7 @@ tempo real em PRs do Mathlib é evidência da camada 2."""
 import json
 import shutil
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -47,7 +48,11 @@ def copy_fixture(tmp_path, name, dest):
 
 
 def test_all_pass(tmp_path):
+    """Caminho warm, declarado: o cache do inspetor é aquecido antes (D-58). Sem isso, num runner
+    sem cache, o primeiro run sairia `cold` (caminho testado em test_cold_run_*)."""
     require_lake()
+    ci._prebuild_inspector(Path(PASS))
+    assert ci._inspector_cached(Path(PASS)) is True
     code, o, md, gh = run(tmp_path, [PASS])
     assert code == 0 and o["exit_code"] == 0 and not o["infra_failed"] and not o["audit_failed"]
     assert o["files"][0]["status"] == "pass" and o["files"][0]["counts"] == {"verified": 2}

@@ -36,6 +36,14 @@ GROUPS = {
             (SA, r'        elif t.text == "unlock_limits":', r"        elif False:"),
             (SA, "                and toks[k + 1].text == \"in\":\n            k += 2",
              "                and toks[k + 1].text == \"in\":\n            k += 1"),
+            # camada 2, instrução 16: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
+            (SA, r'header_module = k == 0 and t.kind == "ident" and not t.quoted and t.text == "module"',
+             r'header_module = t.kind == "ident" and not t.quoted and t.text == "module"'),
+            (SA, r'header_module = k == 0 and t.kind == "ident" and not t.quoted and t.text == "module"',
+             r"header_module = False"),
+            (SA, '        if (t.kind in ("ident", "hashcmd") and not t.quoted) or \\',
+             '        if (t.kind in ("ident", "hashcmd", "symbol") and not t.quoted) or \\'),
+            (SA, r'                (at_command_start and t.kind in ("ident", "symbol")):', r"                False:"),
         ],
     },
     "allowlist": {

@@ -27,6 +27,7 @@ EXPECTED_AXIOMS = {
     "06-tcb-boundary": {"add_native": {nax("add_native")}, "add_kernel": set(),
                         "add_native_kernel": set(), "uses_init": set(), "uses_lean": set(),
                         "uses_std": set(), "uses_lake": {"Classical.choice"}},
+    "07-module-header": {"both": set(), "bad": {"sorryAx"}},
     "05-native-decide": {
         **{n: {nax(n)} for n in (
             "nd_nodoc", "nd_plain_doc", "nd_justified", "drift_victim", "bad_multiline",

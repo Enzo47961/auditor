@@ -337,6 +337,30 @@ O primeiro `auditor-prep` no fork (`Enzo47961/mathlib4`, `auditor-base` = `84759
 - **Registro pedido como "L-19":** o número L-19 já existe (axioma auxiliar de avaliação nativa, Q9). O texto foi registrado como **L-23**, e o relaxamento da D-54 como **L-24**.
 - **Revalidação:** só os grupos de mutação tocados (`allowlist` e o novo `gen_tcb_roots`) foram re-rodados. `policy`, `ci`, `stage_a` e `stage_b` continuam validados pelos commits anteriores, porque o código deles não mudou. A suíte completa foi re-rodada.
 
+## Rodada da instrução 16 — segundo `auditor-prep`
+
+O segundo `auditor-prep` (run 39666288403, auditor `c3dcf08`) confirmou D-52 a D-54 no Mathlib real: allow-list com `libraries: ["Mathlib"]`, 8651 módulos e 259 comandos; `--check` aceito pelo caminho de fork. A fumaça (`Hydra.lean`) ainda saiu 20/20 `Não resolvida`, por três causas. A primeira era esperada; as outras duas são bugs da camada 1 que nenhum fixture exercitava (L-23).
+
+- **Classificação de 98 comandos do Mathlib:** decisão humana. Rascunho autorizado, com justificativa por comando pelo critério da L-17; revisão por um segundo humano; commit no fork só depois. Comando ambíguo → fail-closed, registrado em `limitations.md`.
+- **D-56: aprovada.** O `?` está em `syntax_extension` no core (`classification.toml`), e a Etapa A o procurava em qualquer posição, como as palavras reservadas. Todo `?_` virava `syntax_extension_declared`: no commit fixado, 4748 dos 8650 arquivos do Mathlib contêm `?_` ou `?nome`.
+  - **Correção:** palavras reservadas (identificadores, `#comandos`) continuam procuradas em qualquer posição; comandos-símbolo (`?`, `$`) só no início de comando.
+  - **Testes:**
+    - (a) `?_`, `?m`, `?x.y` e `f $ x` dentro de termos não geram nada;
+    - (b) `?` e `$` na coluna 0 continuam `syntax_extension_declared`;
+    - (c) `macro` indentado e no meio da linha continua detectado.
+  - **Detalhe:** a allow-list guarda `«$»` normalizado como `$`, que é o token que o lexer produz.
+- **D-57: aprovada.** `module` só é aceito como primeiro token do arquivo (comentários não viram token).
+  - **Testes:** aceito com `public import`, `import` e docstring de módulo; aceito sozinho; `unknown_command` depois de `import`, depois de comando, duplicado e depois de docstring.
+  - **Fixture de conformidade `07-module-header`** (Etapa A → Etapa B → política):
+    - `module` + `public import Fixture.Base` (também `module`) + `refine ⟨?_, ?_⟩` → `both` `Validada`/`Conforme`/`verified`;
+    - controle com `sorry` → `Rejeitada`;
+    - ground truth por `#print axioms`.
+- **Versões e mutações de D-56/D-57:** `stage_a_version` `2`. Grupo `stage_a`: 4 mutações novas (aceitar `module` em qualquer posição; nunca aceitar; símbolos em qualquer posição; símbolos nunca), 13/13 detectadas.
+- **D-58: aprovada.**
+  - (a) Os dois testes de timeout usam um fixture que compila em segundos e conferem `duration_s ≥ 1`.
+  - (b) `test_all_pass` aquece o cache do inspetor antes.
+  - (c) A suíte do `ci.yml` (Linux) é a referência da camada 1.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

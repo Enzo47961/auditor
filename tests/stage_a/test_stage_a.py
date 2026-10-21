@@ -160,6 +160,60 @@ def test_unknown_column_zero_command_fails_closed(proj):
     assert [(i.code, i.detail["token"]) for i in r.unrecognized] == [("unknown_command", "lemma")]
 
 
+# ------------------------------------------------------------------ D-56: `?` e `«$»`
+
+@pytest.mark.parametrize("src", [
+    "theorem t : True ∧ True := by\n  refine ⟨?_, ?_⟩ <;> trivial\n",
+    "example : True := by\n  refine ?m\n  trivial\n",
+    "theorem t (p : Prop) (h : p) : p ∧ True := ⟨?x.y, trivial⟩\n",
+    "def f (x : Nat) : Nat := g $ x\n",
+])
+def test_question_mark_and_dollar_inside_terms_are_not_commands(proj, src):
+    """(a) `?_`/`?m` são metavariáveis sintéticas e `$` é aplicação: não são o comando `?`/`«$»`."""
+    r = run(proj, src)
+    assert "syntax_extension_declared" not in codes(r.unrecognized), r.unrecognized
+
+
+@pytest.mark.parametrize("src,command", [("? foo\n", "?"), ("$ x\n", "$")])   # «$» na allow-list = `$`
+def test_symbol_command_at_column_zero_is_syntax_extension(proj, src, command):
+    """(b) No início de comando, o comando-símbolo continua `syntax_extension_declared`."""
+    r = run(proj, src)
+    assert [(i.code, i.detail.get("command")) for i in r.unrecognized
+            if i.code == "syntax_extension_declared"] == [("syntax_extension_declared", command)]
+    assert "unknown_command" not in codes(r.unrecognized)
+
+
+def test_indented_reserved_command_still_detected_anywhere(proj):
+    """(c) Palavra reservada continua detectada em qualquer posição (L-2)."""
+    r = run(proj, "section\n  macro \"x\" : term => `(1)\nend\nopen Foo in macro \"y\" : term => `(2)\n")
+    assert [i.line for i in r.unrecognized if i.code == "syntax_extension_declared"] == [2, 4]
+
+
+# ------------------------------------------------------------------ D-57: `module` de cabeçalho
+
+def test_module_header_accepted_as_first_token(proj):
+    r = run(proj, "/-\nCopyright\n-/\nmodule\n\npublic import Init.Core\nimport Init.Data\n\n"
+                  "/-! doc do módulo -/\ntheorem t : True := trivial\n")
+    assert r.unrecognized == []
+    assert [d.detail["name"] for d in r.declarations] == ["t"]
+
+
+def test_module_alone_is_a_valid_header(proj):
+    assert run(proj, "module\n").unrecognized == []
+
+
+@pytest.mark.parametrize("src,line", [
+    ("import Init.Core\nmodule\n", 2),                       # depois de import
+    ("theorem t : True := trivial\nmodule\n", 2),            # depois de comando
+    ("module\nmodule\n", 2),                                 # duplicado
+    ("/-! doc -/\nmodule\n", 2),                             # depois de docstring (é token)
+])
+def test_module_outside_first_position_is_unknown(proj, src, line):
+    r = run(proj, src)
+    assert [(i.code, i.detail.get("token"), i.line) for i in r.unrecognized] == \
+        [("unknown_command", "module", line)]
+
+
 def test_continuation_tokens_allowed(proj):
     r = run(proj, "def f : Nat → Nat\n| 0 => 0\n| n+1 => n\n")
     assert r.unrecognized == []

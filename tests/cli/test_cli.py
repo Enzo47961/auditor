@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 
-from conftest import CONFORMANCE, DEFAULT_POLICY, ROOT, run_auditor
+from conftest import CONFORMANCE, DEFAULT_POLICY, ROOT, run_auditor, slow_lean_source
 
 
 def cli(*args):
@@ -28,8 +28,10 @@ def test_artificial_timeout_never_success(tmp_path):
     """L-11: limite artificial; o relatório declara `timeout_test: artificial`, exit 2."""
     proj = tmp_path / "p"
     shutil.copytree(CONFORMANCE / "01-sorry-target", proj, ignore=shutil.ignore_patterns(".lake"))
+    target = proj / "Fixture" / "Target.lean"   # D-58: compila em segundos em qualquer máquina
+    target.write_text(target.read_text(encoding="utf-8") + slow_lean_source(), encoding="utf-8")
     out = tmp_path / "r.json"
-    p = cli("check", str(proj / "Fixture" / "Target.lean"), "--output", str(out),
+    p = cli("check", str(target), "--output", str(out),
             "--policy", str(DEFAULT_POLICY), "--timeout-file", "0.01", "--timeout-test", "artificial")
     assert p.returncode == 2, p.stderr
     r = json.loads(out.read_text(encoding="utf-8"))

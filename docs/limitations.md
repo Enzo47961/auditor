@@ -9,7 +9,8 @@ O kernel do Lean é âncora de confiança. Com `native_decide`, a confiança se 
 A sintaxe do Lean é extensível e o parser depende de notações importadas. A Etapa A:
 - **só vê o texto do arquivo-alvo**. Um `sorry` transitivo (cenário 02) e um ciclo de imports são invisíveis para ela; quem cobre isso é a Etapa B;
 - **checa comandos só na coluna 0**. Um token na coluna 0 que não esteja na allow-list nem entre os tokens de continuação (`|`, `where`, …) resulta em `unknown_command` (fail-closed). Consequência: uma continuação legítima escrita na coluna 0 gera falso "não reconhecido" (inconveniente, nunca selo falso). Comandos indentados não passam por essa checagem;
-- **detecta comandos de risco em qualquer posição** (`macro`, `notation`, `run_cmd`, `#eval`, …). São tokens reservados do Lean e não podem ser identificadores, exceto entre `«»`;
+- **detecta comandos de risco em qualquer posição** (`macro`, `notation`, `run_cmd`, `#eval`, …). São tokens reservados do Lean e não podem ser identificadores, exceto entre `«»`. Comandos de risco cujo token é **símbolo** (`?`, `$`) só são detectados no início de comando (coluna 0): o símbolo aparece em termos (`?_`, `?m`, `f $ x`) e não é reservado (D-56);
+- **aceita `module` só como primeiro token do arquivo** (cabeçalho do sistema de módulos da v4.36, antes dos `import`). Em qualquer outra posição, `module` é `unknown_command` (D-57);
 - **só conhece comandos de projeto com allow-list de projeto** (Q5). Sem `<projeto>/.auditor/allowlist.json`, comandos do Mathlib (`lemma` e outros) resultam em `unknown_command`. A allow-list do Mathlib é evidência da camada 2, gerada no fork (ver `docs/maintenance.md`) e não bloqueia a camada 1;
 - vê `decide +native` e `native := …` só como candidatos. A evidência é a Etapa B (`Lean.ofReduceBool`, ou o axioma auxiliar nativo da v4.36);
 - não inspeciona o conteúdo de strings interpoladas (`s!"{…}"`).

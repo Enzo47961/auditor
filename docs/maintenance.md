@@ -178,6 +178,9 @@ Execução da mutação: `Enzo47961/mathlib4`, run 39665194703 (5 min 21 s). Os 
 
 A correção desses testes depende de decisão do revisor (instrução 15: nada de novo no auditor até o próximo `auditor-prep`).
 
+**Instrução 16 (D-56, D-57, D-58).** Os 3 testes foram corrigidos (D-58): os dois de timeout usam um fixture gerado (`conftest.slow_lean_source`, 800 teoremas por `decide`, ~13 s no Windows), que compila em segundos em qualquer máquina, e conferem que a duração medida passou de 1 s; o `test_all_pass` aquece o cache do inspetor antes (`ci._prebuild_inspector`) e declara que testa o caminho warm. **A suíte do `ci.yml` (Linux) é a referência da camada 1**; a execução local é conveniência.
+
+
 
 ## Fixação de versões nos workflows (D-25)
 

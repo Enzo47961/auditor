@@ -23,6 +23,14 @@ DEFAULT_POLICY = ROOT / "policy.toml"
 CORRESPONDENCE = "Não auditada"
 
 
+def slow_lean_source(n: int = 800) -> str:
+    """Elaboração que leva vários segundos em qualquer máquina (D-58). A Etapa B aplica um piso de
+    1 s ao timeout; um fixture que compila mais rápido que isso não exercita o caminho de timeout
+    (no runner Linux, o fixture 01 compila em menos de 1 s). Medido no Windows: ~13 s com 800."""
+    return "".join(f"theorem slow{i} : (List.range 60).foldl (· + ·) {i} = {1770 + i} := by decide\n"
+                   for i in range(n))
+
+
 def require_lake() -> str:
     lake = shutil.which("lake")
     if lake is None:

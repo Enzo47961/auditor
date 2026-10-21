@@ -10,7 +10,7 @@ import subprocess
 import pytest
 
 from auditor.tier1 import stage_b as B
-from conftest import CONFORMANCE, FAIL_CLOSED, ROOT, parse_print_axioms, require_lake
+from conftest import CONFORMANCE, FAIL_CLOSED, ROOT, parse_print_axioms, require_lake, slow_lean_source
 
 EDGES = ROOT / "tests" / "stage_b" / "edges"
 TARGETS = {
@@ -338,9 +338,13 @@ def test_compile_error_is_build_failure_without_cycle(scratch):
 
 
 def test_timeout_is_not_success(scratch):
+    """D-58: o fixture compila em segundos, acima do piso de 1 s, em qualquer máquina."""
     require_lake()
-    r = B.analyze(scratch / "Fixture" / "Target.lean", timeout_s=0.01)
+    target = scratch / "Fixture" / "Target.lean"
+    target.write_text(target.read_text(encoding="utf-8") + slow_lean_source(), encoding="utf-8")
+    r = B.analyze(target, timeout_s=0.01)
     assert r.build["status"] == "timeout" and r.declarations == []
+    assert r.build["duration_s"] >= 1.0      # a duração medida passou do limite efetivo
 
 
 def test_unpinned_environment(tmp_path):

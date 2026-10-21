@@ -62,6 +62,13 @@ sem período de transição.
   fixadas (Node 20, que o GitHub já força a rodar em Node 24) fica para uma rodada separada, fora
   da camada 2, com registro aqui.
 
+- **Etapa A: `module` de cabeçalho e comandos-símbolo** (D-56, D-57; `stage_a_version` `2`).
+  `module` (sistema de módulos da v4.36, primeira linha de todo arquivo do Mathlib) é aceito como
+  primeiro token do arquivo; em outra posição, continua `unknown_command`. Os comandos de risco
+  cujo token é símbolo (`?`, `$`) só são procurados no início de comando: antes, todo `?_` de
+  `refine ⟨?_, ?_⟩` virava `syntax_extension_declared`. Palavras reservadas (`macro`, `#eval`, …)
+  continuam detectadas em qualquer posição. Fixture de conformidade novo: `07-module-header`.
+
 ### Caminhos do Mathlib que mudaram
 - **`Mathlib/Logic/Basic.lean` não existe mais** no commit fixado (`e1b2403b`). O equivalente é
   `Mathlib/Basic/Logic/Basic.lean` (8072 dependentes, posição 24 no fanout). Nenhum script,
