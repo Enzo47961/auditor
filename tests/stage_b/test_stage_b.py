@@ -176,10 +176,10 @@ def test_06_tcb_boundary_canary():
     este teste falha e a política precisa ser revista (docs/tcb.md)."""
     r = inspect("06")
     # v4.36.0-rc1 declara LeanChecker, LeanExport e LeanIR além das raízes da v4.22; TCB são só as
-    # que o Mathlib fixado usa (allow-list, D-42/D-47).
+    # que o Mathlib fixado usa (target_trusted_roots, D-42/D-47).
     assert r.boundary["declared_roots"] == ["Init", "Lake", "LakeMain", "Lean", "LeanChecker",
                                             "LeanExport", "LeanIR", "Leanc", "Std"]
-    assert r.boundary["toolchain_roots"] == ["Init", "Lake", "Lean", "Std"]
+    assert r.boundary["trusted_roots"] == ["Init", "Lake", "Lean", "Std"]
     # uma sonda por raiz da allow-list: o inspetor registra a constante e a fronteira a classifica
     for name, attr, const, module in (
             ("uses_init", "extern", "Nat.add", "Init.Prelude"),
@@ -433,7 +433,7 @@ def test_apply_boundary_exposes_unresolved_origin(tmp_path, monkeypatch):
     (proj / "lake-manifest.json").write_text(json.dumps({"version": "1.1.0", "packages": []}), encoding="utf-8")
     (proj / "lean-toolchain").write_text("t:x\n", encoding="utf-8")
     from auditor import tcb_boundary as tb
-    monkeypatch.setattr(tb, "TCB_ROOTS_DIR", tmp_path)
+    monkeypatch.setattr(tb, "TARGET_TRUSTED_ROOTS_DIR", tmp_path)
     (tmp_path / "t__x.json").write_text(json.dumps({"format": 1, "toolchain": "t:x", "roots": ["Init"],
                                                     "declared_by_toolchain": ["Init"]}), encoding="utf-8")
     stray = tmp_path / "stray" / "X.olean"

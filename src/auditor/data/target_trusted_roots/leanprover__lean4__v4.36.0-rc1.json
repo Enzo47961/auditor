@@ -1,5 +1,6 @@
 {
   "format": 1,
+  "meaning": "raízes do toolchain cujos módulos são implicitamente confiáveis no fecho do projeto-alvo (as que ele usa); NÃO todas as raízes da TCB do Lean. Raiz declarada e fora desta lista: módulos user-level, regras de @[extern]/@[implemented_by] aplicadas (fail-closed).",
   "toolchain": "leanprover/lean4:v4.36.0-rc1",
   "roots": [
     "Init",

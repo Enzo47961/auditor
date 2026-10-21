@@ -30,12 +30,16 @@ sem período de transição.
   axioma auxiliar que a v4.36 cria por uso (`<dona>._native.<tática>.ax_…`) deixa as premissas
   `Não resolvido` (`native_auxiliary_axiom`). A justificativa O-1 continua obrigatória (sem ela,
   `Não conforme`), mas não basta.
-- **Raízes de TCB do toolchain viram allow-list** (D-42, condição do revisor). Antes eram todos
+- **Raízes de TCB do toolchain viram `target_trusted_roots`** (D-42, D-47). Antes eram todos
   os `.olean` de primeiro nível do toolchain. Agora são só as raízes que o projeto-alvo de fato
   usa, medidas no fecho de imports do Mathlib no commit fixado (`e1b2403b`, conferido contra o
   `lake-manifest.json`): `Init`, `Lake`, `Lean` e `Std`. `LakeMain`, `Leanc`, `LeanChecker`,
   `LeanExport` e `LeanIR` deixam de ser TCB: um `@[extern]`/`@[implemented_by]` delas sai
-  `unresolved`. Arquivo: `src/auditor/data/tcb_roots/`; gerador: `tools/gen_tcb_roots.py`.
+  `unresolved`. Arquivo: `src/auditor/data/target_trusted_roots/` ("raízes cujos módulos são
+  implicitamente confiáveis no fecho do projeto-alvo", não "todas as raízes da TCB do Lean");
+  gerador: `tools/gen_tcb_roots.py`. No relatório da Etapa B, `boundary.toolchain_roots` virou
+  `boundary.trusted_roots`, e `boundary.declared_roots` traz tudo o que o toolchain declara.
+  Projeto-alvo que não é o Mathlib gera o próprio arquivo (L-21).
 
 ### Caminhos do Mathlib que mudaram
 - **`Mathlib/Logic/Basic.lean` não existe mais** no commit fixado (`e1b2403b`). O equivalente é

@@ -32,7 +32,7 @@ def env(tmp_path):
     return proj, sysroot
 
 
-# allow-list de raízes (D-42): o toolchain declara Init, Lean e Std; o projeto-alvo usa Init e Lean
+# target_trusted_roots (D-42): o toolchain declara Init, Lean e Std; o projeto-alvo usa Init e Lean
 ROOTS = {"format": 1, "toolchain": "t", "roots": ["Init", "Lean"], "declared_by_toolchain": ["Init", "Lean", "Std"]}
 
 
@@ -41,10 +41,10 @@ def boundary(env, roots=ROOTS):
     return tb.load_boundary(proj, sysroot, roots)
 
 
-def test_toolchain_roots_are_declared_by_toolchain_files_and_allowlisted(env):
+def test_trusted_roots_are_declared_by_toolchain_files_and_used_by_target(env):
     b = boundary(env)
     assert b.declared_roots == {"Init", "Lean", "Std"}
-    assert b.toolchain_roots == {"Init", "Lean"}
+    assert b.trusted_roots == {"Init", "Lean"}
 
 
 def test_declared_root_not_used_by_target_project_is_unresolved(env):
@@ -69,7 +69,7 @@ def test_versioned_roots_allowlist_selected_by_project_toolchain(env, tmp_path):
     """Sem allow-list explícita, vale a do `lean-toolchain` do projeto (arquivo versionado)."""
     proj, _ = env
     tc = "leanprover/lean4:v4.36.0-rc1"
-    data = tb.load_tcb_roots(tc)
+    data = tb.load_target_trusted_roots(tc)
     assert data["roots"] == ["Init", "Lake", "Lean", "Std"]
     sysroot = tmp_path / "tc436"
     (sysroot / "lib" / "lean").mkdir(parents=True)
@@ -77,8 +77,8 @@ def test_versioned_roots_allowlist_selected_by_project_toolchain(env, tmp_path):
         (sysroot / "lib" / "lean" / f"{r}.olean").write_bytes(b"")
     (proj / "lean-toolchain").write_text(tc + "\n", encoding="utf-8")
     b = tb.load_boundary(proj, sysroot)
-    assert b.toolchain_roots == {"Init", "Lake", "Lean", "Std"}
-    assert {"LeanIR", "LeanChecker", "LeanExport", "LakeMain", "Leanc"} <= b.declared_roots - b.toolchain_roots
+    assert b.trusted_roots == {"Init", "Lake", "Lean", "Std"}
+    assert {"LeanIR", "LeanChecker", "LeanExport", "LakeMain", "Leanc"} <= b.declared_roots - b.trusted_roots
 
 
 def test_roots_allowlist_missing_or_foreign_fails_closed(env, tmp_path, monkeypatch):
@@ -88,7 +88,7 @@ def test_roots_allowlist_missing_or_foreign_fails_closed(env, tmp_path, monkeypa
     (proj / "lean-toolchain").write_text("leanprover/lean4:v0.0.0\n", encoding="utf-8")
     with pytest.raises(tb.BoundaryError, match="indisponível"):
         tb.load_boundary(proj, sysroot)                             # toolchain sem allow-list
-    monkeypatch.setattr(tb, "TCB_ROOTS_DIR", tmp_path)
+    monkeypatch.setattr(tb, "TARGET_TRUSTED_ROOTS_DIR", tmp_path)
     f = tmp_path / "leanprover__lean4__v0.0.0.json"
     f.write_text(json.dumps({**ROOTS, "toolchain": "leanprover/lean4:v9.9.9"}), encoding="utf-8")
     with pytest.raises(tb.BoundaryError, match="declara"):
@@ -97,7 +97,7 @@ def test_roots_allowlist_missing_or_foreign_fails_closed(env, tmp_path, monkeypa
     with pytest.raises(tb.BoundaryError, match="malformada"):
         tb.load_boundary(proj, sysroot)
     f.write_text(json.dumps({**ROOTS, "toolchain": "leanprover/lean4:v0.0.0"}), encoding="utf-8")
-    assert tb.load_boundary(proj, sysroot).toolchain_roots == {"Init", "Lean"}
+    assert tb.load_boundary(proj, sysroot).trusted_roots == {"Init", "Lean"}
 
 
 def test_user_roots_come_from_manifest(env):

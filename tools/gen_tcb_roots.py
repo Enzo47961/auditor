@@ -1,4 +1,6 @@
-"""Allow-list de raízes de TCB (D-42): as raízes do toolchain que o projeto-alvo efetivamente usa.
+"""target_trusted_roots (D-42, D-47): as raízes do toolchain cujos módulos são implicitamente
+confiáveis no fecho do projeto-alvo — as que ele efetivamente usa. NÃO são "todas as raízes da
+TCB do Lean": raiz declarada e não usada fica fora, e seus módulos são tratados como user-level.
 
 Uso (manutenção, a cada subida de toolchain; docs/maintenance.md, passo 8):
     python tools/gen_tcb_roots.py --sysroot "$(lean --print-prefix)" --project <mathlib> --root Mathlib
@@ -12,7 +14,8 @@ revisões exatas do seu `lake-manifest.json`: cada pacote `git` é conferido (`g
 do toolchain alcançados por raiz. Import sem fonte encontrada é erro: o fecho seria incompleto.
 
 Raiz da allow-list = raiz declarada pelo toolchain (`<sysroot>/lib/lean/*.olean`) que aparece no
-fecho. Saída: `src/auditor/data/tcb_roots/<toolchain>.json`, com a procedência.
+fecho. Saída: `src/auditor/data/target_trusted_roots/<toolchain>.json`, com a procedência.
+Projeto-alvo que não é o Mathlib gera o próprio arquivo com este gerador (L-21).
 """
 from __future__ import annotations
 
@@ -33,7 +36,10 @@ from auditor.allowlist import sanitize  # noqa: E402
 from auditor.tcb_boundary import BoundaryError, package_dirs  # noqa: E402
 
 FORMAT = 1
-DATA = ROOT / "src" / "auditor" / "data" / "tcb_roots"
+MEANING = ("raízes do toolchain cujos módulos são implicitamente confiáveis no fecho do projeto-alvo "
+           "(as que ele usa); NÃO todas as raízes da TCB do Lean. Raiz declarada e fora desta lista: "
+           "módulos user-level, regras de @[extern]/@[implemented_by] aplicadas (fail-closed).")
+DATA = ROOT / "src" / "auditor" / "data" / "target_trusted_roots"
 
 
 class GenError(Exception):
@@ -120,6 +126,7 @@ def generate(sysroot: Path, project: Path, root: str) -> dict:
         raise GenError(f"módulos do toolchain sob raízes não declaradas: {stray}")
     return {
         "format": FORMAT,
+        "meaning": MEANING,
         "toolchain": toolchain,
         "roots": sorted(used),
         "declared_by_toolchain": declared,
@@ -139,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sysroot", required=True, type=Path)
     ap.add_argument("--project", required=True, type=Path)
     ap.add_argument("--root", required=True, help="biblioteca do projeto-alvo (ex.: Mathlib)")
-    ap.add_argument("--out", type=Path, help="padrão: src/auditor/data/tcb_roots/<toolchain>.json")
+    ap.add_argument("--out", type=Path, help="padrão: src/auditor/data/target_trusted_roots/<toolchain>.json")
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args(argv)
     try:

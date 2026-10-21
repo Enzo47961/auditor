@@ -35,7 +35,7 @@ def test_06_one_probe_per_allowlisted_root(tmp_path):
     `@[extern]`/`@[implemented_by]` daquela raiz. Se a allow-list deixar de reconhecer a raiz,
     a declaração sai `unresolved` (`tcb_boundary_unresolved`) e este teste falha."""
     from auditor import tcb_boundary as tb
-    assert set(tb.load_tcb_roots("leanprover/lean4:v4.36.0-rc1")["roots"]) == set(ROOT_PROBES)
+    assert set(tb.load_target_trusted_roots("leanprover/lean4:v4.36.0-rc1")["roots"]) == set(ROOT_PROBES)
     r = run_auditor(TARGET, tmp_path)
     assert_common_invariants(r)
     for root, name in ROOT_PROBES.items():

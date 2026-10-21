@@ -12,6 +12,29 @@ bash (Git Bash serve). Cada passo tem **Verificar** (o que precisa ser verdade a
 quando cabe, **Abortar se**. Ao abortar: não tente consertar no meio; traga o que tiver (logs,
 `outcome.json`, captura da tela do job) e o número do passo.
 
+## Falha que não é de infraestrutura (vale em todos os passos)
+
+Infraestrutura é runner, cache, rede, timeout, `auditor-failed-infra`: o passo é repetido ou
+abortado conforme o **Abortar se** dele. **Falha que não é de infraestrutura** é o auditor dar
+um resultado que não deveria dar, com o ambiente funcionando:
+
+| Sinal | Exemplos |
+|---|---|
+| Falso positivo inesperado | o lema de sonda `auditor_probe_*` não sai `verified`; uma declaração do Mathlib que o PR não tocou sai `Rejeitada`, `Não conforme` ou `Não resolvido`; `native_auxiliary_axiom` num arquivo da biblioteca `Mathlib` (a medição no `e1b2403b` espera 0) |
+| Allow-list divergente do Mathlib fixado | `unknown_command`, `unclassified_command`, `syntax_extension_declared` ou `metaprogramming_command` num arquivo que o PR não mudou; `auditor-gen-allowlist --check` ≠ 0; `gen_tcb_roots.py --check` ≠ 0 |
+| Fronteira de TCB | `tcb_boundary_undeclared`, `tcb_boundary_unresolved`, `extern_candidate`/`implemented_by_candidate` apontando constante de `Init`, `Lean`, `Std` ou `Lake` |
+| Inspetor | `inspector_disagreement`, `missing_constants`, `inspector_field_missing` |
+
+**O que fazer:**
+1. Parar no passo em que apareceu. Não abrir o PR seguinte.
+2. **Não** ajustar a política, a allow-list, o `target_trusted_roots` nem o auditor para fazer
+   passar. Também não repetir o run esperando outro resultado: o auditor é determinístico, e uma
+   segunda execução igual não é evidência nova.
+3. Trazer: `report-*.json`, `outcome.json`, `summary.md`, o arquivo `.lean` auditado, o commit do
+   fork e o número do passo.
+4. A classificação (falso positivo do auditor ou achado real no Mathlib) é decisão de política,
+   tomada fora do run. A medição só continua depois dela.
+
 ---
 
 ## 0. Pré-condições (antes de qualquer ação pública)
@@ -86,15 +109,15 @@ python -c "import json;print(json.load(open('.auditor/allowlist.json'))['unclass
 git add .auditor && git commit -m "auditor: allow-list do Mathlib (e1b2403b, v4.36.0-rc1)"
 ```
 
-**Raízes de TCB (D-42).** A allow-list de raízes do auditor foi gerada a partir deste mesmo commit.
-Conferir que o fork não divergiu dela (com as dependências baixadas pelo `cache get` acima):
+**Raízes de TCB (D-42).** O `target_trusted_roots` do auditor foi gerado a partir deste mesmo
+commit. Conferir que o fork não divergiu dele (com as dependências baixadas pelo `cache get` acima):
 
 ```bash
 python <auditor>/tools/gen_tcb_roots.py --sysroot "$(lean --print-prefix)" --project . --root Mathlib --check
 ```
 
 **Verificar:** sai com 0. O gerador confere cada pacote de `.lake/packages` contra o `rev` do
-`lake-manifest.json` e o fecho de imports contra `src/auditor/data/tcb_roots/<toolchain>.json`.
+`lake-manifest.json` e o fecho de imports contra `src/auditor/data/target_trusted_roots/<toolchain>.json`.
 
 **Abortar se:** `lake exe cache get` falhar; o gerador falhar ao importar o Mathlib (traga a
 saída); a lista `unclassified` tiver comandos cujo efeito não dá para determinar lendo a definição;
@@ -102,6 +125,37 @@ saída); a lista `unclassified` tiver comandos cujo efeito não dá para determi
 
 **Nota de segurança:** o gerador executa os initializers do Mathlib (D-39). Rode-o só sobre o
 commit fixado acima, nunca sobre um branch de PR.
+
+## 3b. Teste de fumaça local (antes de qualquer PR)
+
+Roda o `auditor-ci` em **um único arquivo do Mathlib no commit fixado**, fora do fluxo de PR, no
+clone do fork (branch `auditor-base`, com o `cache get` e a allow-list do passo 3).
+
+```bash
+mkdir -p smoke
+auditor-ci run Mathlib/Logic/Hydra.lean --policy <auditor>/policy.toml --out-dir smoke \
+  --build-cache miss --timeout-total-first-run 1800 \
+  --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "exit=$?"
+python -c "import json;o=json.load(open('smoke/outcome.json'));print({k:o[k] for k in ('cache_state','first_run','infra_failed','exit_code')})"
+grep -rlE "allowlist_unavailable|toolchain_mismatch|inspector_build_failed|sysroot_mismatch|search_path_unrecognized|tcb_boundary_undeclared|unknown_command" smoke/ || echo "nenhum sinal de ambiente"
+```
+
+**Verificar:**
+- `outcome.json`: `cache_state: cold`, `first_run: true`, `infra_failed: false`, `exit_code` 0;
+- o `grep` imprime "nenhum sinal de ambiente" (em especial, nenhum `allowlist_unavailable`);
+- no `report-*.json`, toda declaração de `Hydra.lean` sai `verified`. Se alguma não sair, veja
+  "Falha que não é de infraestrutura" acima.
+
+**Por que local e com `--build-cache miss`:** fora do runner não há cache do Actions, então o
+estado de cache é o declarado. `--build-cache miss` exercita o caminho de primeiro run (`cold`,
+`first_run: true`, orçamento estendido). O orçamento estendido local é de 1800 s, e não 900 s,
+porque uma máquina pessoal não é o runner, e este passo não mede tempo. O teste confere o
+ambiente (toolchain, allow-list, `target_trusted_roots`, inspetor) e a lógica do outcome. O
+primeiro run real no runner é o passo 5.
+
+**Abortar se:** qualquer item de **Verificar** falhar. Não abra nenhum PR (nem o do passo 5).
+`smoke/` não entra em commit.
 
 ## 4. Workflows no fork
 
@@ -198,7 +252,9 @@ gh pr create -R $ME/mathlib4 --base auditor-base --head l2-<nome> --title "l2: <
 - tempos: `setup_elapsed_s`, `audit_elapsed_s`, `elapsed_s`, duração do arquivo.
 
 **Abortar se:** o arquivo editado sair `unknown_command` (allow-list incompleta: voltar ao passo 3);
-`inspector_disagreement` ou `missing_constants` aparecer (traga o relatório: é achado, não ruído).
+`inspector_disagreement` ou `missing_constants` aparecer (traga o relatório: é achado, não ruído);
+`auditor_probe_<nome>` não sair `verified`, ou qualquer outro sinal de "Falha que não é de
+infraestrutura" (tabela no começo).
 
 ## 8. Caminho de timeout (`auditor-failed-infra`)
 

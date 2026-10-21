@@ -85,7 +85,7 @@ def build_tcb(sa, sb, policy, root: Path | None) -> dict:
     if sb is not None and sb.toolchain:
         # sem caminhos absolutos: o fingerprint identifica o ambiente, não a máquina
         tcb["toolchain"] = {"lean_toolchain": sb.toolchain,
-                            "library_roots": (sb.boundary or {}).get("toolchain_roots")}
+                            "library_roots": (sb.boundary or {}).get("trusted_roots")}
     if sb is not None and sb.inspector and sb.inspector.get("lean_version"):
         tcb["kernel"] = {"lean_version": sb.inspector["lean_version"],
                          "githash": sb.inspector.get("lean_githash")}

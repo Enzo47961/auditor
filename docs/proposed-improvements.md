@@ -280,6 +280,30 @@ Nenhuma é urgente para a Policy: a Policy foi implementada sem depender de veto
 - **D-50. `import all` no parser de cabeçalho.** `fanout.py` (e o gerador de raízes, que o reutiliza) passou a tratar `all` depois de `import` como modificador. Antes, `all` era lido como nome de módulo. Isso não mudava o ranking do fanout (o nome era descartado por ser externo), mas faria o fecho de raízes falhar com "import sem fonte".
 - **D-51. Medição de avaliação nativa é léxica e declarada como estimativa.** Ela reutiliza a regra da Etapa A e conta também `bv_decide`, que a Etapa A não lista. Isso não é furo: o veredito vem da Etapa B, pela forma do axioma. O veredito por declaração continua sendo o do auditor (`native_auxiliary_axiom`), que pega também táticas como `inclusion +native`.
 
+## Rodada da instrução 14 — resoluções (camada 1 fechada)
+
+- **Camada 1: aceita como fechada.** 558 testes; 115/115 mutações nos 5 grupos, 0 sobreviventes e 0 puladas.
+- **Q9-a: confirmada pela medição.** A medição foi registrada em `docs/tcb.md` (decisão Q7-a) e no roadmap da Fase 1, ao lado de (d) e do critério de ≥ 50 %.
+- **D-47: aceita, com quatro adições obrigatórias, todas feitas:**
+  1. **Renomeado:** `tcb_roots` → `target_trusted_roots`. Isso vale para o diretório `src/auditor/data/target_trusted_roots/`, para `load_target_trusted_roots` e para o campo `Boundary.trusted_roots`. No resultado da Etapa B, `boundary.toolchain_roots` passou a ser `boundary.trusted_roots`, ao lado de `boundary.declared_roots`. O JSON ganhou o campo `meaning`, que diz o que ele significa e o que não significa. O nome do gerador (`tools/gen_tcb_roots.py`) ficou como estava, porque é o citado no texto da instrução.
+  2. **L-21** em `docs/limitations.md` (a Fase 0 é voltada ao Mathlib; outros alvos geram o próprio arquivo; podem aparecer falsos positivos).
+  3. **Roadmap da Fase 1:** descoberta automática de raízes para alvos arbitrários, com a mesma política de verificação contra o `lake-manifest.json`.
+  4. **`docs/tcb.md`:** tabela com as raízes declaradas pelo Lean v4.36, as usadas pelo Mathlib `e1b2403b` e as que estão em `target_trusted_roots`.
+- **D-48, D-49, D-50: aceitas.** **D-51: aceita com nota.** A contagem exata, por compilação, ficou registrada como item da Fase 1 no roadmap.
+- **D-38: aceita.** Registrada como **L-22** em `docs/limitations.md`.
+- **`rea` (MCP) e a suíte:** nenhum teste depende de servidor MCP. `git grep` em `tests/`, `src/`, `tools/` e `pyproject.toml` não acha referência, e a suíte inteira da camada 1 (558) rodou **depois** de o WSL ser desligado, com o `rea` desconectado.
+- **Preparação da camada 2:**
+  1. **Critérios de aborto para falha que não é de infraestrutura.** Os que já existiam cobriam os sinais de ambiente (passo 5) e `unknown_command`, `inspector_disagreement` e `missing_constants` (passo 7). **Não** cobriam:
+     - o lema de sonda não sair `verified`;
+     - uma declaração que o PR não tocou sair `Rejeitada`, `Não conforme` ou `Não resolvido`;
+     - `native_auxiliary_axiom` na biblioteca;
+     - `tcb_boundary_*`;
+     - `--check` divergente no meio da medição.
+
+     O checklist ganhou a seção "Falha que não é de infraestrutura", que vale em todos os passos: parar, não ajustar nada para passar, não repetir, trazer os artefatos. A classificação fica fora do run.
+  2. **Teste de fumaça (passo 3b, antes de qualquer PR).** Roda `auditor-ci run` num único arquivo (`Mathlib/Logic/Hydra.lean`) no commit fixado, com `--build-cache miss`, e confere `cache_state: cold`, `first_run: true`, `infra_failed: false`, `exit_code` 0, nenhum `allowlist_unavailable` nem outro sinal de ambiente, e todas as declarações `verified`. Os comandos foram executados aqui sobre o fixture `tests/ci/clean-project`, com a mesma CLI e as mesmas checagens: `cold`, `first_run: True`, `exit_code` 0, nenhum sinal de ambiente.
+- **Flutuação observada (sem causa conhecida).** Depois do renome, `test_06_toolchain_extern_does_not_trigger` falhou uma vez, numa execução combinada com outros arquivos cuja saída não foi guardada. Em seguida passou 4 vezes: 3 sozinho e 1 na mesma combinação. A causa não é conhecida, e nenhuma é afirmada aqui. A partir de agora, as execuções por partes guardam o log de qualquer falha. Se voltar a acontecer, haverá evidência.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

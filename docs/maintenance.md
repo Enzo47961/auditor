@@ -54,8 +54,8 @@ passo encontrou.
    resultado: o segundo tipo é decisão de política, vai para o revisor, e enquanto isso o
    comportamento é fail-closed. *Na v4.36: `native_decide` passou a adicionar um axioma por uso
    (L-19, Q9); a convenção da dona de `where` mudou (L-4).*
-8. **Fronteira de TCB.** As raízes de TCB são uma allow-list por toolchain
-   (`src/auditor/data/tcb_roots/<toolchain>.json`): as raízes que o projeto-alvo de fato usa,
+8. **Fronteira de TCB.** As raízes de TCB são o `target_trusted_roots` de cada toolchain
+   (`src/auditor/data/target_trusted_roots/<toolchain>.json`): as raízes que o projeto-alvo de fato usa,
    **não** todas as que o toolchain declara (D-42). Regenerar com o Mathlib no commit fixado
    e as dependências nas revisões exatas do seu `lake-manifest.json`:
    `python tools/gen_tcb_roots.py --sysroot <sysroot> --project <mathlib> --root Mathlib`.

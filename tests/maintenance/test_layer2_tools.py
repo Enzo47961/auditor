@@ -147,7 +147,7 @@ def test_gen_tcb_roots_rejects_incomplete_closure(tmp_path):
 
 def test_versioned_tcb_roots_match_mathlib_measurement():
     """O arquivo versionado é o fecho do Mathlib fixado (gerado por gen_tcb_roots.py, D-42)."""
-    data = json.loads((ROOT / "src" / "auditor" / "data" / "tcb_roots" /
+    data = json.loads((ROOT / "src" / "auditor" / "data" / "target_trusted_roots" /
                        "leanprover__lean4__v4.36.0-rc1.json").read_text(encoding="utf-8"))
     assert data["roots"] == ["Init", "Lake", "Lean", "Std"]
     assert data["derived_from"]["commit"] == "e1b2403bdd31a2756e30282d62b3fa54cc95c869"
