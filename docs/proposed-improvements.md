@@ -361,6 +361,25 @@ O segundo `auditor-prep` (run 39666288403, auditor `c3dcf08`) confirmou D-52 a D
   - (b) `test_all_pass` aquece o cache do inspetor antes.
   - (c) A suíte do `ci.yml` (Linux) é a referência da camada 1.
 
+## Rodada da instrução 17 — rascunho da classificação do Mathlib
+
+O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositório: `.auditor/classification.toml` do fork, ainda não commitado) foi aprovado pelo revisor como base para a revisão humana. Resultado: 63 `allowed`, 32 `metaprogramming`, 3 `syntax_extension`; 9 ambíguos, fail-closed por precaução (exceto `#string_diagram`, allowed por precaução).
+
+- **Divergências da lista prévia do revisor: são correções, não discordâncias.** A lista prévia foi feita pelo nome dos comandos; o rascunho, lendo a implementação de cada um no commit fixado. A leitura prevaleceu nos 7 casos: `#count_heartbeats`, `#leansearch`, `#loogle`, `#search`, `#parse`, `deprecate` (allowed → fail-closed) e `notation3` (allowed → `syntax_extension`). Na resposta, o revisor contou 6; a contagem no rascunho é 7.
+- **Evidência de que a classificação por leitura funciona** (achados que o nome não revela):
+  - `#count_heartbeats`, `#count_heartbeats!` e `guard_min_heartbeats` elaboram o comando embrulhado com `set_option maxHeartbeats 0 in` injetado pela macro, escondido da Etapa A (`Mathlib/Util/CountHeartbeats.lean`, linhas 143, 187, 202). Sem esse achado, a regra da O-3 seria trivialmente contornável.
+  - `#import_bumps` injeta `set_option Elab.async false` e `set_option linter.minImports true`, escondidos.
+  - `#clear_deprecations` escreve arquivos (`IO.FS.writeFile`) e roda `lake build` (`IO.Process`).
+  - `lrat_proof` aceita `include_str` (lê do disco).
+  - `sudo set_option` aceita opção não declarada, fora do reconhecimento de opções da política.
+- **Quatro pontos para o segundo revisor** (não bloqueiam; a decisão fica registrada no TOML final):
+  1. `unset_option` (allowed): irmão de `set_option`. Não há bypass conhecido, porque a Etapa A vê o `set_option` literal antes, mas a simetria pede segunda opinião.
+  2. `unsuppress_compilation` (allowed): oposto de `suppress_compilation` (fail-closed); "força compilação" não é trivialmente benigno.
+  3. `#lint` (allowed): premissa registrada no TOML: os linters são código fixo do Mathlib no commit fixado; se `#lint` passar a aceitar linter escolhido pelo usuário, muda de categoria.
+  4. `#string_diagram` (ambíguo, allowed por precaução): candidato à revisão da Fase 1.
+- **L-25:** texto aprovado sem mudança. Entra no commit da classificação final.
+- **Pauta de relaxamento da Fase 1:** registrada no roadmap. São 10 itens distintos: os 9 ambíguos (que já incluem `#string_diagram` e `suppress_compilation`) e `#lint`.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

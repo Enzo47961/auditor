@@ -180,6 +180,16 @@ A correção desses testes depende de decisão do revisor (instrução 15: nada 
 
 **Instrução 16 (D-56, D-57, D-58).** Os 3 testes foram corrigidos (D-58): os dois de timeout usam um fixture gerado (`conftest.slow_lean_source`, 800 teoremas por `decide`, ~13 s no Windows), que compila em segundos em qualquer máquina, e conferem que a duração medida passou de 1 s; o `test_all_pass` aquece o cache do inspetor antes (`ci._prebuild_inspector`) e declara que testa o caminho warm. **A suíte do `ci.yml` (Linux) é a referência da camada 1**; a execução local é conveniência.
 
+| Data | Commit do código | Grupo | Detectadas | Sobreviventes / puladas |
+|---|---|---|---|---|
+| 2026-10-21 | `e6e9f62` | `stage_a` (9 + 4: D-56, D-57) | 13/13 | 0 |
+| 2026-10-21 | `e6e9f62` | `allowlist` (re-rodado: `stage_a.py` mudou) | 13/13 | 0 |
+| 2026-10-21 | `e6e9f62` | `stage_b` (testes mudaram: D-58) | 17/17 | 0 |
+| 2026-10-21 | `e6e9f62` | `policy` (inclui `tests/cli`, que mudou: D-58) | 45/45 | 0 |
+| 2026-10-21 | `e6e9f62` | `ci` (testes mudaram: D-58) | 22/22 | 0 |
+
+Execução: `auditor-mutation`, run 39671405280 (20 min, Linux): 110/110. Suíte no `ci.yml` (run 39670595679 sobre `e6e9f62`): **609 passed, 0 failed**. O grupo `gen_tcb_roots` (8/8 no `2a4306b`) não foi re-rodado: o código e os testes dele não mudaram. **Estado em 2026-10-21: 6 grupos, 118/118 detectadas, 0 sobreviventes, 0 puladas.**
+
 
 
 ## Fixação de versões nos workflows (D-25)
