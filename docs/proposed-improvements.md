@@ -304,6 +304,39 @@ Nenhuma é urgente para a Policy: a Policy foi implementada sem depender de veto
   2. **Teste de fumaça (passo 3b, antes de qualquer PR).** Roda `auditor-ci run` num único arquivo (`Mathlib/Logic/Hydra.lean`) no commit fixado, com `--build-cache miss`, e confere `cache_state: cold`, `first_run: true`, `infra_failed: false`, `exit_code` 0, nenhum `allowlist_unavailable` nem outro sinal de ambiente, e todas as declarações `verified`. Os comandos foram executados aqui sobre o fixture `tests/ci/clean-project`, com a mesma CLI e as mesmas checagens: `cold`, `first_run: True`, `exit_code` 0, nenhum sinal de ambiente.
 - **Flutuação observada (sem causa conhecida).** Depois do renome, `test_06_toolchain_extern_does_not_trigger` falhou uma vez, numa execução combinada com outros arquivos cuja saída não foi guardada. Em seguida passou 4 vezes: 3 sozinho e 1 na mesma combinação. A causa não é conhecida, e nenhuma é afirmada aqui. A partir de agora, as execuções por partes guardam o log de qualquer falha. Se voltar a acontecer, haverá evidência.
 
+## Rodada da instrução 15 — camada 2, primeiro `auditor-prep`
+
+O primeiro `auditor-prep` no fork (`Enzo47961/mathlib4`, `auditor-base` = `847592d` sobre `e1b2403b`; run 39656457392) parou no passo 3. O comportamento fail-closed na fumaça foi o esperado: sem allow-list, 0 `verified` e 20 `unresolved` (`stage_a_unrecognized`). As três falhas abaixo são bugs reais das ferramentas, encontrados pelo ambiente-alvo e indetectáveis na camada 1 (L-23).
+
+- **D-52: aprovada.** O gerador extrai só das `lean_lib` `@[default_target]` (ou `--lib`).
+  - **Causa:** `project_modules()` importava todo `.olean` do build, inclusive a biblioteca `Cache` do Mathlib, que define `Lean.Name.fromComponents` como `Mathlib.Lean.Name`. A D-6 supunha um projeto com uma biblioteca só.
+  - **Testes:**
+    - (a) `test_extraction_ignores_non_target_library`: o mini-projeto ganha uma segunda `lean_lib` (`Tool`) que define o mesmo nome que a `Mini`. A extração padrão usa só a `Mini`, e pedir as duas (`--lib Mini --lib Tool`) falha com exit 2, o que prova que a colisão do fixture é real.
+    - Leitura do lakefile `.lean` e `.toml`; lakefile sem `@[default_target]` → erro que pede `--lib`.
+    - (b) Mutações no grupo `allowlist`: voltar a listar tudo; aceitar `defaultTargets` que não são `lean_lib`; aceitar lakefile sem alvo.
+    - (c) O caso real (Mathlib + `Cache`) é conferido pelo próximo `auditor-prep`.
+- **D-53: aprovada, opção forte (normalizar, não só documentar).** CRLF → LF antes do hash em `env_pin` e em `gen_tcb_roots.py`, e também na procedência do `fanout.py`, para os três hashes do mesmo manifesto baterem. SHA-256 do conteúdo normalizado (não o blob do git, que é SHA-1; D-18).
+  - **Versões:** `ENV_PIN_VERSION` `2`; `generator_version` `3`.
+  - **Regeneração:** `target_trusted_roots` foi regenerado no clone local (Windows, CRLF) do `e1b2403b`. Só o hash mudou, para `f77f47db…`, o mesmo que o runner Linux calculou: evidência direta de que a normalização funciona entre os sistemas.
+  - **Testes:**
+    - `test_env_pin_ignores_crlf`;
+    - `test_allowlist_survives_line_ending_change` (gerada em LF, usada em CRLF, e o inverso; Etapa A e `--check`);
+    - `test_gen_tcb_roots_manifest_hash_ignores_crlf` (gerador e `fanout`);
+    - o arquivo versionado travado em `f77f47db…`.
+  - **Mutações:** uma em cada lugar.
+  - **Nota sobre a D-10:** o `.gitattributes` (`* -text`) protege só o repositório do auditor, não o projeto-alvo, que é clonado com a configuração de quem clona. A normalização é a garantia; a D-10 continua valendo para os arquivos do próprio auditor.
+- **D-54: aprovada como proposta, com o invariante explícito.** `--check` aceita `HEAD` ≠ commit gravado só se o gravado for ancestral, a árvore de trabalho (não só o `HEAD`) diferir apenas em `.github/` e nenhum `.lean` mudar, nem dentro de `.github/`. Registrado como **L-24**: relaxamento específico da medição em fork; no repositório real vale o check estrito.
+  - **Testes:**
+    - aceito: só `.github/`;
+    - rejeitados (5): `README.md`, um `.lean` com o mesmo fecho, `.github/Gen.lean`, mudança não commitada, commit irmão (não ancestral, mas que só difere em `.github/`);
+    - check estrito quando `HEAD` = commit gravado.
+  - **Mutações:** novo grupo `gen_tcb_roots` (8).
+  - **Execução real:** no clone local do fork (`847592d`), o `--check` passou pelo caminho de fork.
+- **D-55: aprovada.** `runs-on: ubuntu-24.04` no workflow reutilizável, no `ci.yml`, nos templates e no `auditor-prep` do fork. A atualização das actions de Node 20 fica para uma rodada separada, fora da camada 2, com registro no CHANGELOG.
+- **`syntax_extension_declared` com `command: "?"`:** será verificado na próxima fumaça. Se persistir com a allow-list do Mathlib presente, é falha que não é de infraestrutura e será tratado como bug; se desaparecer, fica registrado como consequência da falta de allow-list.
+- **Registro pedido como "L-19":** o número L-19 já existe (axioma auxiliar de avaliação nativa, Q9). O texto foi registrado como **L-23**, e o relaxamento da D-54 como **L-24**.
+- **Revalidação:** só os grupos de mutação tocados (`allowlist` e o novo `gen_tcb_roots`) foram re-rodados. `policy`, `ci`, `stage_a` e `stage_b` continuam validados pelos commits anteriores, porque o código deles não mudou. A suíte completa foi re-rodada.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

@@ -41,6 +41,27 @@ sem período de transição.
   `boundary.trusted_roots`, e `boundary.declared_roots` traz tudo o que o toolchain declara.
   Projeto-alvo que não é o Mathlib gera o próprio arquivo (L-21).
 
+- **Allow-list de projeto: só as bibliotecas-alvo** (D-52). `auditor-gen-allowlist` extrai os
+  comandos só das `lean_lib` marcadas `@[default_target]` no lakefile (ou das indicadas com
+  `--lib`, repetível), e não mais de todo `.olean` do build. Sem nenhuma, erro (exit 2). O
+  arquivo gerado ganhou o campo `libraries`. Motivo: no Mathlib, o `lake exe cache get` compila a
+  biblioteca `Cache`, que define `Lean.Name.fromComponents` como `Mathlib.Lean.Name`; as duas não
+  podem ser importadas juntas, e o gerador falhava. `generator_version` `2` → `3`.
+- **Fim de linha normalizado nos hashes do `lake-manifest.json`** (D-53). `env_pin` (allow-list
+  de projeto), `tools/gen_tcb_roots.py` e `tools/layer2/fanout.py` calculam o hash com CRLF → LF:
+  o mesmo commit dá o mesmo valor num clone Windows (`core.autocrlf=true`) e no Linux. SHA-256 do
+  conteúdo normalizado, não o hash de blob do git (SHA-1, D-18). `ENV_PIN_VERSION` `1` → `2`:
+  allow-lists de projeto geradas antes ficam `allowlist_stale` e precisam ser regeneradas.
+  `target_trusted_roots` regenerado: `lake_manifest_sha256` `c9b51d72…` (clone CRLF) →
+  `f77f47db…` (o do repositório); o resto é idêntico.
+- **`gen_tcb_roots.py --check` aceita fork de medição** (D-54, L-24): `HEAD` ≠ commit gravado só
+  se o commit gravado for ancestral e a árvore só diferir em `.github/`, sem nenhum `.lean`.
+- **Runner fixado: `ubuntu-24.04`** (D-55) no workflow reutilizável, no `ci.yml` e nos templates
+  `auditor-label`/`auditor-report`. O GitHub migra `ubuntu-latest` para o Ubuntu 26 desde
+  2026-10-19, e a medição da camada 2 não pode trocar de imagem no meio. A atualização das actions
+  fixadas (Node 20, que o GitHub já força a rodar em Node 24) fica para uma rodada separada, fora
+  da camada 2, com registro aqui.
+
 ### Caminhos do Mathlib que mudaram
 - **`Mathlib/Logic/Basic.lean` não existe mais** no commit fixado (`e1b2403b`). O equivalente é
   `Mathlib/Basic/Logic/Basic.lean` (8072 dependentes, posição 24 no fanout). Nenhum script,

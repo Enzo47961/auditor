@@ -16,6 +16,13 @@ do toolchain alcançados por raiz. Import sem fonte encontrada é erro: o fecho 
 Raiz da allow-list = raiz declarada pelo toolchain (`<sysroot>/lib/lean/*.olean`) que aparece no
 fecho. Saída: `src/auditor/data/target_trusted_roots/<toolchain>.json`, com a procedência.
 Projeto-alvo que não é o Mathlib gera o próprio arquivo com este gerador (L-21).
+
+O SHA-256 do `lake-manifest.json` é do conteúdo com fim de linha normalizado (CRLF → LF, D-53):
+o mesmo commit dá o mesmo hash num clone Windows (`core.autocrlf=true`) e no Linux.
+
+`--check` num fork de medição (D-54, L-24): o `HEAD` pode diferir do commit gravado desde que
+esse commit seja ancestral do `HEAD` e a árvore de trabalho só difira dele em `.github/`, sem
+nenhum `.lean`. O resto da comparação continua estrito. Fora disso, o commit tem de ser o mesmo.
 """
 from __future__ import annotations
 
@@ -32,7 +39,7 @@ sys.path.insert(0, str(ROOT / "tools" / "layer2"))
 sys.path.insert(0, str(ROOT / "src"))
 from fanout import HeaderError, header_imports  # noqa: E402
 
-from auditor.allowlist import sanitize  # noqa: E402
+from auditor.allowlist import normalize_newlines, sanitize  # noqa: E402
 from auditor.tcb_boundary import BoundaryError, package_dirs  # noqa: E402
 
 FORMAT = 1
@@ -132,9 +139,30 @@ def generate(sysroot: Path, project: Path, root: str) -> dict:
         "declared_by_toolchain": declared,
         "modules_in_closure": {r: used[r] for r in sorted(used)},
         "derived_from": {"root": root, "commit": _git_head(project),
-                         "lake_manifest_sha256": hashlib.sha256(mf_bytes).hexdigest(),
+                         "lake_manifest_sha256": hashlib.sha256(normalize_newlines(mf_bytes)).hexdigest(),
                          "packages": dict(sorted(packages.items())), "closure_modules": len(seen)},
     }
+
+
+def fork_drift(project: Path, pinned: str) -> str | None:
+    """Por que a árvore de trabalho de `project` não é o commit `pinned` mais só `.github/` (D-54);
+    None se é. O invariante é "nenhum .lean muda"; restringir a `.github/` é o proxy estrito."""
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(project), *args], capture_output=True, text=True,
+                              encoding="utf-8")
+    if git("merge-base", "--is-ancestor", pinned, "HEAD").returncode != 0:
+        return f"{pinned} não é ancestral do HEAD"
+    d = git("diff", "--name-only", pinned)
+    if d.returncode != 0:
+        return f"git diff falhou: {d.stderr.strip()}"
+    changed = [f for f in d.stdout.splitlines() if f]
+    outside = [f for f in changed if not f.startswith(".github/")]
+    if outside:
+        return f"mudanças fora de .github/: {outside[:10]}"
+    lean = [f for f in changed if f.endswith(".lean")]
+    if lean:
+        return f"arquivos .lean mudaram: {lean[:10]}"
+    return None
 
 
 def render(data: dict) -> str:
@@ -156,6 +184,20 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     out = a.out or DATA / f"{sanitize(data['toolchain'])}.json"
     if a.check:
+        pinned = None
+        if out.is_file():
+            try:
+                pinned = json.loads(out.read_text(encoding="utf-8"))["derived_from"]["commit"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pinned = None
+        head = data["derived_from"]["commit"]
+        if pinned and head and head != pinned:
+            why = fork_drift(a.project, pinned)
+            if why is not None:
+                sys.stderr.write(f"gen_tcb_roots: HEAD {head} não é o commit fixado {pinned}: {why}\n")
+                return 1
+            print(f"fork de medição: HEAD {head} = {pinned} + só .github/ (D-54)")
+            data["derived_from"]["commit"] = pinned
         if not out.is_file() or out.read_text(encoding="utf-8") != render(data):
             sys.stderr.write(f"gen_tcb_roots: {out} diverge do fecho calculado\n{render(data)}")
             return 1

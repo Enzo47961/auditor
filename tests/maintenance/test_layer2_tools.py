@@ -151,7 +151,83 @@ def test_versioned_tcb_roots_match_mathlib_measurement():
                        "leanprover__lean4__v4.36.0-rc1.json").read_text(encoding="utf-8"))
     assert data["roots"] == ["Init", "Lake", "Lean", "Std"]
     assert data["derived_from"]["commit"] == "e1b2403bdd31a2756e30282d62b3fa54cc95c869"
+    # hash do manifesto com fim de linha LF, como no repositório (D-53; o CRLF era c9b51d72…)
+    assert data["derived_from"]["lake_manifest_sha256"] == \
+        "f77f47dbdf33a5ca838db1937b5d128515b5c23dab39094def3975868efbbdd6"
     assert set(data["roots"]) <= set(data["declared_by_toolchain"])
+
+
+def test_gen_tcb_roots_manifest_hash_ignores_crlf(tmp_path):
+    import hashlib
+    sysroot, proj, _ = _tcb_env(tmp_path)
+    m = proj / "lake-manifest.json"
+    lf = m.read_bytes().replace(b"\r\n", b"\n") + b"\n"
+    m.write_bytes(lf)
+    h_lf = gen_tcb_roots.generate(sysroot, proj, "P")["derived_from"]["lake_manifest_sha256"]
+    m.write_bytes(lf.replace(b"\n", b"\r\n"))
+    h_crlf = gen_tcb_roots.generate(sysroot, proj, "P")["derived_from"]["lake_manifest_sha256"]
+    assert h_lf == h_crlf == hashlib.sha256(lf).hexdigest()
+    assert fanout.provenance(proj)["lake_manifest_sha256"] == h_lf
+
+
+def _fork_env(tmp_path):
+    """Projeto P num repositório git; o arquivo de raízes é gravado no commit fixado."""
+    import subprocess
+    sysroot, proj, _ = _tcb_env(tmp_path)
+    (proj / ".gitignore").write_text(".lake/\n", encoding="utf-8")
+    pinned = _git_repo(proj)
+    out = tmp_path / "roots.json"
+    args = ["--sysroot", str(sysroot), "--project", str(proj), "--root", "P", "--out", str(out)]
+    assert gen_tcb_roots.main(args) == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["derived_from"]["commit"] == pinned
+
+    def commit(rel, text):
+        f = proj / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text, encoding="utf-8")
+        for a in (["add", "-A"], ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "y"]):
+            subprocess.run(["git", "-C", str(proj), *a], check=True, capture_output=True)
+    return proj, args, out, commit
+
+
+def test_check_accepts_fork_that_only_changes_github(tmp_path, capsys):
+    """D-54: o fork de medição remove/adiciona workflows; o fecho é o mesmo do commit fixado."""
+    proj, args, out, commit = _fork_env(tmp_path)
+    commit(".github/workflows/auditor.yml", "on: push\n")
+    assert gen_tcb_roots.main([*args, "--check"]) == 0
+    assert "D-54" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("change", ["README.md", "P/M.lean", ".github/Gen.lean", "uncommitted", "not_ancestor"])
+def test_check_rejects_fork_with_other_changes(tmp_path, capsys, change):
+    proj, args, out, commit = _fork_env(tmp_path)
+    commit(".github/workflows/auditor.yml", "on: push\n")
+    if change == "uncommitted":       # árvore de trabalho conta, não só o HEAD
+        (proj / "P" / "M.lean").write_text("import Dep.A\ntheorem t : 1 = 1 := rfl\n", encoding="utf-8")
+    elif change == "not_ancestor":    # commit irmão: difere do HEAD só em .github/, mas não é ancestral
+        import subprocess
+        commit(".github/side.yml", "x\n")
+        side = subprocess.run(["git", "-C", str(proj), "rev-parse", "HEAD"], check=True, capture_output=True,
+                              text=True).stdout.strip()
+        subprocess.run(["git", "-C", str(proj), "reset", "-q", "--hard", "HEAD~1"], check=True, capture_output=True)
+        d = json.loads(out.read_text(encoding="utf-8"))
+        d["derived_from"]["commit"] = side
+        out.write_text(gen_tcb_roots.render(d), encoding="utf-8")
+    elif change == "P/M.lean":        # mesmo fecho (import inalterado): o fecho não pega, a regra pega
+        commit(change, "import Dep.A\ntheorem t : 1 = 1 := rfl\n")
+    else:
+        commit(change, "x\n")
+    assert gen_tcb_roots.main([*args, "--check"]) == 1
+    assert "não é o commit fixado" in capsys.readouterr().err
+
+
+def test_check_strict_when_head_is_pinned(tmp_path):
+    """Sem fork, nada muda: o commit é o mesmo e a comparação é byte a byte."""
+    proj, args, out, commit = _fork_env(tmp_path)
+    assert gen_tcb_roots.main([*args, "--check"]) == 0
+    out.write_text(out.read_text(encoding="utf-8").replace('"Lean"\n', '"Lean",\n    "Std"\n', 1),
+                   encoding="utf-8")
+    assert gen_tcb_roots.main([*args, "--check"]) == 1
 
 
 def test_header_imports_rejects_illegible_names():

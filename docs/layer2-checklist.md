@@ -118,6 +118,13 @@ python <auditor>/tools/gen_tcb_roots.py --sysroot "$(lean --print-prefix)" --pro
 
 **Verificar:** sai com 0. O gerador confere cada pacote de `.lake/packages` contra o `rev` do
 `lake-manifest.json` e o fecho de imports contra `src/auditor/data/target_trusted_roots/<toolchain>.json`.
+No fork, o `HEAD` (`auditor-base`) não é o `e1b2403b`: a saída deve dizer `fork de medição: HEAD … =
+e1b2403b… + só .github/ (D-54)`. Qualquer outra diferença em relação ao `e1b2403b` falha (L-24). Num
+checkout raso, o `e1b2403b` precisa estar presente (`fetch-depth: 2`).
+
+**Allow-list (D-52):** o `auditor-gen-allowlist` usa só a biblioteca `@[default_target]` do
+Mathlib (`Mathlib`); o campo `libraries` do arquivo gerado deve ser `["Mathlib"]`. A biblioteca
+`Cache`, que o `lake exe cache get` compila, fica fora.
 
 **Abortar se:** `lake exe cache get` falhar; o gerador falhar ao importar o Mathlib (traga a
 saída); a lista `unclassified` tiver comandos cujo efeito não dá para determinar lendo a definição;
@@ -283,7 +290,7 @@ python <auditor>/tools/layer2/timings.py l2 > l2/timings.md
 **Formato esperado do relatório de medição** (um arquivo, ex.: `l2/RELATORIO.md`):
 
 1. Contexto: commit do auditor (`$AUD`), commit base do fork (`e1b2403b`), data, commit do `master`
-   do Mathlib no dia, runner (`ubuntu-latest`, versão da imagem no log do job).
+   do Mathlib no dia, runner (`ubuntu-24.04`, fixado por D-55; versão da imagem no log do job).
 2. Tabela, uma linha por PR (primeiro run, trivial, médio, fanout, timeout):
 
    | PR | arquivo | mudança | `cache_state` | `first_run` | preparação (s) | auditoria (s) | total (s) | duração do arquivo (s) | `exit_code` | contagem verified/rejected/unresolved | labels | conclusão do job |

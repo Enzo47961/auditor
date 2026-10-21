@@ -28,7 +28,7 @@
   "derived_from": {
     "root": "Mathlib",
     "commit": "e1b2403bdd31a2756e30282d62b3fa54cc95c869",
-    "lake_manifest_sha256": "c9b51d7223122783d2545ac8d05628d1d175280bacf66f0e26be5167988a06e9",
+    "lake_manifest_sha256": "f77f47dbdf33a5ca838db1937b5d128515b5c23dab39094def3975868efbbdd6",
     "packages": {
       "Cli": "34d2efffcb6dc8d5f3537cf6a7f88bfaa999ec49",
       "LeanSearchClient": "9d39f9bb0c30aa2f6200808805ff16e6ce950890",

@@ -19,6 +19,7 @@ TB = "src/auditor/tcb_boundary.py"
 FP = "src/auditor/fingerprint/__init__.py"
 PD = "src/auditor/pydeps.py"
 CI = "src/auditor/ci.py"
+GT = "tools/gen_tcb_roots.py"
 
 GROUPS = {
     "stage_a": {
@@ -50,6 +51,12 @@ GROUPS = {
             (AL, r"        if dup:", r"        if False:"),
             (AL, r"        if unknown_keys:", r"        if False:"),
             (AL, r"if not tc_file.is_file() or not manifest.is_file():", r"if not tc_file.is_file():"),
+            # camada 2, instrução 15: só as bibliotecas-alvo (D-52); fim de linha (D-53)
+            (AL, r'    mods = [m for m in mods if any(m == r or m.startswith(r + ".") for r in libs)]', r"    mods = mods"),
+            (AL, r'        libs = [t for t in data.get("defaultTargets", []) if t in names]',
+             r'        libs = list(data.get("defaultTargets", []))'),
+            (AL, r"    if not libs:", r"    if False:"),
+            (AL, r"    manifest = normalize_newlines(manifest)", r"    manifest = manifest"),
         ],
     },
     "stage_b": {
@@ -169,6 +176,21 @@ GROUPS = {
             (CI, r'"cache_cold_extension": first_run and not infra and elapsed > budget_s,',
              r'"cache_cold_extension": first_run and elapsed > budget_s,'),
             (CI, r"        if a.started_at:", r"        if False:"),
+        ],
+    },
+    # camada 2, instrução 15: gerador de target_trusted_roots (D-53, D-54)
+    "gen_tcb_roots": {
+        "tests": ["tests/maintenance/test_layer2_tools.py"],
+        "mutations": [
+            (GT, r'"lake_manifest_sha256": hashlib.sha256(normalize_newlines(mf_bytes)).hexdigest(),',
+             r'"lake_manifest_sha256": hashlib.sha256(mf_bytes).hexdigest(),'),
+            (GT, r'    if git("merge-base", "--is-ancestor", pinned, "HEAD").returncode != 0:', r"    if False:"),
+            (GT, r'    d = git("diff", "--name-only", pinned)', r'    d = git("diff", "--name-only", pinned, "HEAD")'),
+            (GT, r'    outside = [f for f in changed if not f.startswith(".github/")]', r"    outside = []"),
+            (GT, r'    lean = [f for f in changed if f.endswith(".lean")]', r"    lean = []"),
+            (GT, r'            data["derived_from"]["commit"] = pinned', r"            pass"),
+            (GT, r"            if head != revs[name]:", r"            if False:"),
+            (GT, r"    if missing:", r"    if False:"),
         ],
     },
 }

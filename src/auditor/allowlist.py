@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -29,8 +30,8 @@ import tempfile
 import tomllib
 from pathlib import Path
 
-GENERATOR_VERSION = "2"
-ENV_PIN_VERSION = "1"
+GENERATOR_VERSION = "3"
+ENV_PIN_VERSION = "2"
 PKG = Path(__file__).resolve().parent
 DUMP = PKG / "lean" / "Dump.lean"
 CORE_DIR = PKG / "data" / "allowlist"
@@ -43,8 +44,16 @@ class AllowlistError(Exception):
     pass
 
 
+def normalize_newlines(raw: bytes) -> bytes:
+    """CRLF → LF. O mesmo arquivo do git vira CRLF num clone com `core.autocrlf=true` (Windows) e
+    fica LF no Linux; todo hash de arquivo de texto do ambiente passa por aqui (D-53)."""
+    return raw.replace(b"\r\n", b"\n")
+
+
 def env_pin(toolchain: str, manifest: bytes) -> str:
-    """Pino do ambiente para allow-lists de projeto: toolchain exato + bytes do manifesto."""
+    """Pino do ambiente para allow-lists de projeto: toolchain exato + manifesto com fim de linha
+    normalizado (D-53)."""
+    manifest = normalize_newlines(manifest)
     h = hashlib.sha256()
     for part in (f"auditor-env-pin-v{ENV_PIN_VERSION}".encode(), toolchain.encode("utf-8"), manifest):
         h.update(len(part).to_bytes(8, "big"))
@@ -95,14 +104,40 @@ def extract_core(toolchain: str) -> list[str]:
         return run_dump(Path(tmp), [], use_lake_env=False)
 
 
-def project_modules(project: Path) -> list[str]:
-    """Módulos do próprio projeto: os `.olean` produzidos pelo `lake build` do projeto."""
+_DEFAULT_LIB_LEAN = re.compile(r"@\[\s*default_target\s*\]\s*lean_lib\s+(«[^»]+»|[A-Za-z_][\w.']*)")
+_DEFAULT_TARGETS_TOML = re.compile(r"^\s*defaultTargets\s*=\s*\[([^\]]*)\]", re.MULTILINE)
+
+
+def target_libs(project: Path) -> list[str]:
+    """Bibliotecas-alvo do projeto: as `lean_lib` marcadas `@[default_target]` no lakefile (D-52).
+
+    Só elas entram na extração. Outras bibliotecas do mesmo build (no Mathlib, `Cache`, que o
+    `lake exe cache get` compila) podem definir os mesmos nomes e não podem ser importadas junto.
+    Supõe que o nome da biblioteca é a raiz dos seus módulos (o padrão do Lake, sem `roots :=`);
+    para outro caso, `--lib`. Nenhuma encontrada → erro (sem alvo, a extração seria arbitrária)."""
+    lean, toml = project / "lakefile.lean", project / "lakefile.toml"
+    if lean.is_file():
+        libs = [n.strip("«»") for n in _DEFAULT_LIB_LEAN.findall(lean.read_text(encoding="utf-8"))]
+    elif toml.is_file():
+        data = tomllib.loads(toml.read_text(encoding="utf-8"))
+        names = {lib.get("name") for lib in data.get("lean_lib", [])}
+        libs = [t for t in data.get("defaultTargets", []) if t in names]
+    else:
+        raise AllowlistError("projeto sem lakefile.lean nem lakefile.toml")
+    if not libs:
+        raise AllowlistError("nenhuma lean_lib @[default_target] no lakefile: indique as bibliotecas com --lib")
+    return sorted(set(libs))
+
+
+def project_modules(project: Path, libs: list[str]) -> list[str]:
+    """Módulos das bibliotecas-alvo: os `.olean` do build do projeto sob `<lib>` ou `<lib>.*`."""
     lib = project / ".lake" / "build" / "lib" / "lean"
     if not lib.is_dir():
         raise AllowlistError(f"nenhum build encontrado em {lib}")
     mods = sorted(".".join(p.relative_to(lib).with_suffix("").parts) for p in lib.rglob("*.olean"))
+    mods = [m for m in mods if any(m == r or m.startswith(r + ".") for r in libs)]
     if not mods:
-        raise AllowlistError(f"nenhum .olean em {lib}")
+        raise AllowlistError(f"nenhum .olean das bibliotecas {libs} em {lib}")
     return mods
 
 
@@ -116,7 +151,7 @@ def load_core(toolchain: str) -> dict:
     return data
 
 
-def build_project(project: Path, classification: Path | None) -> dict:
+def build_project(project: Path, classification: Path | None, libs: list[str] | None = None) -> dict:
     project = project.resolve()
     tc_file, manifest = project / "lean-toolchain", project / "lake-manifest.json"
     if not tc_file.is_file() or not manifest.is_file():
@@ -124,10 +159,11 @@ def build_project(project: Path, classification: Path | None) -> dict:
     toolchain = tc_file.read_text(encoding="utf-8").strip()
     core = load_core(toolchain)
 
-    b = subprocess.run([_lake(), "build"], cwd=project, capture_output=True, text=True, encoding="utf-8")
+    libs = sorted(set(libs)) if libs else target_libs(project)
+    b = subprocess.run([_lake(), "build", *libs], cwd=project, capture_output=True, text=True, encoding="utf-8")
     if b.returncode != 0:
         raise AllowlistError(f"lake build falhou: {b.stdout}{b.stderr}")
-    modules = project_modules(project)
+    modules = project_modules(project, libs)
     extracted = set(run_dump(project, modules, use_lake_env=True))
 
     core_cmds = set().union(*(core[k] for k in CLASS_KEYS))
@@ -166,6 +202,7 @@ def build_project(project: Path, classification: Path | None) -> dict:
         "core_generator_version": core["generator_version"],
         "project_classification_version": cls["classification_version"],
         "project_classification_sha256": cls_sha,
+        "libraries": libs,
         "module_count": len(modules),
         "extracted_command_count": len(extracted),
         "allowed": sorted(set(core["allowed"]) | set(cls["allowed"])),
@@ -187,12 +224,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--classification", type=Path,
                     help=f"padrão: <projeto>/{PROJECT_CLASSIFICATION_REL.as_posix()}")
     ap.add_argument("--output", type=Path, help=f"padrão: <projeto>/{PROJECT_REL.as_posix()}")
+    ap.add_argument("--lib", action="append", dest="libs", metavar="NOME",
+                    help="biblioteca-alvo (repetível); padrão: as lean_lib @[default_target] do lakefile")
     ap.add_argument("--check", action="store_true",
                     help="não escreve; exit 1 se o arquivo existente divergir do ambiente atual")
     a = ap.parse_args(argv)
     out = a.output or (a.project / PROJECT_REL)
     try:
-        data = build_project(a.project, a.classification)
+        data = build_project(a.project, a.classification, a.libs)
     except AllowlistError as e:
         print(f"auditor-gen-allowlist: {e}", file=sys.stderr)
         return 2

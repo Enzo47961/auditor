@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '@auditor report') &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # fixado (D-55): ubuntu-latest migra para Ubuntu 26 desde 2026-10-19
     permissions:
       actions: read
       pull-requests: write

@@ -101,13 +101,13 @@ padrão é mudança de SLA: vai para o revisor e para o `CHANGELOG.md`.
 
 Comandos definidos por um projeto ou por suas dependências (o Mathlib define `lemma`, `alias`, `assert_not_exists`, …) não estão na allow-list do core. Para auditar arquivos desse projeto:
 
-1. No projeto já compilado (no Mathlib: `lake exe cache get`), rodar `auditor-gen-allowlist --project <dir>`. O gerador roda `lake build`, importa todos os módulos do próprio projeto, extrai os comandos e grava `<dir>/.auditor/allowlist.json` com o `env_pin` (`lean-toolchain` + `lake-manifest.json`).
+1. No projeto já compilado (no Mathlib: `lake exe cache get`), rodar `auditor-gen-allowlist --project <dir>`. O gerador roda `lake build` nas bibliotecas-alvo (as `lean_lib` `@[default_target]` do lakefile, ou as de `--lib`; D-52), importa todos os módulos delas, extrai os comandos e grava `<dir>/.auditor/allowlist.json` com o `env_pin` (`lean-toolchain` + `lake-manifest.json`).
 2. Ler a lista `unclassified` do arquivo gerado: são os comandos novos do projeto. Enquanto estiverem ali, são fail-closed.
 3. Classificar cada um em `<dir>/.auditor/classification.toml` (chaves `classification_version`, `allowed`, `syntax_extension`, `metaprogramming`), com o mesmo critério de `tools/gen_allowlist/classification.toml`. A classificação não pode citar comandos do core nem comandos inexistentes; o gerador recusa.
 4. Regenerar. `--check` falha se o arquivo não corresponder ao ambiente atual.
 5. Classificação é política: exige revisão por alguém que não é o autor.
 
-Ao mudar o `lake-manifest.json` ou o `lean-toolchain`, a allow-list fica obsoleta e a Etapa A falha fechada (`allowlist_stale`) até ser regenerada.
+O `env_pin` usa o `lake-manifest.json` com fim de linha normalizado (D-53): um clone CRLF e um LF do mesmo commit dão o mesmo pino. Ao mudar o `lake-manifest.json` ou o `lean-toolchain`, a allow-list fica obsoleta e a Etapa A falha fechada (`allowlist_stale`) até ser regenerada.
 
 **A allow-list do Mathlib é evidência da camada 2**, gerada no fork do mantenedor. Ela não bloqueia a camada 1, cujo requisito é o gerador testado contra um projeto Lake arbitrário (`tests/allowlist`). A Fase 0 não verifica a correção semântica da classificação, só a correspondência com o pino (L-16).
 
@@ -129,7 +129,7 @@ A atribuição de `native_decide` à declaração dona depende da convenção `X
 
 Um teste verde só é evidência se ficar vermelho quando o código está errado. Esta disciplina já encontrou falhas reais duas vezes: um falso resultado de mutação causado pelo `pythonpath` do pytest (Etapa A) e 4 buracos de teste na Policy, todos corrigidos. Ela não depende de memória: o catálogo e o executor estão versionados.
 
-- **Catálogo:** `tools/mutation/catalog.py`. Grupos `stage_a`, `allowlist`, `stage_b`, `policy` e `ci`; cada mutação é (arquivo, trecho original, trecho mutado), e cada grupo declara os testes que precisam acusá-la.
+- **Catálogo:** `tools/mutation/catalog.py`. Grupos `stage_a`, `allowlist`, `stage_b`, `policy`, `ci` e `gen_tcb_roots` (este desde a instrução 15); cada mutação é (arquivo, trecho original, trecho mutado), e cada grupo declara os testes que precisam acusá-la.
 - **Executor:** `python tools/mutation/run.py [grupo ...]`. Aplica cada mutação, roda os testes do grupo com `-x` e restaura o arquivo a partir de uma cópia em memória, também em caso de erro. Termina com exit 1 se alguma mutação **sobreviveu** (buraco nos testes) ou foi **pulada** (padrão não encontrado).
 - **Integridade do catálogo:** `tests/maintenance/test_mutation_catalog.py`, rápido e parte da suíte normal, falha se algum padrão deixar de ocorrer exatamente uma vez no código. Assim, refatorar uma checagem obriga a atualizar a mutação correspondente, em vez de ela virar uma mutação "pulada" sem ninguém notar.
 

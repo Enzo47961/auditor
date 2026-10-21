@@ -114,6 +114,8 @@ def provenance(project: Path) -> dict:
     except (OSError, subprocess.CalledProcessError):
         commit = None
     mf, tc = read("lake-manifest.json"), read("lean-toolchain")
+    if mf is not None:   # mesmo hash em clone CRLF e LF, como em gen_tcb_roots (D-53)
+        mf = mf.replace(b"\r\n", b"\n")
     return {"commit": commit, "lake_manifest_sha256": hashlib.sha256(mf).hexdigest() if mf is not None else None,
             "lean_toolchain": tc.decode("utf-8").strip() if tc is not None else None}
 

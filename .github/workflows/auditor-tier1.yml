@@ -53,7 +53,7 @@ permissions:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # fixado (D-55): ubuntu-latest migra para Ubuntu 26 desde 2026-10-19
     timeout-minutes: 45        # salvaguarda; o orçamento real é aplicado pelo auditor-ci
     permissions:
       contents: read
