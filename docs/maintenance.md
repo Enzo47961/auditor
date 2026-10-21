@@ -163,6 +163,22 @@ Depois do renome (`b73bc6d`), a suíte inteira deu 558 passed. O `ci` não mudou
 
 Os grupos `stage_a` e `allowlist` foram rodados no `0b9d2bc`. O código e os testes deles não mudaram até o `6532f5e` (`git diff --stat` vazio), então o resultado vale para o código final. **Estado em 2026-10-21: 5 grupos, 115/115 detectadas, 0 sobreviventes, 0 puladas.** A suíte inteira, rodada por partes, deu 558 passed e 0 falhas.
 
+**Instrução 15 (camada 2: D-52, D-53, D-54).** A partir daqui, a mutação e a suíte rodam no GitHub Actions (Linux, `ubuntu-24.04`), não na máquina do mantenedor. A mutação usa o workflow `auditor-mutation` do fork de medição; a suíte usa o `ci.yml` deste repositório, em todo push.
+
+| Data | Commit do código | Grupo | Detectadas | Sobreviventes / puladas |
+|---|---|---|---|---|
+| 2026-10-21 | `2a4306b` | `allowlist` (9 anteriores + 4: D-52 e D-53) | 13/13 | 0 |
+| 2026-10-21 | `2a4306b` | `gen_tcb_roots` (grupo novo: D-53 e D-54) | 8/8 | 0 |
+
+Execução da mutação: `Enzo47961/mathlib4`, run 39665194703 (5 min 21 s). Os grupos `stage_a`, `stage_b`, `policy` e `ci` não foram re-rodados: o código deles não mudou desde os commits registrados acima.
+
+**Suíte no Linux** (`ci.yml`, run 39664969425 sobre `2a4306b`): 585 passed, **3 failed**. As 3 falhas já aconteciam no `bcdccc6` (run 39655475487: 555 passed, 3 failed), o primeiro run da suíte fora do Windows, e não vêm das mudanças da instrução 15. São testes que dependem da máquina (L-23):
+- `tests/stage_b/test_stage_b.py::test_timeout_is_not_success` e `tests/cli/test_cli.py::test_artificial_timeout_never_success` pedem um timeout de 0,01 s, mas a Etapa B aplica um piso de 1 s (`max(1.0, …)` em `stage_b.analyze`). No runner, o fixture compila em menos de 1 s, e o timeout não dispara (`success`). Não é fail-open: o build terminou dentro do limite efetivo.
+- `tests/ci/test_ci.py::test_all_pass` espera `cache_state: warm`, mas, num runner sem cache do inspetor, o primeiro run sai `cold`.
+
+A correção desses testes depende de decisão do revisor (instrução 15: nada de novo no auditor até o próximo `auditor-prep`).
+
+
 ## Fixação de versões nos workflows (D-25)
 
 **Todas as actions em workflows do auditor são pinadas por SHA; atualização é PR que muda o SHA e é revisado.** Vale para este repositório (`.github/workflows/`) e para os modelos do repositório-alvo (`ci/templates/`). Tag é mutável; SHA de commit não. Se o publicador de uma action for comprometido, uma tag flutuante é um vetor de ataque à cadeia de suprimentos, exatamente o tipo de troca silenciosa que o auditor existe para detectar.
