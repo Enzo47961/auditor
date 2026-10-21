@@ -6,7 +6,7 @@ proof_status permanece `Validada` (kernel aceitou, sem admissão).
 v4.36.0-rc1: o `native_decide` não usa mais `Lean.ofReduceBool`; adiciona, por uso, o axioma
 auxiliar `<dona>._native.native_decide.ax_1_1` : `e = true`, que o kernel não reconfere.
 As regras de justificativa valem para ele; além delas, o axioma auxiliar deixa as premissas
-`Não resolvido` (`native_auxiliary_axiom`) até a decisão da Q9. Consequência: o caso
+`Não resolvido` (`native_auxiliary_axiom`) (Q9-a: permanente na Fase 0). Consequência: o caso
 justificado (05c, 05f) passou de `verified` para `unresolved`; nenhum outro resultado mudou.
 Ground truth: `#print axioms` confirma o axioma auxiliar em cada declaração com native_decide
 e sua ausência em `drift_holder` (GroundTruth.lean)."""

@@ -250,6 +250,7 @@ def apply_boundary(res: StageBResult, facts: dict, root: Path, sysroot: Path) ->
         res.unrecognized.append({"code": "tcb_boundary_undeclared", "detail": str(e)})
         return
     res.boundary = {"toolchain_lib": str(b.toolchain_lib), "toolchain_roots": sorted(b.toolchain_roots),
+                    "declared_roots": sorted(b.declared_roots),
                     "user_roots": [str(u) for u in b.user_roots], "packages": list(b.packages)}
     extra = tb.unrecognized_search_path(b, facts.get("search_path") or [])
     if extra:

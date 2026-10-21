@@ -2,14 +2,16 @@
 
 A fronteira é declarada por duas fontes, nenhuma delas o nome do módulo:
   * o toolchain fixado declara suas raízes de biblioteca: os `.olean` de primeiro nível
-    em `<sysroot>/lib/lean` (no v4.22.0: Init, Std, Lean, Lake, LakeMain, Leanc);
+    em `<sysroot>/lib/lean`; delas, só as que o projeto-alvo usa são TCB (D-42): a allow-list
+    `data/tcb_roots/<toolchain>.json`, gerada por `tools/gen_tcb_roots.py` a partir do fecho de
+    imports do Mathlib fixado e conferida contra as raízes declaradas (drift → fail-closed);
   * o `lake-manifest.json` declara os pacotes do usuário; cada um, e o próprio projeto,
     contribui uma raiz de usuário `<pacote>/.lake/build/lib/lean`.
 
 Algoritmo (`classify`), dado o caminho real do `.olean` de um módulo:
   1. se está sob uma raiz de usuário e não sob o toolchain → `user`;
   2. se está sob o toolchain e não sob raiz de usuário → `tcb` somente se
-     (a) a raiz do nome do módulo é declarada pelo toolchain,
+     (a) a raiz do nome do módulo é declarada pelo toolchain e está na allow-list de raízes,
      (b) o `.olean` é exatamente `<lib>/<Módulo como caminho>.olean`, e
      (c) nenhuma raiz de usuário fornece um `.olean` para o mesmo módulo (sombreamento);
   3. qualquer outro caso → `unresolved` (fail-closed).
@@ -24,6 +26,8 @@ from pathlib import Path
 
 TCB, USER, UNRESOLVED = "tcb", "user", "unresolved"
 BUILD_LIB = Path(".lake") / "build" / "lib" / "lean"
+TCB_ROOTS_DIR = Path(__file__).resolve().parent / "data" / "tcb_roots"
+TCB_ROOTS_FORMAT = 1
 
 
 class BoundaryError(Exception):
@@ -33,9 +37,10 @@ class BoundaryError(Exception):
 @dataclass(frozen=True)
 class Boundary:
     toolchain_lib: Path
-    toolchain_roots: frozenset[str]
+    toolchain_roots: frozenset[str]      # raízes TCB: declaradas pelo toolchain ∩ allow-list (D-42)
     user_roots: tuple[Path, ...]
     packages: tuple[str, ...]
+    declared_roots: frozenset[str] = frozenset()   # tudo o que o toolchain declara
 
 
 def _real(p: Path) -> Path:
@@ -73,13 +78,42 @@ def package_dirs(project_root: Path, manifest: dict) -> list[tuple[str, Path]]:
     return out
 
 
-def load_boundary(project_root: Path, sysroot: Path) -> Boundary:
+def load_tcb_roots(toolchain: str) -> dict:
+    """Allow-list de raízes de TCB do toolchain (D-42). Ausente ou malformada → BoundaryError."""
+    p = TCB_ROOTS_DIR / f"{toolchain.replace('/', '__').replace(':', '__')}.json"
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise BoundaryError(f"allow-list de raízes de TCB indisponível para {toolchain!r}: {e}") from e
+    if not isinstance(data, dict) or data.get("format") != TCB_ROOTS_FORMAT \
+            or not all(isinstance(data.get(k), list) and all(isinstance(r, str) for r in data[k])
+                       for k in ("roots", "declared_by_toolchain")):
+        raise BoundaryError(f"allow-list de raízes de TCB malformada: {p}")
+    if data.get("toolchain") != toolchain:
+        raise BoundaryError(f"allow-list de raízes de TCB declara {data.get('toolchain')!r}, projeto fixa {toolchain!r}")
+    return data
+
+
+def load_boundary(project_root: Path, sysroot: Path, tcb_roots: dict | None = None) -> Boundary:
+    """`tcb_roots`: allow-list já carregada (testes); padrão: a do `lean-toolchain` do projeto."""
     lib = sysroot / "lib" / "lean"
     if not lib.is_dir():
         raise BoundaryError(f"biblioteca do toolchain ausente: {lib}")
-    roots = frozenset(p.stem for p in lib.glob("*.olean"))
-    if not roots:
+    declared = frozenset(p.stem for p in lib.glob("*.olean"))
+    if not declared:
         raise BoundaryError(f"toolchain não declara raízes de biblioteca: {lib}")
+    if tcb_roots is None:
+        try:
+            toolchain = (project_root / "lean-toolchain").read_text(encoding="utf-8").strip()
+        except OSError as e:
+            raise BoundaryError(f"lean-toolchain ilegível: {e}") from e
+        tcb_roots = load_tcb_roots(toolchain)
+    if sorted(declared) != sorted(tcb_roots["declared_by_toolchain"]):
+        raise BoundaryError(f"raízes declaradas pelo toolchain {sorted(declared)} ≠ as da allow-list "
+                            f"{sorted(tcb_roots['declared_by_toolchain'])} (regenerar: tools/gen_tcb_roots.py)")
+    roots = frozenset(tcb_roots["roots"])
+    if not roots <= declared:
+        raise BoundaryError(f"raízes da allow-list não declaradas pelo toolchain: {sorted(roots - declared)}")
     mf = project_root / "lake-manifest.json"
     try:
         manifest = json.loads(mf.read_text(encoding="utf-8"))
@@ -87,7 +121,7 @@ def load_boundary(project_root: Path, sysroot: Path) -> Boundary:
         raise BoundaryError(f"lake-manifest.json ilegível: {e}") from e
     pkgs = package_dirs(project_root, manifest)
     user = [project_root / BUILD_LIB, *(d / BUILD_LIB for _, d in pkgs)]
-    return Boundary(_real(lib), roots, tuple(_real(u) for u in user), tuple(n for n, _ in pkgs))
+    return Boundary(_real(lib), roots, tuple(_real(u) for u in user), tuple(n for n, _ in pkgs), declared)
 
 
 def module_relpath(module: str) -> Path:
@@ -105,8 +139,10 @@ def classify(b: Boundary, module: str, olean: str | Path | None) -> tuple[str, s
         return USER, "user_root"
     if in_tc and not in_user:
         rel = module_relpath(module)
-        if module.split(".")[0] not in b.toolchain_roots:
+        if module.split(".")[0] not in b.declared_roots:
             return UNRESOLVED, "module_root_not_declared_by_toolchain"
+        if module.split(".")[0] not in b.toolchain_roots:
+            return UNRESOLVED, "module_root_not_used_by_target_project"
         if _norm(p) != _norm(b.toolchain_lib / rel):
             return UNRESOLVED, "olean_path_does_not_match_module"
         if any((r / rel).exists() for r in b.user_roots):

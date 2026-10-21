@@ -20,7 +20,7 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 
 **Fase 0 = Camada 1 (done) + Camada 2 (pending user evidence).** A Fase 0 **não está done**: só é done quando as duas camadas estão completas. O critério de go/no-go da Fase 0 é a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1. **A próxima decisão de projeto (início da Fase 1) depende da camada 2**; os itens da Fase 1 já decididos estão em `docs/roadmap.md`.
 
-**Camada 1 — done no ambiente do builder.** Itens verificáveis sem Mathlib, com evidência produzida no ambiente de desenvolvimento. Toolchain fixado: **`leanprover/lean4:v4.36.0-rc1`** (o do Mathlib `master`, instrução 12). Decisão pendente que afeta resultados: **Q9** (`native_decide` na v4.36; hoje fail-closed).
+**Camada 1 — done no ambiente do builder.** Itens verificáveis sem Mathlib, com evidência produzida no ambiente de desenvolvimento. Toolchain fixado: **`leanprover/lean4:v4.36.0-rc1`** (o do Mathlib `master`, instrução 12). **Q9 decidida (instrução 13):** `native_decide` nunca sai `verified` na Fase 0 (fail-closed permanente; reavaliação pelo kernel é pesquisa da Fase 1).
 
 | Item | Estado |
 |---|---|
@@ -66,8 +66,8 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 | `03-axiom-unknown` | axioma **desconhecido** nas premissas | `Validada` / `Não resolvido`, `unknown_axiom` |
 | `04-implemented-by` | `@[implemented_by]` sozinho e combinado com avaliação nativa | (a) `Não resolvida`, `implemented_by_candidate`; (b) `Rejeitada`, `implemented_by_reaches_native_eval` |
 | `04b-extern` | `@[extern]` user-level sozinho e combinado (O-5); (c) com `Nat.add` do toolchain no mesmo enunciado | (a) `Não resolvida`, `extern_candidate`; (b)/(c) `Rejeitada`, `extern_reaches_native_eval`, só `myF` apontado |
-| `06-tcb-boundary` | fronteira de TCB (Q7-a), canário: `Nat.add` (`@[extern]` do toolchain) com e sem `native_decide` | nenhuma regra de `extern`/`implemented_by` dispara; sem `native_decide`: `verified`; com: `unresolved` só por `native_auxiliary_axiom` (Q9; na v4.22, `verified`) |
-| `05-native-decide` | mecanismo **proibido** nas premissas (avaliação nativa sem justificativa) e a gramática da justificativa | `Validada` / `Não conforme`; justificado: `Validada` / `Não resolvido` (`native_auxiliary_axiom`, Q9; na v4.22, `verified`); órfã: `Rejeitada` |
+| `06-tcb-boundary` | fronteira de TCB (Q7-a), canário: `Nat.add` (`@[extern]` do toolchain) com e sem `native_decide`; uma sonda por raiz da allow-list de raízes (`uses_init`, `uses_lean`, `uses_std`, `uses_lake`; D-42) | nenhuma regra de `extern`/`implemented_by` dispara; sem `native_decide`: `verified`; com: `unresolved` só por `native_auxiliary_axiom` (Q9-a; na v4.22, `verified`); sondas: `verified` |
+| `05-native-decide` | mecanismo **proibido** nas premissas (avaliação nativa sem justificativa) e a gramática da justificativa | `Validada` / `Não conforme`; justificado: `Validada` / `Não resolvido` (`native_auxiliary_axiom`, Q9-a; na v4.22, `verified`); órfã: `Rejeitada` |
 
 Sob a ortogonalidade estrita (Q1-X), `sorryAx` é admissão e afeta só `proof_status`; por isso a categoria "proibido nas premissas" é coberta pelo 05, não pelo 02 (R-1).
 
@@ -167,7 +167,7 @@ A política é código testado: cada regra tem teste de regressão próprio, e m
 **Axiomas.**
 - Permitidos por padrão: `Classical.choice`, `propext`, `Quot.sound`.
 - Proibidos por padrão: `sorryAx`; `Lean.ofReduceBool` e `Lean.ofReduceNat` sem justificativa.
-- Axioma auxiliar de avaliação nativa (v4.36+): No `leanprover/lean4:v4.36.0-rc1`, `native_decide` não produz mais `Lean.ofReduceBool`: ele adiciona, por uso, um axioma auxiliar `<dona>._native.native_decide.ax_N : e = true` (`Lean.Meta.nativeEqTrue`), que o kernel não reconfere. O inspetor o reconhece pela forma (`native_auxiliary`); a política o trata como avaliação nativa para as regras de justificativa e do padrão combinado, e **além disso** deixa as premissas `Não resolvido` (`native_auxiliary_axiom`) até a decisão da Q9, porque a forma não prova a origem.
+- Axioma auxiliar de avaliação nativa (v4.36+): No `leanprover/lean4:v4.36.0-rc1`, `native_decide` não produz mais `Lean.ofReduceBool`: ele adiciona, por uso, um axioma auxiliar `<dona>._native.native_decide.ax_N : e = true` (`Lean.Meta.nativeEqTrue`), que o kernel não reconfere. O inspetor o reconhece pela forma (`native_auxiliary`); a política o trata como avaliação nativa para as regras de justificativa e do padrão combinado, e **além disso** deixa as premissas `Não resolvido` (`native_auxiliary_axiom`), porque a forma não prova a origem. Decisão da Q9 (opção a): permanente na Fase 0.
 - Axioma fora das duas listas: governado por `unknown_axiom_action`, default `fail_closed` (estado `Não resolvido`, razão `unknown_axiom`, com sugestão de atualização da política). O valor alternativo `allow_with_warning` exige justificativa escrita na própria política e teste de regressão.
 
 **`native_decide`.** Bloqueado por padrão. Permitido somente com justificativa na docstring da declaração dona, numa única linha com gramática estrita:

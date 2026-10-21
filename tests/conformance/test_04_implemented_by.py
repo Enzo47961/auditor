@@ -26,7 +26,7 @@ def test_04a_candidate(result, name):
 
 def test_04b_combined_pattern_rejected(result):
     d = result.decl("f_bad")
-    # justificado; premissas `Não resolvido` pelo axioma auxiliar nativo (v4.36, Q9 pendente)
+    # justificado; premissas `Não resolvido` pelo axioma auxiliar nativo (v4.36, Q9-a)
     assert state(d) == ("Rejeitada", "Não resolvido", "rejected")
     assert "native_auxiliary_axiom" in reasons(d, "premises_status")
     assert "implemented_by_reaches_native_eval" in reasons(d, "proof_status")

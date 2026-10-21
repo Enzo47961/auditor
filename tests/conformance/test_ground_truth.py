@@ -25,7 +25,8 @@ EXPECTED_AXIOMS = {
     "04b-extern": {"e_bad": {nax("e_bad")}, "e_bad_is_false": set(), "e_zero": set(),
                    "h_zero": set(), "e_mixed": {nax("e_mixed")}, "e_mixed_is_false": set()},
     "06-tcb-boundary": {"add_native": {nax("add_native")}, "add_kernel": set(),
-                        "add_native_kernel": set()},
+                        "add_native_kernel": set(), "uses_init": set(), "uses_lean": set(),
+                        "uses_std": set(), "uses_lake": {"Classical.choice"}},
     "05-native-decide": {
         **{n: {nax(n)} for n in (
             "nd_nodoc", "nd_plain_doc", "nd_justified", "drift_victim", "bad_multiline",

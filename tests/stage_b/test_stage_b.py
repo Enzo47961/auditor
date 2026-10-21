@@ -32,7 +32,7 @@ REPORTED = {
     "03": {"usa_axioma", "nao_usa"},
     "04": {"g", "gImpl", "g_zero", "f", "fImpl", "f_bad"},
     "04b": {"h", "h_zero", "e_zero", "e_bad", "e_mixed"},
-    "06": {"add_native", "add_kernel"},
+    "06": {"add_native", "add_kernel", "uses_init", "uses_lean", "uses_std", "uses_lake"},
     "05": {"nd_nodoc", "nd_plain_doc", "nd_justified", "drift_holder", "drift_victim",
            "bad_multiline", "bad_escape", "bad_no_reviewer", "bad_handle", "bad_duplicate",
            "consumes_justified", "consumes_unjustified"},
@@ -175,9 +175,20 @@ def test_06_tcb_boundary_canary():
     toolchain, e nada no fecho é user-level. Se o Lean mover `Nat.add` ou a fronteira mudar,
     este teste falha e a política precisa ser revista (docs/tcb.md)."""
     r = inspect("06")
-    # v4.36.0-rc1 declara LeanChecker, LeanExport e LeanIR além das raízes da v4.22 (D-42).
-    assert r.boundary["toolchain_roots"] == ["Init", "Lake", "LakeMain", "Lean", "LeanChecker",
-                                             "LeanExport", "LeanIR", "Leanc", "Std"]
+    # v4.36.0-rc1 declara LeanChecker, LeanExport e LeanIR além das raízes da v4.22; TCB são só as
+    # que o Mathlib fixado usa (allow-list, D-42/D-47).
+    assert r.boundary["declared_roots"] == ["Init", "Lake", "LakeMain", "Lean", "LeanChecker",
+                                            "LeanExport", "LeanIR", "Leanc", "Std"]
+    assert r.boundary["toolchain_roots"] == ["Init", "Lake", "Lean", "Std"]
+    # uma sonda por raiz da allow-list: o inspetor registra a constante e a fronteira a classifica
+    for name, attr, const, module in (
+            ("uses_init", "extern", "Nat.add", "Init.Prelude"),
+            ("uses_lean", "extern", "Lean.Expr.quickLt", "Lean.Expr"),
+            ("uses_std", "extern", "ByteSlice.beq", "Std.Data.ByteSlice"),
+            ("uses_lake", "implemented_by", "Lake.JobTask.toOpaque", "Lake.Build.Job.Basic")):
+        hit = [e for e in decl(r, name)[attr] if e["name"] == const]
+        assert hit and hit[0]["module"] == module, (name, decl(r, name)[attr])
+        assert (hit[0]["level"], hit[0]["level_reason"]) == ("tcb", "toolchain_root"), name
     for n in ("add_native", "add_kernel"):
         d = decl(r, n)
         nat_add = [e for e in d["extern"] if e["name"] == "Nat.add"]
@@ -409,7 +420,7 @@ def test_inspector_identity_depends_on_toolchain():
         B.inspector_identity("leanprover/lean4:v4.21.0")[1]
 
 
-def test_apply_boundary_exposes_unresolved_origin(tmp_path):
+def test_apply_boundary_exposes_unresolved_origin(tmp_path, monkeypatch):
     """Constante com `.olean` fora das raízes declaradas → nível `unresolved` E anomalia
     `tcb_boundary_unresolved` (sem Lean: toolchain e manifest sintéticos)."""
     import json
@@ -420,6 +431,11 @@ def test_apply_boundary_exposes_unresolved_origin(tmp_path):
     proj = tmp_path / "p"
     proj.mkdir()
     (proj / "lake-manifest.json").write_text(json.dumps({"version": "1.1.0", "packages": []}), encoding="utf-8")
+    (proj / "lean-toolchain").write_text("t:x\n", encoding="utf-8")
+    from auditor import tcb_boundary as tb
+    monkeypatch.setattr(tb, "TCB_ROOTS_DIR", tmp_path)
+    (tmp_path / "t__x.json").write_text(json.dumps({"format": 1, "toolchain": "t:x", "roots": ["Init"],
+                                                    "declared_by_toolchain": ["Init"]}), encoding="utf-8")
     stray = tmp_path / "stray" / "X.olean"
     stray.parent.mkdir()
     stray.write_bytes(b"")

@@ -128,6 +128,16 @@ GROUPS = {
             (AG, r"        elif ax in aux:", r"        elif False:"),
             (AG, "        {a[\"axiom\"] for a in d.get(\"native_auxiliary\", [])}", "        set()"),
             (PO, r'    if ax["native_auxiliary_action"] not in NATIVE_AUXILIARY_ACTIONS:', r"    if False:"),
+            # instrução 13: allow-list de raízes de TCB (D-42, D-47..D-49); uma mutação por raiz
+            (TB, r'    roots = frozenset(tcb_roots["roots"])', r'    roots = frozenset(tcb_roots["roots"]) - {"Init"}'),
+            (TB, r'    roots = frozenset(tcb_roots["roots"])', r'    roots = frozenset(tcb_roots["roots"]) - {"Lean"}'),
+            (TB, r'    roots = frozenset(tcb_roots["roots"])', r'    roots = frozenset(tcb_roots["roots"]) - {"Std"}'),
+            (TB, r'    roots = frozenset(tcb_roots["roots"])', r'    roots = frozenset(tcb_roots["roots"]) - {"Lake"}'),
+            (TB, r'    roots = frozenset(tcb_roots["roots"])', r"    roots = declared"),
+            (TB, r'        if module.split(".")[0] not in b.declared_roots:', r"        if False:"),
+            (TB, r'    if sorted(declared) != sorted(tcb_roots["declared_by_toolchain"]):', r"    if False:"),
+            (TB, r"    if not roots <= declared:", r"    if False:"),
+            (TB, r'    if data.get("toolchain") != toolchain:', r"    if False:"),
         ],
     },
     "ci": {

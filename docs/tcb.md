@@ -72,10 +72,15 @@ A fronteira depende do toolchain fixado. Ao subir o `lean-toolchain`:
 
 ### (iii) O canário: `06-tcb-boundary`
 
-O cenário `tests/conformance/06-tcb-boundary` usa `Nat.add` (`@[extern]` de `Init.Prelude`) com e sem `native_decide` e exige que nenhuma regra de `@[extern]`/`@[implemented_by]` dispare nos dois casos (sem `native_decide`: `verified`; com: `unresolved` só pelo axioma auxiliar nativo, Q9). Sem esse teste, a opção (a) seria afirmação não testada. Ele falha se:
+O cenário `tests/conformance/06-tcb-boundary` usa `Nat.add` (`@[extern]` de `Init.Prelude`) com e sem `native_decide` e exige que nenhuma regra de `@[extern]`/`@[implemented_by]` dispare nos dois casos (sem `native_decide`: `verified`; com: `unresolved` só pelo axioma auxiliar nativo, Q9-a). Sem esse teste, a opção (a) seria afirmação não testada. Ele falha se:
 - o Lean mudar onde `Nat.add` vive;
 - o Lean deixar de declarar `Init` como raiz;
-- a classificação passar a marcar implementações do toolchain como user-level ou indecidíveis.
+- a classificação passar a marcar implementações do toolchain como user-level ou indecidíveis;
+- a allow-list de raízes deixar de reconhecer uma raiz que o Mathlib usa. Há uma sonda por raiz:
+  `uses_init` (`Nat.add`), `uses_lean` (`Lean.Expr.quickLt`), `uses_std` (`ByteSlice.beq`) e
+  `uses_lake` (`Lake.JobTask.toOpaque`, `@[implemented_by]`). O teste confere que as raízes da
+  allow-list são exatamente as sondadas, então raiz nova sem sonda também falha (D-49). A
+  mutação "remover a raiz X da allow-list" é detectada para cada uma das quatro raízes.
 
 O caso (c) do `04b-extern` testa o lado oposto: `@[extern]` de usuário que mente, junto com `Nat.add` no mesmo enunciado, sai `Rejeitada`, e só `myF` é apontado.
 

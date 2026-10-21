@@ -198,7 +198,7 @@ def aux_fact(name="t", owner="t", doc=None, **kw):
 
 
 def test_native_auxiliary_justified_is_unresolved_never_verified():
-    """Até a Q9: a forma não prova a origem, então nem a justificativa válida chega a `verified`."""
+    """Q9-a (permanente na Fase 0): a forma não prova a origem, então nem a justificativa válida chega a `verified`."""
     p, m, o, r = ev(aux_fact(doc=JUST), owner_docs={"t": {"docstring": JUST}})
     assert (p, m, o) == ("Validada", "Não resolvido", "unresolved")
     assert codes(r, "premises_status") == {"native_auxiliary_axiom"}

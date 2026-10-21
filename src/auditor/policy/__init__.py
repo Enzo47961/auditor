@@ -52,7 +52,7 @@ SCHEMA = {
     "set_option.heartbeat_exemption": {"paths": list, "reason": str},
 }
 UNKNOWN_AXIOM_ACTIONS = ("fail_closed", "allow_with_warning")
-NATIVE_AUXILIARY_ACTIONS = ("fail_closed",)    # única opção até a decisão da Q9
+NATIVE_AUXILIARY_ACTIONS = ("fail_closed",)    # única opção na Fase 0 (Q9-a, instrução 13)
 KNOWN_ATTRIBUTES = ("implemented_by", "extern")
 KNOWN_BOUNDARIES = ("toolchain",)
 
