@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from auditor import ci
-from conftest import CONFORMANCE, DEFAULT_POLICY, ROOT, require_lake
+from conftest import CONFORMANCE, DEFAULT_POLICY, ROOT, require_lake, slow_lean_source
 
 PASS = str(ROOT / "tests" / "ci" / "clean-project" / "Fixture" / "Target.lean")   # tudo verified
 FAIL = str(CONFORMANCE / "01-sorry-target" / "Fixture" / "Target.lean")
@@ -45,6 +45,14 @@ def copy_fixture(tmp_path, name, dest):
     proj = tmp_path / dest
     shutil.copytree(CONFORMANCE / name, proj, ignore=shutil.ignore_patterns(".lake"))
     return str(proj / "Fixture" / "Target.lean")
+
+
+def slow_fixture(tmp_path, dest):
+    """Fixture 01 com elaboração lenta (D-58): sozinho, ele compila abaixo do piso de 1 s da Etapa B
+    no runner Linux, e o timeout não dispara (falha intermitente no run 39679991017)."""
+    target = Path(copy_fixture(tmp_path, "01-sorry-target", dest))
+    target.write_text(target.read_text(encoding="utf-8") + slow_lean_source(), encoding="utf-8")
+    return str(target)
 
 
 def test_all_pass(tmp_path):
@@ -96,7 +104,7 @@ def test_invalid_clock_falls_back_and_is_declared(tmp_path):
 def test_file_timeout_aborts_the_pr(tmp_path, monkeypatch):
     """D-21: arquivo que estoura o timeout por arquivo encerra a auditoria do PR com exit 2."""
     require_lake()
-    first = copy_fixture(tmp_path, "01-sorry-target", "p1")
+    first = slow_fixture(tmp_path, "p1")
     monkeypatch.setattr(ci, "MIN_SLICE_S", 0.0)
     code, o, md, _ = run(tmp_path, [first, PASS], extra=["--timeout-file", "0.05"])
     assert code == 2 and o["infra_failed"] and o["timeout_aborted"]
@@ -108,7 +116,7 @@ def test_file_timeout_aborts_the_pr(tmp_path, monkeypatch):
 
 def test_timeout_by_remaining_budget_is_budget_kind(tmp_path, monkeypatch):
     require_lake()
-    first = copy_fixture(tmp_path, "01-sorry-target", "p1")
+    first = slow_fixture(tmp_path, "p1")
     monkeypatch.setattr(ci, "MIN_SLICE_S", 0.0)
     code, o, _, _ = run(tmp_path, [first], budget=0.05)
     assert code == 2 and o["files"][0]["status"] == "timeout" and o["files"][0]["timeout_kind"] == "budget"
