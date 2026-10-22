@@ -415,6 +415,35 @@ O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositóri
 
   Este autor não sabe de onde o documento veio (não foi produzido nesta sessão). A pergunta foi repassada ao mantenedor; a resposta, quando vier, entra aqui.
 
+## Rodada da instrução 20 (arquivo `instrução18`) — PRs de medição; D-61, A2, D-62
+
+- **Marco (pedido do revisor):** 633 testes, 125/125 mutações depois de pegar 1 sobrevivente real, fumaça 20/20 e `auditor-prep` todo verde, com a allow-list idêntica byte a byte. Registrado no CHANGELOG.
+- **Resultado dos PRs (relatório `relatorio_camada2_medicao`):** todos abaixo de 300 s, mas nenhum em steady-state.
+  - #2 trivial: 137 s cold; 126 s warm no re-run.
+  - #3 médio: sonda `verified`; 10 `unresolved` por `set_option backward.*`.
+  - #4 fanout (`Set/Defs.lean`): 37/37 `unresolved` por `syntax_extension_declared`.
+- **A1 → D-61: aprovada e implementada.** Workflow reutilizável `auditor-warm-cache` + modelo, e `auditor-ci inspector`.
+  - **Testes:** as mesmas chaves do `auditor-tier1` (a do Mathlib com `github.sha` no lugar de `pull_request.base.sha`); o mesmo runner; só leitura; sem comentário, label ou PR; os quatro caminhos do `auditor-ci inspector`.
+  - **Mutações:** 6.
+  - **Verificação no ambiente real**, exigida pelo revisor: workflow no base, depois PR trivial com `cache_state: warm` e `inspector: hit`. Pendente até o próximo envio.
+  - **Alternativa rejeitada pelo revisor:** re-run do mesmo PR como medição. A4 (`clock_origin: job_start` no re-run) fica moot.
+- **A2: aprovada e implementada.** Restaurar e salvar o cache do inspetor em passos separados, com o salvamento em `always()`, condicionado a `auditor-ci inspector --check` = `built=true`.
+  - **Testes:** a ordem dos passos e as condições.
+  - **Mutações:** 2 (sem `always()`; sem a condição do build).
+  - **Verificação no ambiente real:** PR vermelho por `unresolved`, seguido de re-run com `inspector: hit`.
+- **A5 → D-62: aprovada e implementada.** O auditor é movido para `$RUNNER_TEMP/auditor-tool` depois do `pip install`; a política default vem de lá.
+  - **Teste:** nenhum passo posterior referencia `.auditor-tool` no workspace.
+  - **Mutação:** 1.
+  - **Verificação no ambiente real:** `project_dirty: false` no relatório da próxima medição.
+  - `auditor-prep` (só no fork) recebe a mesma mudança.
+- **A3 → L-27 (texto do revisor) + achado pendente.** `Basic/Logic/Basic.lean`, escolhido como fanout no caminho de sucesso, não declara sintaxe (grep vazio, só docstrings), mas tem `simproc_decl` (linhas 42 e 75). A Etapa A o deixa fail-closed, e a sonda sairia `unresolved`. `Init.lean` (opção terciária) também: `register_linter_set`, `run_cmd`. Proposta na L-27: critério "Etapa A sem item não reconhecido". Primeiro arquivo que passa: `Mathlib/Lean/Name.lean` (posição 3); primeiro fora de `Tactic/`, `Lean/` e `Util/`: `Mathlib/Data/String/Defs.lean` (posição 4).
+- **PR #3 válido como medição.** As opções `backward.*` entraram na pauta de relaxamento da Fase 1 (`roadmap.md`).
+- **Refinamento (não bloqueia a Fase 0), proposto pelo revisor:** um PR de medição deveria distinguir `measurement_result: success | fail-closed-path`, para não sinalizar falha quando o resultado é o esperado. Hoje, `exit_code` 1 cobre `unresolved` sem `infra_failed`, e o job fica vermelho.
+- **L-28 (avaliação nativa):** 0 usos reais no Mathlib `e1b2403b`; os 2 casos léxicos são falsos positivos.
+- **Achado novo, sem decisão pedida ainda:** a Etapa A trata como início de comando qualquer token na coluna 0. Termos que continuam um comando na coluna 0 (`match … with`, `do`, `f!"…"`) saem `unknown_command`. Visto em `Mathlib/Lean/Meta/Simp.lean:32`, `Mathlib/Tactic/MkIffOfInductiveProp.lean` (linhas 176, 195, 216, 229) e `Mathlib/Tactic/SplitIfs.lean:32`. É fail-closed, portanto seguro, mas o checklist trata `unknown_command` como allow-list incompleta. Na verdade é falso positivo do lexer, não comando sem classificação.
+- **Explicação do `inspector: miss` com arquivo `hit` (ressalva do relatório anterior):** o sinal de cache é medido antes da compilação prévia do inspetor (`_prebuild_inspector`); o campo do arquivo é medido depois dela. Os dois estão certos: o primeiro diz que o cache veio frio, o segundo que o arquivo não pagou a compilação.
+- **Origem da revisão externa descartada:** perguntada ao mantenedor três vezes, sem resposta. Registrado sem bloquear, por instrução do revisor. Se a Fase 1 precisar de revisão independente real, saber o que falhou na primeira tentativa vai importar.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

@@ -20,6 +20,8 @@ FP = "src/auditor/fingerprint/__init__.py"
 PD = "src/auditor/pydeps.py"
 CI = "src/auditor/ci.py"
 GT = "tools/gen_tcb_roots.py"
+WT = ".github/workflows/auditor-tier1.yml"
+WW = ".github/workflows/auditor-warm-cache.yml"
 
 GROUPS = {
     "stage_a": {
@@ -65,7 +67,7 @@ GROUPS = {
              r'        libs = list(data.get("defaultTargets", []))'),
             (AL, r"    if not libs:", r"    if False:"),
             (AL, r"    manifest = normalize_newlines(manifest)", r"    manifest = manifest"),
-            # instrução 18: declaração de revisão da classificação (L-26); hash da classificação (D-53)
+            # instrução 19: declaração de revisão da classificação (L-26); hash da classificação (D-53)
             (AL, r"        if reviewed_by not in REVIEW_STATUSES:", r"        if False:"),
             (AL, r'        if cls.get("reviewer_independence") != REVIEW_STATUSES[reviewed_by]:', r"        if False:"),
             (AL, r'        "classification_review": {k: cls.get(k) for k in REVIEW_KEYS} if cls_sha else None,',
@@ -193,6 +195,21 @@ GROUPS = {
             (CI, r'"cache_cold_extension": first_run and not infra and elapsed > budget_s,',
              r'"cache_cold_extension": first_run and elapsed > budget_s,'),
             (CI, r"        if a.started_at:", r"        if False:"),
+            # instrução 20: D-61 (aquecer o cache no base), A2 (salvar o inspetor com job vermelho), D-62
+            (CI, "    if not check_only:\n        lake = shutil.which(\"lake\")", "    if False:\n        lake = shutil.which(\"lake\")"),
+            (CI, r'        return 0, built, "inspetor pronto" if built else "inspetor ausente"',
+             r'        return 0, True, "inspetor pronto"'),
+            (CI, r'    return (0, True, "inspetor pronto") if built else (2, False, "binário do inspetor ausente após o build")',
+             r'    return 0, True, "inspetor pronto"'),
+            (CI, r'        return 2, False, f"sem lean-toolchain em {project}"', r'        return 0, False, ""'),
+            (WT, r'          mv .auditor-tool "$RUNNER_TEMP/auditor-tool"', r"          true"),
+            (WT, r" && steps.inspector-ready.outputs.built == 'true'", r""),
+            (WT, r"        if: always() && steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready",
+             r"        if: steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready"),
+            (WW, r"        run: auditor-ci inspector --project .", r"        run: auditor-ci inspector --project . --check"),
+            (WW, r"    runs-on: ubuntu-24.04   # fixado (D-55); o mesmo runner", r"    runs-on: ubuntu-22.04   # fixado (D-55); o mesmo runner"),
+            (WW, "          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.sha }}\n\n      - name: resumo",
+             "          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.ref }}\n\n      - name: resumo"),
         ],
     },
     # camada 2, instrução 15: gerador de target_trusted_roots (D-53, D-54)
@@ -204,7 +221,7 @@ GROUPS = {
             (GT, r'    if git("merge-base", "--is-ancestor", pinned, "HEAD").returncode != 0:', r"    if False:"),
             (GT, r'    d = git("diff", "--name-only", pinned)', r'    d = git("diff", "--name-only", pinned, "HEAD")'),
             (GT, r'    outside = [f for f in changed if not f.startswith(FORK_PREFIXES)]', r"    outside = []"),
-            # instrução 18 (D-59): voltar a rejeitar `.auditor/`
+            # instrução 19 (D-59): voltar a rejeitar `.auditor/`
             (GT, r'FORK_PREFIXES = (".github/", ".auditor/")', r'FORK_PREFIXES = (".github/",)'),
             (GT, r'    lean = [f for f in changed if f.endswith(".lean")]', r"    lean = []"),
             (GT, r'            data["derived_from"]["commit"] = pinned', r"            pass"),

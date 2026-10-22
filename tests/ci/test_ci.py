@@ -290,3 +290,77 @@ def test_child_exit_2_is_infra_without_abort(tmp_path, monkeypatch):
     fake_children(monkeypatch, [2, 0])
     code, o, _, _ = run(tmp_path, lean_files(tmp_path, 2))
     assert code == 2 and [f["status"] for f in o["files"]] == ["infra", "pass"] and not o["timeout_aborted"]
+
+
+# D-61 / A2 (instrução 20): `auditor-ci inspector` aquece o cache do inspetor sem auditar nada
+# (workflow `auditor-warm-cache` no branch base) e, com --check, diz se o build terminou (o
+# `auditor-tier1` salva o cache do inspetor mesmo com o job vermelho, mas só com o build pronto).
+
+def inspector_project(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "lean-toolchain").write_text("leanprover/lean4:v4.36.0-rc1\n", encoding="utf-8")
+    return proj
+
+
+def fake_build(monkeypatch, tmp_path, fail=False):
+    from auditor.tier1 import stage_b
+    monkeypatch.setenv("AUDITOR_CACHE", str(tmp_path / "cache"))
+    calls = []
+
+    def ensure(toolchain, lake):
+        calls.append(toolchain)
+        if fail:
+            raise stage_b.InspectorBuildError("erro de compilação simulado")
+        exe = ci._inspector_exe(tmp_path / "proj")
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        exe.write_bytes(b"")
+    monkeypatch.setattr(stage_b, "ensure_inspector", ensure)
+    monkeypatch.setattr(ci.shutil, "which", lambda name: "/bin/lake")
+    return calls
+
+
+def test_inspector_check_reports_missing_without_building(tmp_path, monkeypatch):
+    proj = inspector_project(tmp_path)
+    calls = fake_build(monkeypatch, tmp_path)
+    gh = tmp_path / "gh"
+    assert ci.main(["inspector", "--project", str(proj), "--check", "--github-output", str(gh)]) == 0
+    assert calls == [] and "built=false" in gh.read_text(encoding="utf-8")
+
+
+def test_inspector_builds_then_check_sees_it(tmp_path, monkeypatch):
+    proj = inspector_project(tmp_path)
+    calls = fake_build(monkeypatch, tmp_path)
+    gh = tmp_path / "gh"
+    assert ci.main(["inspector", "--project", str(proj), "--github-output", str(gh)]) == 0
+    assert calls == ["leanprover/lean4:v4.36.0-rc1"] and "built=true" in gh.read_text(encoding="utf-8")
+    gh2 = tmp_path / "gh2"
+    assert ci.main(["inspector", "--project", str(proj), "--check", "--github-output", str(gh2)]) == 0
+    assert "built=true" in gh2.read_text(encoding="utf-8") and len(calls) == 1
+
+
+def test_inspector_build_failure_is_exit_2(tmp_path, monkeypatch):
+    proj = inspector_project(tmp_path)
+    fake_build(monkeypatch, tmp_path, fail=True)
+    gh = tmp_path / "gh"
+    assert ci.main(["inspector", "--project", str(proj), "--github-output", str(gh)]) == 2
+    assert "built=false" in gh.read_text(encoding="utf-8")
+
+
+def test_inspector_without_toolchain_is_exit_2(tmp_path, monkeypatch):
+    calls = fake_build(monkeypatch, tmp_path)
+    for extra in ([], ["--check"]):
+        assert ci.main(["inspector", "--project", str(tmp_path), *extra]) == 2
+    assert calls == []
+
+
+def test_inspector_build_without_binary_is_exit_2(tmp_path, monkeypatch):
+    """Build "terminou" mas o binário não está onde o auditor procura: nunca conta como pronto."""
+    from auditor.tier1 import stage_b
+    proj = inspector_project(tmp_path)
+    monkeypatch.setenv("AUDITOR_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setattr(stage_b, "ensure_inspector", lambda toolchain, lake: {})
+    monkeypatch.setattr(ci.shutil, "which", lambda name: "/bin/lake")
+    gh = tmp_path / "gh"
+    assert ci.main(["inspector", "--project", str(proj), "--github-output", str(gh)]) == 2
+    assert "built=false" in gh.read_text(encoding="utf-8")

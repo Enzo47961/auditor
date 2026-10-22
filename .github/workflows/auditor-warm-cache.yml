@@ -1,0 +1,126 @@
+# auditor-warm-cache — workflow reutilizável (D-61, instrução 18). O repositório-alvo (ex.: fork do
+# Mathlib) o chama no branch base (push e workflow_dispatch); modelo em
+# ci/templates/auditor-warm-cache.yml.
+#
+# Por quê: o cache do GitHub Actions é isolado por ref. Um PR só restaura caches salvos por ele
+# mesmo (`refs/pull/N/merge`) ou pelo branch base. Sem nada salvando no base, todo PR novo começa
+# `cold` e o steady-state de 5 min não existe. Este job salva, no ref do branch base, os dois caches
+# que o `auditor-tier1` restaura, com as MESMAS chaves:
+#   * inspetor: auditor-inspector-<os>-<auditor-ref>-<hash do lean-toolchain>;
+#   * Mathlib: mathlib-cache-<os>-<hash do lean-toolchain>-<commit do base>. No PR, a chave usa
+#     `pull_request.base.sha`; aqui, `github.sha` (o commit do branch base que disparou o job).
+#
+# Segurança: só leitura (`contents: read`), sem comentário, sem label, sem PR. Não roda código de
+# PR: só o do branch base (`lake exe cache get`) e o do auditor fixado (build do inspetor). Um PR
+# continua sem poder escrever no cache do base; só workflows do próprio base escrevem ali.
+name: auditor-warm-cache
+
+on:
+  workflow_call:
+    inputs:
+      auditor-repository:
+        description: "owner/repo do auditor"
+        type: string
+        required: true
+      auditor-ref:
+        description: "commit (SHA) fixado do auditor — nunca um branch; o mesmo do auditor-tier1"
+        type: string
+        required: true
+      cache-get:
+        description: "aquecer também o cache do Mathlib (`lake exe cache get`)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    runs-on: ubuntu-24.04   # fixado (D-55); o mesmo runner do auditor-tier1, senão a chave (runner.os) diverge
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: checkout do branch base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: checkout do auditor (ref fixada)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: ${{ inputs.auditor-repository }}
+          ref: ${{ inputs.auditor-ref }}
+          path: .auditor-tool
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: instalar o auditor (e tirá-lo do workspace, D-62)
+        run: |
+          python -m pip install ./.auditor-tool
+          mv .auditor-tool "$RUNNER_TEMP/auditor-tool"
+
+      - name: instalar elan (release fixada, SHA-256 conferido)
+        env:
+          ELAN_VERSION: v4.2.4
+          ELAN_SHA256: 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63
+        run: |
+          curl -sSfL "https://github.com/leanprover/elan/releases/download/$ELAN_VERSION/elan-x86_64-unknown-linux-gnu.tar.gz" -o "$RUNNER_TEMP/elan.tar.gz"
+          echo "$ELAN_SHA256  $RUNNER_TEMP/elan.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/elan.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/elan-init" -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: cache do inspetor (restaurar)
+        id: inspector-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/auditor
+          key: auditor-inspector-${{ runner.os }}-${{ inputs.auditor-ref }}-${{ hashFiles('lean-toolchain') }}
+
+      - name: construir o inspetor
+        if: steps.inspector-cache.outputs.cache-hit != 'true'
+        run: auditor-ci inspector --project .
+
+      - name: cache do inspetor (salvar)
+        if: steps.inspector-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/auditor
+          key: auditor-inspector-${{ runner.os }}-${{ inputs.auditor-ref }}-${{ hashFiles('lean-toolchain') }}
+
+      - name: cache do Mathlib (restaurar)
+        id: mathlib-cache
+        if: inputs.cache-get
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/mathlib
+          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.sha }}
+
+      - name: cache de build do Mathlib
+        if: inputs.cache-get && steps.mathlib-cache.outputs.cache-hit != 'true'
+        run: lake exe cache get
+
+      - name: cache do Mathlib (salvar)
+        if: inputs.cache-get && steps.mathlib-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/mathlib
+          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.sha }}
+
+      - name: resumo
+        if: always()
+        env:
+          INSPECTOR_HIT: ${{ steps.inspector-cache.outputs.cache-hit }}
+          MATHLIB_HIT: ${{ steps.mathlib-cache.outputs.cache-hit }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "### auditor-warm-cache"
+            echo "ref: \`$REF\` · commit: \`$SHA\`"
+            echo "inspetor: já em cache=${INSPECTOR_HIT:-false} · Mathlib: já em cache=${MATHLIB_HIT:-false}"
+          } >> "$GITHUB_STEP_SUMMARY"

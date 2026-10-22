@@ -45,8 +45,9 @@ PRs do Mathlib frequentemente vêm de forks. O job que audita precisa compilar o
    - **Toolchain:** o auditor traz allow-list do core só para o toolchain fixado (`src/auditor/data/allowlist/`; hoje, `leanprover/lean4:v4.36.0-rc1`, o do Mathlib `master` no commit `e1b2403b`). A base dos PRs de medição precisa usar esse toolchain. Se o Mathlib subir de versão antes da medição, há duas saídas: fixar o fork no commit `e1b2403b` (ou outro com o mesmo `lean-toolchain`), ou subir o toolchain do auditor de novo (`docs/maintenance.md`). Com outro toolchain, todo arquivo sai `allowlist_unavailable` (fail-closed).
 2. Copiar `ci/templates/*.yml` para `.github/workflows/` do fork e substituir `OWNER/auditor` e `AUDITOR_SHA`.
 3. Gerar e versionar a allow-list do Mathlib: `auditor-gen-allowlist --project .` depois de `lake exe cache get`, e classificar os comandos em `.auditor/classification.toml` (ver `docs/maintenance.md`). Sem ela, todo arquivo do Mathlib sai `Não resolvida` por `unknown_command`.
-4. Fazer o **primeiro run** (cache cold): um PR qualquer que toque um `.lean`. Ele declara `first_run: true` e popula os caches. Não é medição de steady-state.
-5. Abrir os PRs de medição, **depois** do primeiro run.
+4. Fazer o **primeiro run** (cache cold): um PR qualquer que toque um `.lean`. Ele declara `first_run: true`. Não é medição de steady-state. Os caches que ele salva só valem para ele mesmo: o cache do GitHub Actions é isolado por ref, e um PR só lê o do próprio ref ou o do branch base.
+5. **Aquecer o cache no branch base (D-61):** o workflow `auditor-warm-cache` roda a cada push no base e por `workflow_dispatch`. Ele salva, no ref do base, os caches do inspetor e do Mathlib com as mesmas chaves do `auditor-tier1`. Rodar de novo sempre que o `AUDITOR_SHA` mudar, porque a chave do inspetor inclui o SHA.
+6. Abrir os PRs de medição, **depois** do aquecimento. Esperado: `cache_state: warm`, `build_cache: hit` e `inspector: hit` já no primeiro push.
 
 ## Escolha do arquivo de maior fanout (D-38)
 
@@ -96,7 +97,7 @@ A Fase 0 só fecha com esta evidência. A Fase 1 não começa antes dela.
 | Item da DoD | Como produzir |
 |---|---|
 | Primeiro run no fork | PR qualquer; registrar `cache_state` (`cold` esperado), `first_run`, `elapsed_s` e se houve `cache_cold_extension` |
-| 3 PRs de medição no steady-state | **trivial** (ex.: docstring num arquivo folha), **médio** (um lema novo num arquivo de tamanho típico), **arquivo de maior fanout**, escolhido mecanicamente com `python tools/layer2/fanout.py <fork> --root Mathlib --expect-commit <base>` (anexar a tabela; o antigo `Mathlib/Logic/Basic.lean` não existe no commit fixado: é `Mathlib/Basic/Logic/Basic.lean`) |
+| PRs de medição no steady-state (cache aquecido no base, D-61) | **trivial** (ex.: docstring num arquivo folha), **médio** (um lema novo num arquivo de tamanho típico), **fanout, caminho de sucesso**: o arquivo de maior fanout entre os que não declaram sintaxe (L-27), com a sonda `verified`; **fanout, caminho fail-closed**: o arquivo de maior fanout, se ele declara sintaxe, medido à parte e com a sonda `unresolved` como resultado esperado. O ranking é com `python tools/layer2/fanout.py <fork> --root Mathlib --expect-commit <base>` (anexar a tabela; o antigo `Mathlib/Logic/Basic.lean` não existe no commit fixado: é `Mathlib/Basic/Logic/Basic.lean`) |
 | Tempos por `cache_state` | baixar o artefato `auditor-report` de cada execução e rodar `python tools/layer2/timings.py <diretórios>`: total, preparação, auditoria e p95 por arquivo, separados por `cold`/`delta`/`warm` |
 | Caminho de timeout (`auditor-failed-infra`, sem bloquear) | PR com `timeout-file-seconds` artificial pequeno (ex.: 5): o PR sai com exit 2, o job fica verde e o PR recebe o label |
 | Action integrada e testada em fork | os itens acima + um `@auditor report` de um colaborador |

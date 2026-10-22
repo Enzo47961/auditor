@@ -1,0 +1,24 @@
+# Modelo para o REPOSITÓRIO-ALVO (ex.: fork do Mathlib): .github/workflows/auditor-warm-cache.yml
+# Substitua OWNER/auditor e AUDITOR_SHA (o MESMO commit do auditor-tier1). Ver docs/ci.md.
+# D-61 (instrução 20): salva no branch base os caches do inspetor e do Mathlib, para que um PR
+# novo já comece `warm` (um PR só lê o cache do próprio ref ou do base). Rodar depois de cada
+# push no base e sempre que o AUDITOR_SHA mudar (a chave do inspetor inclui o SHA).
+# O branch é o base dos PRs auditados (no fork de medição, `auditor-base`).
+name: auditor-warm-cache
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - auditor-base
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    uses: OWNER/auditor/.github/workflows/auditor-warm-cache.yml@AUDITOR_SHA
+    with:
+      auditor-repository: OWNER/auditor
+      auditor-ref: AUDITOR_SHA
+      cache-get: true

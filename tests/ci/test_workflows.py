@@ -57,7 +57,7 @@ def test_actions_pinned_to_commit_sha(p):
             assert j["uses"].endswith("@AUDITOR_SHA") or re.search(r"@[0-9a-f]{40}$", j["uses"])
 
 
-@pytest.mark.parametrize("p", [WF / "ci.yml", WF / "auditor-tier1.yml"], ids=lambda p: p.name)
+@pytest.mark.parametrize("p", [WF / "ci.yml", WF / "auditor-tier1.yml", WF / "auditor-warm-cache.yml"], ids=lambda p: p.name)
 def test_elan_release_pinned_and_hash_checked(p):
     """O elan-init.sh baixa a release `latest` do elan: fixar a tag do script não fixa o elan.
     Os workflows baixam o binário da release fixada e conferem o SHA-256."""
@@ -154,3 +154,77 @@ def test_report_workflow_requires_explicit_human_request():
 def test_caller_template_runs_only_on_lean_changes():
     d = load(TPL / "auditor-tier1.yml")
     assert d["on"]["pull_request"]["paths"] == ["**.lean"]
+
+
+def _step(job: dict, **match) -> dict:
+    found = [s for s in job["steps"] if all(s.get(k) == v for k, v in match.items())]
+    assert len(found) == 1, match
+    return found[0]
+
+
+def _keys(job: dict, prefix: str) -> list[str]:
+    return [s["with"]["key"] for s in job["steps"]
+            if s.get("uses", "").startswith("actions/cache") and s["with"]["key"].startswith(prefix)]
+
+
+def test_warm_cache_saves_the_same_keys_the_audit_restores():
+    """D-61 (instrução 20): o PR só lê cache do próprio ref ou do base. O aquecimento no base só
+    serve se as chaves forem as mesmas do auditor-tier1 (no PR, o commit do base é
+    `pull_request.base.sha`; no push/dispatch do base, `github.sha`)."""
+    warm = load(WF / "auditor-warm-cache.yml")["jobs"]["warm"]
+    audit = load(WF / "auditor-tier1.yml")["jobs"]["audit"]
+    assert warm["runs-on"] == audit["runs-on"]                       # runner.os entra na chave
+    for prefix in ("auditor-inspector-", "mathlib-cache-"):
+        audit_keys = {k.replace("github.event.pull_request.base.sha", "github.sha") for k in _keys(audit, prefix)}
+        assert audit_keys and set(_keys(warm, prefix)) == audit_keys, prefix
+    saves = [s for s in warm["steps"] if s.get("uses", "").startswith("actions/cache/save")]
+    assert {s["with"]["key"].split("$")[0] for s in saves} == {"auditor-inspector-", "mathlib-cache-"}
+    build = _step(warm, name="construir o inspetor")
+    assert build["run"].strip() == "auditor-ci inspector --project ."
+
+
+def test_warm_cache_is_read_only_base_only_and_silent():
+    d = load(WF / "auditor-warm-cache.yml")
+    assert list(d["on"]) == ["workflow_call"]
+    job = d["jobs"]["warm"]
+    assert job["permissions"] == {"contents": "read"}
+    for s in job["steps"]:
+        if s.get("uses", "").startswith("actions/checkout"):
+            assert s["with"]["persist-credentials"] is False
+    text = (WF / "auditor-warm-cache.yml").read_text(encoding="utf-8")
+    assert "gh pr" not in text and "add-label" not in text and "pull_request" not in text.split("name: auditor-warm-cache")[1]
+    tpl = load(TPL / "auditor-warm-cache.yml")
+    assert set(tpl["on"]) == {"workflow_dispatch", "push"}
+    assert tpl["on"]["push"] == {"branches": ["auditor-base"]}
+    assert tpl["jobs"]["warm"]["uses"] == "OWNER/auditor/.github/workflows/auditor-warm-cache.yml@AUDITOR_SHA"
+
+
+def test_inspector_cache_saved_even_when_the_job_fails():
+    """A2 (instrução 20): o `actions/cache` combinado só salva com o job verde; um PR que sai
+    `unresolved` nunca aquecia o próprio cache. Agora: restaurar e salvar explícitos, salvar com
+    `always()`, mas só se o build do inspetor terminou."""
+    job = load(WF / "auditor-tier1.yml")["jobs"]["audit"]
+    assert not any(re.match(r"actions/cache@", s.get("uses", "")) for s in job["steps"])
+    restore = _step(job, id="inspector-cache")
+    assert restore["uses"].startswith("actions/cache/restore@")
+    ready = _step(job, id="inspector-ready")
+    assert "auditor-ci inspector --project . --check" in ready["run"] and ready["if"].startswith("always()")
+    save = _step(job, name="cache do inspetor (salvar, A2)")
+    assert save["uses"].startswith("actions/cache/save@")
+    assert save["if"].startswith("always()") and "steps.inspector-ready.outputs.built == 'true'" in save["if"]
+    assert "steps.inspector-cache.outputs.cache-hit != 'true'" in save["if"]
+    order = [s.get("id") or s.get("name") for s in job["steps"]]
+    assert order.index("audit") < order.index("inspector-ready") < order.index("cache do inspetor (salvar, A2)")
+
+
+@pytest.mark.parametrize("name", ["auditor-tier1.yml", "auditor-warm-cache.yml"])
+def test_auditor_checkout_leaves_the_workspace(name):
+    """D-62 (instrução 20): o checkout do auditor dentro do workspace contava como arquivo não
+    rastreado (`project_dirty: true` em todo relatório). Depois de instalado, ele sai dali, e
+    nenhum passo seguinte o procura no workspace."""
+    job = next(iter(load(WF / name)["jobs"].values()))
+    runs = [s.get("run", "") for s in job["steps"]]
+    i = next(k for k, r in enumerate(runs) if "pip install ./.auditor-tool" in r)
+    assert 'mv .auditor-tool "$RUNNER_TEMP/auditor-tool"' in runs[i]
+    assert runs[i].index("pip install") < runs[i].index("mv .auditor-tool")
+    assert not any(".auditor-tool" in r for r in runs[i + 1:])

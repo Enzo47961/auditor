@@ -88,8 +88,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: instalar o auditor
-        run: python -m pip install ./.auditor-tool
+      # D-62: o auditor sai do workspace depois de instalado. Dentro dele, o checkout contava como
+      # arquivo não rastreado e todo relatório saía com `project_dirty: true`.
+      - name: instalar o auditor (e tirá-lo do workspace, D-62)
+        run: |
+          python -m pip install ./.auditor-tool
+          mv .auditor-tool "$RUNNER_TEMP/auditor-tool"
 
       - name: instalar elan (release fixada, SHA-256 conferido)
         env:
@@ -102,8 +106,11 @@ jobs:
           "$RUNNER_TEMP/elan-init" -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: cache do inspetor (D-7)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      # A2 (instrução 20): restaurar e salvar em passos separados. O `actions/cache` só salva com o
+      # job verde, e um PR que sai `unresolved` (resultado correto) nunca aquecia o próprio cache.
+      - name: cache do inspetor (restaurar, D-7)
+        id: inspector-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/auditor
           key: auditor-inspector-${{ runner.os }}-${{ inputs.auditor-ref }}-${{ hashFiles('lean-toolchain') }}
@@ -144,7 +151,7 @@ jobs:
           JOB_START: ${{ steps.clock.outputs.job_start }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
-          policy="${POLICY_INPUT:-.auditor-tool/policy.toml}"
+          policy="${POLICY_INPUT:-$RUNNER_TEMP/auditor-tool/policy.toml}"
           if [ "$CACHE_GET" != "true" ]; then build_cache=none
           elif [ "$CACHE_HIT" = "true" ]; then build_cache=hit
           elif [ -n "$CACHE_MATCHED" ]; then build_cache=partial
@@ -160,6 +167,18 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT" || rc=$?
           # 0 ok · 1 rejeição (o passo seguinte falha o job) · 2 infraestrutura (label, não bloqueia)
           echo "auditor-ci run: exit $rc"
+
+      - name: inspetor pronto? (A2)
+        id: inspector-ready
+        if: always() && steps.inspector-cache.outputs.cache-hit != 'true'
+        run: auditor-ci inspector --project . --check --github-output "$GITHUB_OUTPUT"
+
+      - name: cache do inspetor (salvar, A2)
+        if: always() && steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready.outputs.built == 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/auditor
+          key: auditor-inspector-${{ runner.os }}-${{ inputs.auditor-ref }}-${{ hashFiles('lean-toolchain') }}
 
       - name: rejeição falha o job (D-22)
         if: steps.audit.outputs.audit_failed == 'true'

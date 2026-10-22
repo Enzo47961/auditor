@@ -48,7 +48,7 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 |---|---|
 | Allow-list do Mathlib gerada no fork (`auditor-gen-allowlist --project`), com os comandos do Mathlib classificados | **awaiting user evidence** |
 | Primeiro run no fork (cache cold, `first_run: true`) | **awaiting user evidence** |
-| 3 PRs reais do Mathlib no steady-state (trivial, médio, arquivo de maior fanout escolhido por `tools/layer2/fanout.py`), com tempos por `cache_state` (`tools/layer2/timings.py`) | **awaiting user evidence** |
+| PRs reais do Mathlib no steady-state, com o cache aquecido no branch base (D-61): trivial, médio, fanout no caminho de sucesso e fanout no caminho fail-closed (L-27; ranking de `tools/layer2/fanout.py`), com tempos por `cache_state` (`tools/layer2/timings.py`) e `project_dirty: false` (D-62) | **awaiting user evidence** |
 | Caminho de timeout (`auditor-failed-infra`, sem bloquear merge) | **awaiting user evidence** |
 | p95 por arquivo medido e default do timeout por arquivo reajustado | **awaiting user evidence** |
 | GitHub Action integrada e testada em fork | **awaiting user evidence** |

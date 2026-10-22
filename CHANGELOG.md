@@ -6,6 +6,30 @@ sem período de transição.
 
 ## Não lançado
 
+### Marco: validação completa antes da medição (2026-10-22)
+- Suíte no `ci.yml` (Linux) **633 passed, 0 failed** (`fe95112`). Mutação em 6 grupos **125/125**,
+  depois de pegar 1 sobrevivente real: `classification_review_status` trocado por uma constante.
+- `auditor-prep` todo verde, inclusive `gen_tcb_roots --check` no fork. A allow-list do Mathlib,
+  regenerada no CI, saiu **idêntica byte a byte** à commitada (run 39696176700).
+- Primeiro run (PR #1) e 3 PRs de medição, todos abaixo de 300 s. Ainda não é steady-state: todo
+  PR novo começava `cold` (D-61, abaixo). Relatórios com
+  `classification_review_status: author-self-review` (L-26).
+
+### Workflows e `auditor-ci` (instrução 20)
+- **D-61: novo workflow reutilizável `auditor-warm-cache`** (modelo
+  `ci/templates/auditor-warm-cache.yml`, disparado por `workflow_dispatch` e push no branch base).
+  Salva no branch base os caches do inspetor e do Mathlib, com as mesmas chaves do `auditor-tier1`.
+  Um PR só lê cache do próprio ref ou do base; sem isso, todo PR novo começava `cold`.
+- **`auditor-ci inspector [--project .] [--check] [--github-output]`:** compila o inspetor sem
+  auditar nada; com `--check`, só informa se está pronto (`built=true|false`). Exit 2 se não foi
+  possível ter o inspetor.
+- **A2: o `auditor-tier1` salva o cache do inspetor mesmo com o job vermelho**, desde que o build
+  tenha terminado (`actions/cache/restore` + `actions/cache/save` com `always()`). Antes, um PR que
+  saía `unresolved` nunca aquecia o próprio cache.
+- **D-62: o checkout do auditor sai do workspace depois de instalado** (`$RUNNER_TEMP/auditor-tool`).
+  Antes, todo relatório do CI saía com `project_dirty: true`. A política default passa a ser lida
+  de `$RUNNER_TEMP/auditor-tool/policy.toml`.
+
 ### Marco: primeiro resultado ponta a ponta (2026-10-21)
 - **Teste de fumaça da camada 2 aprovado.** No fork `Enzo47961/mathlib4` (`auditor-base` sobre o
   Mathlib `e1b2403b`), no GitHub Actions, `Mathlib/Logic/Hydra.lean` saiu com 20 de 20 declarações

@@ -38,7 +38,7 @@ CORE_DIR = PKG / "data" / "allowlist"
 PROJECT_REL = Path(".auditor") / "allowlist.json"
 PROJECT_CLASSIFICATION_REL = Path(".auditor") / "classification.toml"
 CLASS_KEYS = ("allowed", "syntax_extension", "metaprogramming")
-# Declaração obrigatória de quem revisou a classificação (instrução 18, L-26): o relatório a repete em
+# Declaração obrigatória de quem revisou a classificação (instrução 19, L-26): o relatório a repete em
 # `tcb.classification_review_status`, para nenhuma alegação de cobertura esconder uma auto-revisão.
 REVIEW_KEYS = ("reviewed_by", "reviewer_independence", "revision_note")
 REVIEW_STATUSES = {"author-self-review": "none", "human-reviewed": "independent",

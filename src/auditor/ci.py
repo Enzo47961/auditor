@@ -49,17 +49,43 @@ CLOCK_KINDS = ("trigger", "job_start")
 INFRA_STATUSES = ("infra", "timeout", "skipped_budget", "not_audited_after_timeout")
 
 
+def _inspector_exe(root: Path) -> Path:
+    from auditor.tier1 import stage_b
+    toolchain = (root / "lean-toolchain").read_text(encoding="utf-8").strip()
+    _, key = stage_b.inspector_identity(toolchain)
+    return stage_b._cache_root() / "inspector" / key / ".lake" / "build" / "bin" / \
+        ("inspect.exe" if os.name == "nt" else "inspect")
+
+
 def _inspector_cached(target: Path) -> bool | None:
     """O binário do inspetor para o toolchain do projeto já está em cache? (D-7: medir hit rate.)"""
     from auditor.tier1 import stage_b
     root = stage_b.find_project(target)
     if root is None:
         return None
-    toolchain = (root / "lean-toolchain").read_text(encoding="utf-8").strip()
-    _, key = stage_b.inspector_identity(toolchain)
-    exe = stage_b._cache_root() / "inspector" / key / ".lake" / "build" / "bin" / \
-        ("inspect.exe" if os.name == "nt" else "inspect")
-    return exe.is_file()
+    return _inspector_exe(root).is_file()
+
+
+def inspector_command(project: Path, check_only: bool) -> tuple[int, bool, str]:
+    """`auditor-ci inspector`: compila o inspetor do toolchain do projeto sem auditar nada
+    (D-61: aquecer o cache no branch base) ou, com `check_only`, só diz se ele está pronto (A2:
+    o workflow salva o cache do inspetor mesmo com o job vermelho, desde que o build tenha
+    terminado). Retorna (exit, pronto, mensagem); exit 2 = não foi possível ter o inspetor."""
+    from auditor.tier1 import stage_b
+    if not (project / "lean-toolchain").is_file():
+        return 2, False, f"sem lean-toolchain em {project}"
+    if not check_only:
+        lake = shutil.which("lake")
+        if lake is None:
+            return 2, False, "`lake` não encontrado no PATH"
+        try:
+            stage_b.ensure_inspector((project / "lean-toolchain").read_text(encoding="utf-8").strip(), lake)
+        except (stage_b.InspectorBuildError, OSError) as e:
+            return 2, False, f"build do inspetor falhou: {str(e)[-2000:]}"
+    built = _inspector_exe(project).is_file()
+    if check_only:
+        return 0, built, "inspetor pronto" if built else "inspetor ausente"
+    return (0, True, "inspetor pronto") if built else (2, False, "binário do inspetor ausente após o build")
 
 
 def _prebuild_inspector(target: Path) -> None:
@@ -310,6 +336,10 @@ def main(argv: list[str] | None = None) -> int:
     ld.add_argument("--outcome")
     ld.add_argument("--conclusion", required=True)
     ld.add_argument("--github-output")
+    ins = sub.add_parser("inspector", help="compila o inspetor sem auditar (D-61) ou, com --check, só confere")
+    ins.add_argument("--project", default=".")
+    ins.add_argument("--check", action="store_true", help="não compila; só informa se o inspetor está pronto")
+    ins.add_argument("--github-output")
     cm = sub.add_parser("comment")
     cm.add_argument("--summary", required=True)
     cm.add_argument("--head-sha", required=True)
@@ -346,6 +376,11 @@ def main(argv: list[str] | None = None) -> int:
         _write_output(a.github_output, label=label or "")
         print(f"label={label or ''} ({why})")
         return 0
+    if a.cmd == "inspector":
+        code, built, msg = inspector_command(Path(a.project).resolve(), a.check)
+        _write_output(a.github_output, built=built)
+        print(f"auditor-ci inspector: {msg}")
+        return code
     body = comment_body(Path(a.summary).read_text(encoding="utf-8"), a.head_sha)
     Path(a.output).write_text(body, encoding="utf-8")
     return 0

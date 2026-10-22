@@ -168,7 +168,7 @@ primeiro run real no runner é o passo 5.
 
 ```bash
 mkdir -p .github/workflows
-cp <auditor>/ci/templates/auditor-{tier1,label,report}.yml .github/workflows/
+cp <auditor>/ci/templates/auditor-{tier1,label,report,warm-cache}.yml .github/workflows/
 sed -i "s#OWNER/auditor#$ME/auditor#g; s#AUDITOR_SHA#$AUD#g" .github/workflows/auditor-*.yml
 grep -n "OWNER\|AUDITOR_SHA" .github/workflows/auditor-*.yml     # Verificar: nada
 git add .github/workflows && git commit -m "auditor: workflows (camada 2)"
@@ -187,6 +187,22 @@ situação, porque isso muda o modelo de segurança (D-24).
 
 **Verificar:** `gh workflow list -R $ME/mathlib4` mostra `auditor-tier1`, `auditor-label`,
 `auditor-report` (e nenhum workflow do Mathlib ativo).
+
+## 4b. Aquecer o cache no branch base (D-61)
+
+O push do passo 4 no `auditor-base` já dispara o `auditor-warm-cache`. Para rodar à mão:
+
+```bash
+gh workflow run auditor-warm-cache.yml -R $ME/mathlib4 --ref auditor-base
+gh api repos/$ME/mathlib4/actions/caches --jq '.actions_caches[] | "\(.ref)\t\(.key)"'
+```
+
+**Verificar:** duas entradas com `ref` = `refs/heads/auditor-base`: `auditor-inspector-Linux-$AUD-…` e
+`mathlib-cache-Linux-…-<commit do auditor-base>`. Repetir sempre que o `auditor-base` ou o `$AUD`
+mudarem.
+
+**Por quê:** o cache do GitHub Actions é isolado por ref. Um PR só restaura o que ele mesmo salvou
+ou o que o branch base salvou. Sem este passo, todo PR novo começa `cold`.
 
 ## 5. Primeiro run (cache cold) — não é medição de steady-state
 
@@ -236,12 +252,13 @@ Escolha sugerida (o revisor decide e registra):
 |---|---|---|
 | trivial | `Mathlib/Logic/Hydra.lean` (0 dependentes) ou outro módulo com `transitive = 0` | folha; mudança só de comentário/docstring |
 | médio | um arquivo com `imports_transitive` perto da mediana do `fanout.json` (783 no commit `e1b2403b`) | um lema novo, de prova curta |
-| maior fanout | `Mathlib/Data/Set/Defs.lean` (primeiro módulo matemático do ranking) **ou** a posição 1 literal, `Mathlib/Init.lean` (8438 dependentes; hoje sem nenhum teorema: só o lema de sonda será auditado), se o revisor quiser o extremo mesmo sendo infraestrutura | um lema novo trivial no fim do arquivo |
+| fanout, caminho de sucesso (L-27) | o arquivo de maior fanout entre os que não declaram sintaxe; conferir antes com a Etapa A (ver L-27: `Basic/Logic/Basic.lean` e `Init.lean` saem fail-closed por metaprogramação). **Escolha pendente de decisão do revisor** | um lema novo trivial no fim do arquivo |
+| fanout, caminho fail-closed (L-27) | `Mathlib/Data/Set/Defs.lean` (primeiro módulo matemático do ranking; declara sintaxe) | um lema novo trivial no fim do arquivo; sonda `unresolved` é o resultado esperado |
 | (opcional) pior custo de auditoria | `Mathlib/NumberTheory/LSeries/PrimesInAP.lean` (maior fecho direto: 3403 módulos) | mede o custo do `lake build` + inspetor, que cresce com o fecho direto (D-38) |
 
 ## 7. Os 3 PRs de medição (steady-state, depois do passo 5)
 
-Para cada PR (`trivial`, `medio`, `fanout`):
+Depois do passo 4b (cache do base aquecido). Para cada PR (`trivial`, `medio`, `fanout`, `fanout-failclosed`):
 
 ```bash
 git switch -c l2-<nome> auditor-base
@@ -255,7 +272,9 @@ gh pr create -R $ME/mathlib4 --base auditor-base --head l2-<nome> --title "l2: <
 - `cache_state` é `warm` ou `delta` (nunca `cold` — se for, o cache foi despejado ou a chave mudou:
   abortar esse PR, anotar, rodar de novo);
 - `clock_origin: trigger`;
-- `auditor_probe_<nome>` aparece no relatório como `verified`;
+- `auditor_probe_<nome>` aparece no relatório como `verified` (no `fanout-failclosed`, `unresolved` com
+  `syntax_extension_declared`, que é o resultado esperado);
+- `tcb.dependencies.project_dirty: false` (D-62);
 - tempos: `setup_elapsed_s`, `audit_elapsed_s`, `elapsed_s`, duração do arquivo.
 
 **Abortar se:** o arquivo editado sair `unknown_command` (allow-list incompleta: voltar ao passo 3);
