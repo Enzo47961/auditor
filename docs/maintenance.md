@@ -190,6 +190,17 @@ A correção desses testes depende de decisão do revisor (instrução 15: nada 
 
 Execução: `auditor-mutation`, run 39671405280 (20 min, Linux): 110/110. Suíte no `ci.yml` (run 39670595679 sobre `e6e9f62`): **609 passed, 0 failed**. O grupo `gen_tcb_roots` (8/8 no `2a4306b`) não foi re-rodado: o código e os testes dele não mudaram. **Estado em 2026-10-21: 6 grupos, 118/118 detectadas, 0 sobreviventes, 0 puladas.**
 
+| Data | Commit | Grupo | Detectadas | Sobreviventes |
+|---|---|---|---|---|
+| 2026-10-21 | `382b5a5` | `stage_a` | 13/13 | 0 |
+| 2026-10-21 | `382b5a5` | `allowlist` (+10: D-52/D-53, L-26) | 18/19 | **1** |
+| 2026-10-21 | `382b5a5` | `stage_b` | 17/17 | 0 |
+| 2026-10-21 | `382b5a5` | `policy` | 45/45 | 0 |
+| 2026-10-21 | `382b5a5` | `ci` (testes de timeout com fixture lento) | 22/22 | 0 |
+| 2026-10-21 | `382b5a5` | `gen_tcb_roots` (+1: D-59) | 9/9 | 0 |
+
+Execução: `auditor-mutation`, run 39694466059 (31 min, Linux): 124 detectadas, **1 sobrevivente**, 0 puladas. Suíte no `ci.yml` (run 39694408989 sobre `382b5a5`): **627 passed, 0 failed**. Sobrevivente: `classification_review_status` trocado pela constante `"author-self-review"` (`src/auditor/tier1/stage_a.py`). Os testes só cobriam a classificação auto-revisada, e uma constante igual ao único valor testado passava. Lacuna de teste, não de código. Corrigido com `test_classification_review_status_values` (os 6 caminhos: `core-only`, `no-project-classification`, `undeclared` sem declaração e com `reviewed_by` nulo, `human-reviewed`, `independent-ai-reviewed`). Conferido localmente: com a mutação aplicada, 4 dos 6 casos falham. Re-rodar o grupo `allowlist` no commit seguinte.
+
 
 
 ## Fixação de versões nos workflows (D-25)

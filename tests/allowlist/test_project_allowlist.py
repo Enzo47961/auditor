@@ -107,6 +107,23 @@ def test_report_declares_classification_review_status(proj, tmp_path):
     assert r.exit_code == 0
 
 
+@pytest.mark.parametrize("allow, status", [
+    ({"kind": "core"}, "core-only"),
+    ({"kind": "project"}, "no-project-classification"),
+    ({"kind": "project", "project_classification_sha256": "sha256:x"}, "undeclared"),
+    ({"kind": "project", "project_classification_sha256": "sha256:x",
+      "classification_review": {"reviewed_by": None}}, "undeclared"),
+    ({"kind": "project", "project_classification_sha256": "sha256:x",
+      "classification_review": {"reviewed_by": "human-reviewed"}}, "human-reviewed"),
+    ({"kind": "project", "project_classification_sha256": "sha256:x",
+      "classification_review": {"reviewed_by": "independent-ai-reviewed"}}, "independent-ai-reviewed"),
+])
+def test_classification_review_status_values(allow, status):
+    """L-26: o status vem da declaração; sem ela, `undeclared` (nunca um valor presumido).
+    Mutação sobrevivente no run 39694466059: constante `author-self-review` passava."""
+    assert stage_a.classification_review_status(allow) == status
+
+
 def test_classification_hash_ignores_crlf(proj):
     """D-53 também no SHA-256 da classificação: o mesmo arquivo em CRLF e LF dá o mesmo hash."""
     cls = proj / ".auditor" / "classification.toml"
