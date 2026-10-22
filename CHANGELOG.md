@@ -15,6 +15,18 @@ sem período de transição.
   PR novo começava `cold` (D-61, abaixo). Relatórios com
   `classification_review_status: author-self-review` (L-26).
 
+### Documentação (instrução 21)
+- **L-27 emendada:** o caminho de sucesso da medição de fanout usa o arquivo de maior fanout cuja
+  Etapa A não tem item não reconhecido ("sem sintaxe declarada" não basta). Arquivo escolhido:
+  `Mathlib/Data/String/Defs.lean`.
+- Pauta da Fase 1 (`roadmap.md`): 68 % dos 60 arquivos de maior fanout falham na Etapa A;
+  `@[implemented_by]` gerado na elaboração (`WalkingParallelPair.ctorIdx`) derruba declarações pela L-5.
+- **Correção do relatório da instrução 20:** as 10 `Não resolvida` do PR médio (#6) não são por
+  sintaxe declarada (o arquivo não tem item não reconhecido). São 8 por `set_option backward.*`
+  fora da política e 2 só por `implemented_by_candidate`; idênticas às do PR #3.
+- `maintenance.md`: teste de referência para workflows que salvam cache (apagar, re-rodar vermelho,
+  re-rodar, re-aquecer).
+
 ### Workflows e `auditor-ci` (instrução 20)
 - **D-61: novo workflow reutilizável `auditor-warm-cache`** (modelo
   `ci/templates/auditor-warm-cache.yml`, disparado por `workflow_dispatch` e push no branch base).

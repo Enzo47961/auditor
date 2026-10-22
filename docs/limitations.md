@@ -142,15 +142,21 @@ A classificação dos 98 comandos do Mathlib foi elaborada e revisada pelo mesmo
 Mecânica (instrução 19): o `classification.toml` de projeto exige `reviewed_by` (`author-self-review`, `human-reviewed` ou `independent-ai-reviewed`) e `reviewer_independence` coerente (`none` para auto-revisão, `independent` para as outras), mais `revision_note` opcional; sem isso, o gerador recusa (exit 2). A allow-list gerada guarda a declaração (`classification_review`), e todo relatório a repete em `tcb.classification_review_status` (campo obrigatório do schema 1.1.0, incluído no fingerprint). Sem allow-list de projeto o valor é `core-only`; com allow-list de projeto sem classificação, `no-project-classification`; com allow-list de gerador antigo, sem declaração, `undeclared`. A auto-revisão permite os PRs de medição e alegações internas acompanhadas da declaração; não permite apresentar a cobertura do Mathlib a terceiros (Zulip, artigo, blog) sem qualificá-la como auto-revisada.
 
 ## L-27. Medição de fanout: caminho de sucesso e caminho fail-closed são categorias separadas
-A medição de fanout no caminho de sucesso usa o arquivo de maior fanout entre os que não declaram sintaxe. Arquivos que declaram sintaxe são medidos no caminho fail-closed, categoria separada. A distinção é da arquitetura, não da ferramenta.
+**L-27.** A medição de fanout no caminho de sucesso usa o arquivo de maior fanout cuja Etapa A não tem item não reconhecido. O critério "sem sintaxe declarada" é insuficiente: arquivos como Basic/Logic/Basic.lean usam simproc_decl, Init.lean usa register_linter_set e run_cmd, e ambos falham em fail-closed por motivo diferente de sintaxe. O critério "Etapa A limpa" é o único que garante o caminho de sucesso, e é reproduzível na Fase 1 (mesmo algoritmo de verificação).
+
+Arquivos que a Etapa A não aceita são medidos no caminho fail-closed, categoria separada. A distinção é da arquitetura, não da ferramenta.
+
+Redação anterior (instrução 20), substituída por esta na instrução 21: "A medição de fanout no caminho de sucesso usa o arquivo de maior fanout entre os que não declaram sintaxe. Arquivos que declaram sintaxe são medidos no caminho fail-closed, categoria separada."
 
 Origem (instrução 20): o arquivo de maior fanout sugerido, `Mathlib/Data/Set/Defs.lean` (posição 20, 8092 dependentes), declara `syntax`, `macro` e `prefix`. Pela L-17, toda declaração do arquivo sai fail-closed, inclusive o lema de sonda. Ele continua medido, como "fanout, caminho fail-closed" (PR #4: `unresolved` 37/37, auditoria 6,5 s).
 
-**Achado na aplicação (pendente de decisão do revisor):** "não declarar sintaxe" não basta para o caminho de sucesso. Os dois arquivos indicados também saem fail-closed na Etapa A, por metaprogramação:
+**Achado na aplicação da redação anterior (motivou a emenda):** "não declarar sintaxe" não basta para o caminho de sucesso. Os dois arquivos indicados também saem fail-closed na Etapa A, por metaprogramação:
 - `Mathlib/Basic/Logic/Basic.lean` (posição 24): sem sintaxe, mas com `simproc_decl` nas linhas 42 e 75;
 - `Mathlib/Init.lean` (posição 1): `register_linter_set` e `run_cmd`.
 
-Varredura das 60 primeiras posições do ranking com a Etapa A e a allow-list do fork: 19 arquivos sem nenhum item não reconhecido. O primeiro é `Mathlib/Lean/Name.lean` (posição 3, 8153 dependentes); o primeiro fora de `Tactic/`, `Lean/` e `Util/` é `Mathlib/Data/String/Defs.lean` (posição 4, 8147). Proposta: o critério passa a ser "maior fanout entre os arquivos cuja Etapa A não tem item não reconhecido", conferido pela própria Etapa A, não por grep.
+Varredura das 60 primeiras posições do ranking com a Etapa A e a allow-list do fork: 19 arquivos sem nenhum item não reconhecido. O primeiro é `Mathlib/Lean/Name.lean` (posição 3, 8153 dependentes); o primeiro fora de `Tactic/`, `Lean/` e `Util/` é `Mathlib/Data/String/Defs.lean` (posição 4, 8147). Ou seja, 41 dos 60 (68 %) saem fail-closed na Etapa A (pauta da Fase 1 em `roadmap.md`).
+
+**Escolha (revisor, instrução 21):** `Mathlib/Data/String/Defs.lean` (posição 4, 8147 dependentes). É o primeiro arquivo limpo fora de `Tactic/`, `Lean/` e `Util/`, o mesmo critério de exclusão do PR médio. `Mathlib/Lean/Name.lean` (posição 3) é meta-ferramenta do Lean: só entra como medida adicional de "maior fanout estrito limpo", nunca em substituição.
 
 ## L-28. A busca lexical por avaliação nativa superestima
 A busca lexical por `native_decide` superestima: casa texto dentro de metaprogramação. A medição real requer inspeção semântica (Etapa B), que é o que a ferramenta faz. Resultado: 0 usos reais em Mathlib@e1b2403b.

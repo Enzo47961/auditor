@@ -213,6 +213,17 @@ Execução: `auditor-mutation`, run 39758578127 (Linux): 68 detectadas, 0 sobrev
 
 
 
+## Teste de referência dos workflows de cache (A2, instrução 21)
+
+Um cache que sempre dá hit não testa o caminho que salva. Com o branch base aquecido (D-61), todo PR restaura o inspetor do base e o passo de salvar do A2 nunca roda. **Todo workflow que salva cache é testado assim, ao ser criado ou alterado:**
+
+1. Apagar o cache em questão no ref do base (`gh api -X DELETE repos/<fork>/actions/caches/<id>`; listar com `gh api repos/<fork>/actions/caches`). Só caches regeneráveis pelo `auditor-warm-cache`.
+2. Re-rodar um PR cujo job sai **vermelho** (`gh run rerun <run>`). Esperado: miss, build, job vermelho, e mesmo assim o passo de salvar `success`; o cache aparece com ref `refs/pull/N/merge`.
+3. Re-rodar de novo. Esperado: `inspector: hit` no `outcome.json`.
+4. Re-aquecer o base (`gh workflow run auditor-warm-cache --ref auditor-base`) e conferir que os caches voltaram a `refs/heads/auditor-base`.
+
+Execução de referência (2026-10-22, auditor `7f7238d`): cache do inspetor do base apagado (id 9332096105); PR #6 (`Connect.lean`, exit 1) re-rodado (run 39760129710): tentativa 2 construiu e salvou em `refs/pull/6/merge`; tentativa 3 `inspector: hit`, `warm`, 125,2 s; base re-aquecido (run 39761275384).
+
 ## Fixação de versões nos workflows (D-25)
 
 **Todas as actions em workflows do auditor são pinadas por SHA; atualização é PR que muda o SHA e é revisado.** Vale para este repositório (`.github/workflows/`) e para os modelos do repositório-alvo (`ci/templates/`). Tag é mutável; SHA de commit não. Se o publicador de uma action for comprometido, uma tag flutuante é um vetor de ataque à cadeia de suprimentos, exatamente o tipo de troca silenciosa que o auditor existe para detectar.

@@ -252,7 +252,7 @@ Escolha sugerida (o revisor decide e registra):
 |---|---|---|
 | trivial | `Mathlib/Logic/Hydra.lean` (0 dependentes) ou outro módulo com `transitive = 0` | folha; mudança só de comentário/docstring |
 | médio | um arquivo com `imports_transitive` perto da mediana do `fanout.json` (783 no commit `e1b2403b`) | um lema novo, de prova curta |
-| fanout, caminho de sucesso (L-27) | o arquivo de maior fanout entre os que não declaram sintaxe; conferir antes com a Etapa A (ver L-27: `Basic/Logic/Basic.lean` e `Init.lean` saem fail-closed por metaprogramação). **Escolha pendente de decisão do revisor** | um lema novo trivial no fim do arquivo |
+| fanout, caminho de sucesso (L-27) | o arquivo de maior fanout cuja Etapa A não tem item não reconhecido; no commit `e1b2403b`, `Mathlib/Data/String/Defs.lean` (posição 4, 8147 dependentes; escolha do revisor, instrução 21). `Mathlib/Lean/Name.lean` (posição 3) só como medida adicional | um lema novo trivial no fim do arquivo |
 | fanout, caminho fail-closed (L-27) | `Mathlib/Data/Set/Defs.lean` (primeiro módulo matemático do ranking; declara sintaxe) | um lema novo trivial no fim do arquivo; sonda `unresolved` é o resultado esperado |
 | (opcional) pior custo de auditoria | `Mathlib/NumberTheory/LSeries/PrimesInAP.lean` (maior fecho direto: 3403 módulos) | mede o custo do `lake build` + inspetor, que cresce com o fecho direto (D-38) |
 
