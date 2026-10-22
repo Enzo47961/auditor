@@ -201,6 +201,16 @@ Execução: `auditor-mutation`, run 39671405280 (20 min, Linux): 110/110. Suíte
 
 Execução: `auditor-mutation`, run 39694466059 (31 min, Linux): 124 detectadas, **1 sobrevivente**, 0 puladas. Suíte no `ci.yml` (run 39694408989 sobre `382b5a5`): **627 passed, 0 failed**. Sobrevivente: `classification_review_status` trocado pela constante `"author-self-review"` (`src/auditor/tier1/stage_a.py`). Os testes só cobriam a classificação auto-revisada, e uma constante igual ao único valor testado passava. Lacuna de teste, não de código. Corrigido com `test_classification_review_status_values` (os 6 caminhos: `core-only`, `no-project-classification`, `undeclared` sem declaração e com `reviewed_by` nulo, `human-reviewed`, `independent-ai-reviewed`). Conferido localmente: com a mutação aplicada, 4 dos 6 casos falham. Re-rodado sobre `fe95112` (run 39698136489): `allowlist` **19/19**, 0 sobreviventes. Suíte no `ci.yml` (run 39698083967 sobre `fe95112`): **633 passed, 0 failed**. **Estado em 2026-10-22: 6 grupos, 125/125 detectadas, 0 sobreviventes, 0 puladas.** O fork segue com o auditor `382b5a5`: de `382b5a5` para `fe95112` só mudaram um teste e este documento.
 
+**Instrução 20 (D-61, A2, D-62).** Grupos afetados re-rodados sobre `7f7238d`:
+
+| Data | Commit | Grupo | Detectadas | Sobreviventes |
+|---|---|---|---|---|
+| 2026-10-22 | `7f7238d` | `ci` (+10: D-61, A2, D-62) | 32/32 | 0 |
+| 2026-10-22 | `7f7238d` | `allowlist` | 19/19 | 0 |
+| 2026-10-22 | `7f7238d` | `stage_b` | 17/17 | 0 |
+
+Execução: `auditor-mutation`, run 39758578127 (Linux): 68 detectadas, 0 sobreviventes, 0 puladas. Suíte no `ci.yml` (run 39758445713 sobre `7f7238d`): **662 passed, 0 failed**. Os grupos `stage_a`, `policy` e `gen_tcb_roots` não foram re-rodados: de `fe95112` para `7f7238d` o código e os testes deles não mudaram (`git diff --stat` só toca `ci.py`, um comentário de `allowlist.py`, workflows, testes de CI e docs). **Estado em 2026-10-22: 6 grupos, 135/135 detectadas, 0 sobreviventes, 0 puladas.**
+
 
 
 ## Fixação de versões nos workflows (D-25)
