@@ -201,8 +201,10 @@ Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` 
 - **`show_panel_widgets`** passou de `allowed` a `metaprogramming` (classificação do core v5): avalia termos do arquivo, como `#widget`. A classificação de risco do core passa a valer sobre uma allow-list de projeto gerada antes.
 
 **Limites declarados:**
-- **Dependência alterada que só registra código** (via atributo, `initialize`, `unsafe`), sem `run_tac`/`by_elab`. Ela mesma sai `Não resolvida` como alvo, mas o alvo que a importa não herda a sinalização: o cruzamento de dependências só usa o achado léxico.
-  - O caso concreto é o `initialize` de uma dependência alterada. Ele **executa** quando o alvo é compilado: cenário 10, ground truth, as duas metades conferidas por execução.
+- **Lacuna de integridade (instrução 25), não de cobertura: dependência alterada que só registra código** (via atributo, `initialize`, `unsafe`), sem `run_tac`/`by_elab`.
+  - Ela mesma sai `Não resolvida` como alvo, mas o alvo que a importa **sai `verified`** embora o código registrado tenha executado durante o build dele (o `initialize` de uma dependência executa quando o alvo é compilado: cenário 10).
+  - É o mesmo padrão do `sorry` transitivo. A correção, `dependency_registers_code`, detecta no ambiente do alvo o código registrado por dependência alterada.
+  - É **P0 da Fase 2** (`roadmap.md`). A mitigação (b) não a fecha: detecta adulteração, não execução.
 - **CLI sem `--changed`:** não cruza dependências (`auditor check` sozinho). O `auditor-ci` sempre passa a lista.
 - **Dependências externas do Mathlib** (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph) não foram inventariadas. A defesa por ambiente vale para o código do alvo, onde quer que o atributo tenha sido definido.
 - **`lakefile.lean` alterado no PR** executa código no `lake build`: fora do alcance da Etapa A.

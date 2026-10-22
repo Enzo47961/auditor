@@ -35,10 +35,31 @@ A pergunta de pesquisa da Fase 1 (se a hipótese semântica vale a pena) continu
   - estender o cruzamento de dependências ao código registrado (atributo, `initialize`, `unsafe`) de arquivos alterados;
   - inventariar as dependências externas do Mathlib (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph).
 
-## Fase 2 — perguntas registradas na Fase 1 (instrução 24)
+## Fase 1 — ordem aprovada (instrução 25)
 
-- **`notation` gerada pelo toolchain como TCB.** É a causa dominante de fail-closed no Mathlib inteiro (553 dos 1244 arquivos). Se a macro gerada por `notation`/`infix` puder ser reconhecida como do toolchain, a taxa cai muito. É a mesma lógica do `ctorIdx` (P0-1).
-- **`ctorIdx` reconhecido pela forma** (`getObjTagNat` + `casesOn`), com teste de equivalência no toolchain fixado. Não aplicar antes (instrução 24).
+1. Atualizar o `AUDITOR_SHA` do fork para `a0e3387`, re-aquecer o cache (inspetor v5) e deixar o `auditor-prep` verde. É pré-requisito da 1b.
+2. **1b** (benchmark de enunciados trocados) começa depois do item 1. O caminho de sucesso vem do universo de arquivos que a Etapa A aceita na biblioteca inteira (85,2 %), não do top-60 (`docs/benchmark.md`).
+3. **Mitigação (b) da L-33** (`toolchain_tampered`) em paralelo com a 1b, como item independente.
+4. **1c** (estudo de usuário) só depois da (b): o estudo usa PRs reais, e a (b) faz parte da configuração de produção.
+5. **1d** só depois da 1c.
+
+## Fase 2 — P0 (instrução 25)
+
+Antes de qualquer expansão de cobertura:
+
+1. **`ctorIdx` reconhecido pela forma** (`getObjTagNat` + `casesOn` dos índices), com teste de equivalência no toolchain fixado. 7,35 % das declarações do Mathlib caem só por isso (L-34), em áreas matemáticas (`CategoryTheory`, `Algebra`, `AlgebraicGeometry`). A Fase 2 começa por aí.
+2. **`dependency_registers_code`: lacuna de integridade da L-33a.**
+   - **O caso:** A está em `--changed` e registra código (`initialize`/`@[init]`, `register_option`, `register_*_attr`, `register_linter_set`, `simproc_decl`, handler de atributo). Então todo B no fecho de compilação do PR que importa A sai `Não resolvida` (`dependency_registers_code`).
+   - **Por que é lacuna:** hoje B sai `verified` embora o `initialize` de A tenha executado durante o build de B (cenário 10). É o mesmo padrão do `sorry` transitivo.
+   - **A defesa é o inspetor:** no ambiente de B, ele vê as constantes de A e as entradas de extensão que A registrou. A detecção é pelo ambiente, não pelo texto.
+   - **Relação com a (b):** a mitigação (b) continua como defesa em profundidade contra adulteração; ela não fecha esta lacuna.
+
+## Fase 2 — pergunta de produto (instrução 25)
+
+- **Política de sintaxe e cobertura de fanout.** O top-60 por fanout é estruturalmente inauditável na configuração atual. 32 dos 60 declaram sintaxe por função, e o teto é 53,3 % de fail-closed relaxando todo o resto (L-30). A Fase 2 não pode prometer cobertura de fanout sem antes mudar a política de sintaxe.
+- **A decisão é de produto, não de engenharia:**
+  - ou relaxar `notation`/`macro` gerados pelo toolchain (553 arquivos na biblioteca inteira, com a mesma lógica do `ctorIdx`);
+  - ou aceitar que o fanout não é coberto.
 
 ## Fase 1 — revisão independente da classificação (regras aprovadas, instrução 23)
 
