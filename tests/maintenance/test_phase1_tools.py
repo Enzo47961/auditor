@@ -2,6 +2,7 @@
 `implemented_by` escritos × gerados (P0-1). Testadas para que a medição venha de procedimento
 verificado; o teste de ponta a ponta confere que a medição concorda com o próprio auditor."""
 import json
+import os
 import subprocess
 import sys
 
@@ -82,7 +83,7 @@ def test_measurement_agrees_with_the_auditor_on_fixture_08(tmp_path):
                                      "implemented_by_scan where\n  root := `ImplementedByScan\n"
                                      "  supportInterpreter := true\n")
     subprocess.run([lake, "build"], cwd=b, check=True, capture_output=True, timeout=900)
-    exe = next((b / ".lake" / "build" / "bin").glob("implemented_by_scan*"))
+    exe = b / ".lake" / "build" / "bin" / ("implemented_by_scan.exe" if os.name == "nt" else "implemented_by_scan")
     subprocess.run([lake, "build"], cwd=FIX08, check=True, capture_output=True, timeout=900)
     run = lambda *a: subprocess.run([lake, "env", str(exe), *a], cwd=FIX08, check=True,  # noqa: E731
                                     capture_output=True, timeout=900)
