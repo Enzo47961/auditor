@@ -215,3 +215,12 @@ Taxa de fail-closed da Etapa A no top-60 é 65,0% após (a); teto de 53,3% mesmo
 - O kill criterion do P0-2 (> 50 % depois de (a) e (b)) está atingido.
 - **Medida adicional, que não substitui o gate:** na biblioteca `Mathlib` inteira, a taxa é 14,4 % (1244 de 8651). A causa dominante é `notation` (553 arquivos), uma macro gerada pelo toolchain. Se `notation` gerada pelo toolchain puder ser reconhecida como TCB (a mesma lógica do `ctorIdx` do P0-1), a taxa cai muito. Pergunta para a Fase 2 (`roadmap.md`).
 - Estes números são da Etapa A v3, antes da L-33a. A L-33a acrescenta fail-closed (`unsafe`, `run_tac`, código executável por ambiente), então a taxa só pode subir. A remedição oficial no fork entra em `docs/p0-2-fail-closed.md`.
+
+## L-34. Atributo gerado na elaboração derruba 7,35 % das declarações do Mathlib (P0-1)
+Atributo gerado na elaboração é causa de fail-closed em 7,35% das declarações; a política de TCB para gerado precisa de revisão na Fase 2.
+
+**Medição** (`auditor-measure`, run 39845428621; `docs/p0-1-implemented-by.md`): das 330 852 declarações reportáveis do Mathlib `e1b2403b`, 24 322 (7,351 %) saem `Não resolvida` só porque o fecho alcança um `T.ctorIdx` gerado pelo Lean (`@[implemented_by T.ctorIdx._impl]`, `CtorIdx.lean:139`). Pela Q7, a constante é de usuário, por estar num módulo do Mathlib.
+- O Mathlib não escreve nenhum `implemented_by` no fonte.
+- As áreas mais atingidas são `CategoryTheory`, `Algebra` e `AlgebraicGeometry`.
+- É perda de cobertura, não de integridade: nenhuma dessas declarações sai `verified`.
+- O reconhecimento estrutural do `ctorIdx` (corpo `getObjTagNat`, valor `casesOn` dos índices) é item da Fase 2, com teste de equivalência no toolchain fixado.

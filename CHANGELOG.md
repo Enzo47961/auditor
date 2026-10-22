@@ -36,6 +36,10 @@ sem período de transição.
   elaboração sem que a Etapa A os detecte. Aguarda decisão do revisor.
 
 ### Fase 1 — P0-1 (instrução 24)
+- **Medição no Mathlib inteiro** (run 39845428621):
+  - 24 322 de 330 852 declarações (7,35 %) caem só por `ctorIdx` gerado pelo Lean;
+  - o Mathlib não escreve nenhum `implemented_by` no fonte;
+  - registrado como L-34, com a política de TCB para código gerado na Fase 2.
 - Cenário de conformidade `08-generated-implemented-by`: `@[implemented_by]` gerado pelo Lean
   (`T.ctorIdx`, `deriving TypeName`) sai `implemented_by_candidate`, nunca `verified`.
 - Ferramentas de medição em `tools/phase1/` (P0-1 e P0-2) e o workflow `auditor-measure` do fork.
