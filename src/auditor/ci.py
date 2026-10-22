@@ -49,6 +49,12 @@ CLOCK_KINDS = ("trigger", "job_start")
 INFRA_STATUSES = ("infra", "timeout", "skipped_budget", "not_audited_after_timeout")
 
 
+def _integrity(target: Path) -> dict:
+    from auditor.tier1 import stage_b
+    root = stage_b.find_project(target)
+    return stage_b.integrity_snapshot(_inspector_exe(root) if root else Path("/nonexistent"))
+
+
 def _inspector_exe(root: Path) -> Path:
     from auditor.tier1 import stage_b
     toolchain = (root / "lean-toolchain").read_text(encoding="utf-8").strip()
@@ -143,11 +149,19 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
     if existing and inspector is False and deadline - time.monotonic() >= MIN_SLICE_S:
         _prebuild_inspector(Path(existing[0]))
 
-    results, aborted = [], False
+    results, aborted, tampered = [], False, False
+    # L-33 (b), entre arquivos: cada `auditor check` é um processo novo, que carregaria um auditor
+    # adulterado pelo build do arquivo anterior (inclusive a própria checagem). Este processo foi
+    # carregado antes de qualquer build: ele confere o pacote e o inspetor depois de cada arquivo.
+    guard = _integrity(Path(existing[0])) if existing else None
     for i, f in enumerate(existing):
         entry = {"file": f, "report": None, "exit_code": None, "status": None,
                  "duration_s": 0.0, "timeout_s": None, "inspector_cache": None, "counts": {}}
         remaining = deadline - time.monotonic()
+        if tampered:
+            entry["status"] = "not_audited_after_tampering"
+            results.append(entry)
+            continue
         if aborted:
             entry["status"] = "not_audited_after_timeout"
             results.append(entry)
@@ -191,10 +205,15 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
         if entry["status"] == "timeout":
             entry["timeout_kind"] = "file" if limit >= timeout_file_s else "budget"
             aborted = True
+        now = _integrity(Path(f))
+        changed = [k for k in guard if guard[k] is not None and now[k] != guard[k]]
+        if changed:
+            entry["status"], entry["tampered"], tampered = "toolchain_tampered", changed, True
+        guard = {k: guard[k] if guard[k] is not None else now[k] for k in guard}   # inspetor recém-compilado
         results.append(entry)
 
     infra = [r for r in results if r["status"] in INFRA_STATUSES]
-    failed = [r for r in results if r["status"] == "fail"]
+    failed = [r for r in results if r["status"] in ("fail", "toolchain_tampered", "not_audited_after_tampering")]
     cache = [r["inspector_cache"] for r in results if r["inspector_cache"]]
     audit_elapsed = time.monotonic() - started
     elapsed = setup_elapsed_s + audit_elapsed
@@ -204,6 +223,7 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
         "infra_failed": bool(infra),
         "audit_failed": bool(failed),
         "timeout_aborted": aborted,
+        "toolchain_tampered": tampered,
         "cache_state": state,
         "cache_signals": {"build_cache": build_cache,
                           "inspector": {True: "hit", False: "miss", None: None}[inspector]},
@@ -239,6 +259,9 @@ def summary_markdown(outcome: dict) -> str:
     lines.append("> Correspondência entre enunciado formal e informal: **Não Auditada**. "
                  "Este resultado não significa \"a prova está correta\"; ver o README do auditor.")
     lines += ["", classification_line(outcome), ""]
+    if outcome.get("toolchain_tampered"):
+        lines += ["**Adulteração detectada (L-33 b):** o build de um arquivo alterou o inspetor ou o "
+                  "auditor instalado. Os arquivos seguintes não foram auditados.", ""]
     if outcome["infra_failed"]:
         why = ("um arquivo estourou o timeout por arquivo; os seguintes não foram auditados"
                if outcome["timeout_aborted"] else

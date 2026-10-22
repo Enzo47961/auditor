@@ -40,6 +40,16 @@ A pergunta de pesquisa da Fase 1 (se a hipótese semântica vale a pena) continu
 1. Atualizar o `AUDITOR_SHA` do fork para `a0e3387`, re-aquecer o cache (inspetor v5) e deixar o `auditor-prep` verde. É pré-requisito da 1b.
 2. **1b** (benchmark de enunciados trocados) começa depois do item 1. O caminho de sucesso vem do universo de arquivos que a Etapa A aceita na biblioteca inteira (85,2 %), não do top-60 (`docs/benchmark.md`).
 3. **Mitigação (b) da L-33** (`toolchain_tampered`) em paralelo com a 1b, como item independente.
+   **Implementada (instrução 25):**
+   - o inspetor é garantido ANTES do `lake build` do alvo;
+   - o hash do binário dele e do pacote do auditor é conferido depois do build; se mudou, o inspetor não roda e o arquivo sai `Não resolvida` (`toolchain_tampered`, exit 1);
+   - o `auditor-ci` confere de novo entre um arquivo e outro, porque cada `auditor check` é um processo novo; os arquivos seguintes ficam `not_audited_after_tampering`;
+   - cenário de conformidade 11.
+
+Item 1 feito (2026-10-22):
+- fork `auditor-base` = `713226a`, workflows no auditor `a0e3387`;
+- re-aquecimento com o inspetor v5, run 39858729968;
+- `auditor-prep` verde, run 39858970932: allow-list regenerada idêntica byte a byte à commitada, `gen_tcb_roots --check` exit 0, fumaça 20/20.
 4. **1c** (estudo de usuário) só depois da (b): o estudo usa PRs reais, e a (b) faz parte da configuração de produção.
 5. **1d** só depois da 1c.
 

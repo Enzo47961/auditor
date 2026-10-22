@@ -208,7 +208,11 @@ Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` 
 - **CLI sem `--changed`:** não cruza dependências (`auditor check` sozinho). O `auditor-ci` sempre passa a lista.
 - **Dependências externas do Mathlib** (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph) não foram inventariadas. A defesa por ambiente vale para o código do alvo, onde quer que o atributo tenha sido definido.
 - **`lakefile.lean` alterado no PR** executa código no `lake build`: fora do alcance da Etapa A.
-- Para todos esses casos, e para qualquer mecanismo fora do inventário, a defesa é a **mitigação estrutural (b)**: hash do inspetor e do auditor antes e depois do `lake build`, `toolchain_tampered`. É item da Fase 1 (`roadmap.md`). Ela detecta adulteração, não execução: (a) e (b) são defesas diferentes, e as duas são necessárias.
+- Para todos esses casos, e para qualquer mecanismo fora do inventário, a defesa é a **mitigação estrutural (b)**: hash do inspetor e do auditor antes e depois do `lake build`, `toolchain_tampered`. Ela detecta adulteração, não execução: (a) e (b) são defesas diferentes, e as duas são necessárias.
+- **(b) implementada** (instrução 25, cenário 11). O que ela **não** cobre:
+  - adulteração do toolchain Lean (`~/.elan`), do Python ou de outras dependências do runner;
+  - adulteração que se desfaz antes da conferência;
+  - leitura ou exfiltração (o hash detecta escrita, não leitura).
 
 ## L-30. Taxa de fail-closed da Etapa A no top-60 por fanout (P0-2)
 Taxa de fail-closed da Etapa A no top-60 é 65,0% após (a); teto de 53,3% mesmo relaxando tudo; a cobertura do Mathlib fica bloqueada até a Fase 2.

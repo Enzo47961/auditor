@@ -60,6 +60,9 @@ def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: fl
         codes = [u["code"] for u in (sb.unrecognized if sb else [])] or ["stage_b_not_run"]
         infra += sb.unrecognized if sb else [{"code": "stage_b_not_run"}]
         decls = unelaborated("infrastructure_failure", {"codes": codes})
+    elif sb.tampered:   # L-33 (b): violação de conteúdo, não falha de infraestrutura
+        file_unrecognized.append({"code": "toolchain_tampered", **sb.tampered})
+        decls = unelaborated("toolchain_tampered", sb.tampered)
     elif sb.build["status"] == "timeout":
         infra.append({"code": "timeout", "detail": {"timeout_s": timeout_s}})
         decls = unelaborated("timeout", {"timeout_s": timeout_s})

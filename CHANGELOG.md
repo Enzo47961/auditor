@@ -6,6 +6,11 @@ sem período de transição.
 
 ## Não lançado
 
+### L-33 (b): adulteração detectada (Fase 1, instrução 25)
+- A Etapa B garante o inspetor **antes** do `lake build` do alvo e confere, depois do build, o hash do binário do inspetor e do pacote do auditor instalado. Se algo mudou, o inspetor não roda: `Não resolvida` (`toolchain_tampered`), exit 1, não infraestrutura.
+- O `auditor-ci` confere de novo entre arquivos. Depois de uma adulteração, os seguintes ficam `not_audited_after_tampering`, o `outcome.json` traz `toolchain_tampered: true` e o sumário avisa.
+- Cenário de conformidade 11 (adulteração do pacote do auditor; do binário do inspetor; execução sem adulteração, que sai `Rejeitada` pela L-33a).
+
 ### L-33a: código do usuário executado na elaboração (Fase 1, instrução 24)
 - **Etapa A v4.**
   - `run_tac` e `by_elab`, em qualquer posição: achado `elaboration_code_execution`. Toda declaração do arquivo sai **Rejeitada** (`elaboration_executes_code`, em `policy_violations`).

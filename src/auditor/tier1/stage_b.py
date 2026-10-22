@@ -57,6 +57,7 @@ class StageBResult:
     metadata: dict | None = None                               # hashes e contagens
     imports: list[str] | None = None                           # fecho de imports do alvo (L-33)
     execution_capable: list[dict] = field(default_factory=list)  # código executável do alvo (L-33a)
+    tampered: dict | None = None                               # L-33 (b): o que mudou durante o build
 
 
 class InspectorBuildError(Exception):
@@ -143,6 +144,32 @@ def ensure_inspector(toolchain: str, lake: str) -> dict:
             "binary_sha256": sha256_file(exe), "path": str(exe)}
 
 
+# --------------------------------------------------------------------------- integridade (L-33 b)
+
+def auditor_package_sha256() -> str:
+    """Hash do pacote do auditor instalado (código e dados; bytecode fora): caminho relativo e bytes
+    de cada arquivo, em ordem."""
+    h = hashlib.sha256()
+    for p in sorted(PKG.rglob("*")):
+        if not p.is_file() or "__pycache__" in p.parts or p.suffix == ".pyc":
+            continue
+        for part in (p.relative_to(PKG).as_posix().encode("utf-8"), p.read_bytes()):
+            h.update(len(part).to_bytes(8, "big"))
+            h.update(part)
+    return "sha256:" + h.hexdigest()
+
+
+def integrity_snapshot(inspector: Path) -> dict:
+    """L-33 (b): o que o build do alvo não pode alterar sem ser detectado."""
+    return {"inspector": sha256_file(inspector) if inspector.is_file() else None,
+            "auditor_package": auditor_package_sha256()}
+
+
+def integrity_changes(before: dict, inspector: Path) -> list[str]:
+    after = integrity_snapshot(inspector)
+    return [k for k in before if before[k] != after[k]]
+
+
 # --------------------------------------------------------------------------- análise
 
 def analyze(target: Path, timeout_s: float = 90.0) -> StageBResult:
@@ -177,7 +204,17 @@ def analyze(target: Path, timeout_s: float = 90.0) -> StageBResult:
         res.unrecognized.append({"code": "lake_unavailable", "detail": "`lake` não encontrado no PATH"})
         return res
 
-    # 1. build do alvo no ambiente fixado
+    # 1. inspetor ANTES do build do alvo (L-33 b): o build executa código do PR (dependências,
+    # `initialize`…); depois dele, nem o binário do inspetor nem o auditor instalado podem ter mudado
+    try:
+        insp = ensure_inspector(res.toolchain, lake)
+    except InspectorBuildError as e:
+        res.unrecognized.append({"code": "inspector_build_failed", "detail": str(e)[-2000:]})
+        return res
+    res.inspector = {k: v for k, v in insp.items() if k != "path"}
+    guard = integrity_snapshot(Path(insp["path"]))
+
+    # 2. build do alvo no ambiente fixado
     t0 = time.monotonic()
     try:
         b = subprocess.run([lake, "build", res.module], cwd=root, capture_output=True, text=True,
@@ -188,18 +225,16 @@ def analyze(target: Path, timeout_s: float = 90.0) -> StageBResult:
     log = b.stdout + b.stderr
     res.build = {"status": "success" if b.returncode == 0 else "failure",
                  "duration_s": round(time.monotonic() - t0, 3)}
+    changed = integrity_changes(guard, Path(insp["path"]))
+    if changed:   # adulteração: o inspetor não roda; nada do que ele diria é confiável
+        res.tampered = {"changed": changed}
+        return res
     if b.returncode != 0:
         res.build["cycle_detected"] = "build cycle detected" in log
         res.build["log_tail"] = log[-4000:]
         return res
 
-    # 2. inspetor
-    try:
-        insp = ensure_inspector(res.toolchain, lake)
-    except InspectorBuildError as e:
-        res.unrecognized.append({"code": "inspector_build_failed", "detail": str(e)[-2000:]})
-        return res
-    res.inspector = {k: v for k, v in insp.items() if k != "path"}
+    # 3. inspetor
     with tempfile.TemporaryDirectory(prefix="auditor_inspect_") as tmp:
         out = Path(tmp) / "facts.json"
         try:

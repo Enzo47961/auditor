@@ -74,7 +74,8 @@ def test_result_has_no_positive_conclusion_field():
     assert fields == {"file", "project_root", "module", "toolchain", "stage_b_version", "build",
                       "inspector", "declarations", "anomalies", "unrecognized", "owners",
                       "boundary", "metadata",
-                      "imports", "execution_capable"}   # L-33a: fatos brutos, não conclusões
+                      "imports", "execution_capable",   # L-33a: fatos brutos, não conclusões
+                      "tampered"}                       # L-33 (b): o que mudou no build
 
 
 def test_inspector_version_matches_source():
@@ -455,3 +456,27 @@ def test_apply_boundary_exposes_unresolved_origin(tmp_path, monkeypatch):
     assert [e["level"] for e in d["extern"]] == ["tcb", "unresolved"]
     assert [a["code"] for a in r.anomalies] == ["tcb_boundary_unresolved"]
     assert r.anomalies[0]["detail"]["constant"] == "x"
+
+
+# ------------------------------------------------------------------ L-33 (b): adulteração
+
+def test_integrity_detects_change_in_auditor_package_and_inspector(tmp_path, monkeypatch):
+    pkg = tmp_path / "auditor"
+    (pkg / "sub").mkdir(parents=True)
+    (pkg / "a.py").write_text("x = 1\n")
+    (pkg / "sub" / "b.json").write_text("{}")
+    (pkg / "__pycache__").mkdir()
+    exe = tmp_path / "inspect"
+    exe.write_bytes(b"\x7fELF")
+    monkeypatch.setattr(B, "PKG", pkg)
+    before = B.integrity_snapshot(exe)
+    (pkg / "__pycache__" / "a.cpython.pyc").write_bytes(b"bytecode")   # bytecode não conta
+    assert B.integrity_changes(before, exe) == []
+    (pkg / "a.py").write_text("x = 1\n# adulterado\n")
+    assert B.integrity_changes(before, exe) == ["auditor_package"]
+    before = B.integrity_snapshot(exe)
+    exe.write_bytes(b"\x7fELF-adulterado")
+    assert B.integrity_changes(before, exe) == ["inspector"]
+    before = B.integrity_snapshot(exe)
+    (pkg / "c.py").write_text("")                                          # arquivo novo conta
+    assert B.integrity_changes(before, exe) == ["auditor_package"]

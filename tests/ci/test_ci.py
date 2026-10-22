@@ -415,3 +415,29 @@ def test_each_audit_receives_the_other_changed_files(tmp_path, monkeypatch):
     ci.audit_files([str(a), str(b), str(c)], str(DEFAULT_POLICY), tmp_path / "out")
     changed = [[cmd[i + 1] for i, x in enumerate(cmd) if x == "--changed"] for cmd in seen]
     assert changed == [[str(b), str(c)], [str(a), str(c)], [str(a), str(b)]]
+
+
+def test_tampering_between_files_stops_the_run(tmp_path, monkeypatch):
+    """L-33 (b): o build do primeiro arquivo adultera o auditor instalado; o processo pai detecta,
+    marca o arquivo e não audita os seguintes (cada `auditor check` carregaria o código adulterado)."""
+    from auditor.tier1 import stage_b
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "m.py").write_text("x = 1\n")
+    monkeypatch.setattr(stage_b, "PKG", pkg)
+    a, b = tmp_path / "A.lean", tmp_path / "B.lean"
+    for f in (a, b):
+        f.write_text("theorem t : True := trivial\n")
+
+    class Done:
+        returncode = 0
+
+    def fake_run(cmd, **kw):
+        (pkg / "m.py").write_text("x = 2\n")
+        return Done()
+    monkeypatch.setattr(ci.subprocess, "run", fake_run)
+    o = ci.audit_files([str(a), str(b)], str(DEFAULT_POLICY), tmp_path / "out")
+    assert [r["status"] for r in o["files"]] == ["toolchain_tampered", "not_audited_after_tampering"]
+    assert o["files"][0]["tampered"] == ["auditor_package"]
+    assert o["toolchain_tampered"] is True and o["exit_code"] == 1 and not o["infra_failed"]
+    assert "Adulteração detectada" in ci.summary_markdown(o)

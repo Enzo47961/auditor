@@ -301,3 +301,18 @@ GROUPS["stage_b"]["mutations"] += [
 GROUPS["stage_a"]["mutations"] += [
     (SA, '            allow[k] = set(allow[k]) | core[k]', '            allow[k] = set(allow[k])'),
 ]
+# L-33 (b): adulteração do inspetor ou do auditor durante o build (instrução 25)
+GROUPS["stage_b"]["mutations"] += [
+    (SB, '        if not p.is_file() or "__pycache__" in p.parts or p.suffix == ".pyc":', '        if True:'),
+    (SB, '    return {"inspector": sha256_file(inspector) if inspector.is_file() else None,',
+     '    return {"inspector": None,'),
+]
+GROUPS["policy"]["mutations"] += [
+    (SB, '    if changed:   # adulteração: o inspetor não roda; nada do que ele diria é confiável', '    if False:'),
+    (RP, '    elif sb.tampered:   # L-33 (b): violação de conteúdo, não falha de infraestrutura', '    elif False:'),
+]
+GROUPS["policy"]["tests"] += ["tests/conformance/test_11_toolchain_tampering.py"]
+GROUPS["ci"]["mutations"] += [
+    (CI, '        if changed:\n            entry["status"], entry["tampered"], tampered =',
+     '        if False:\n            entry["status"], entry["tampered"], tampered ='),
+]
