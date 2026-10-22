@@ -16,6 +16,20 @@ Antes de qualquer outro item da Fase 1, e antes de qualquer relaxamento de class
 
 A pergunta de pesquisa da Fase 1 (se a hipótese semântica vale a pena) continua em aberto.
 
+## Fase 1 — revisão independente da classificação (regras aprovadas, instrução 23)
+
+Origem: a primeira tentativa de revisão independente foi descartada. Era outra IA, sem acesso ao código-fonte, e as citações vieram com linhas deslocadas (`proposed-improvements.md`). Regras, literalmente como aprovadas:
+
+- revisor recebe o fonte no commit fixado, não descrições;
+- toda citação traz arquivo, linha e SHA;
+- citações conferidas mecanicamente contra o commit antes de aceitar a revisão;
+- revisor se identifica e declara grau de independência.
+
+## Fase 1 — fora do fechamento da Fase 0 (não bloqueiam)
+
+- Testar end-to-end um `@auditor report` de quem não tem acesso ao repositório (exige segunda conta; L-29).
+- Atualizar retroativamente, com a linha `classificação: … (L-26)`, os comentários do `@auditor report` já postados nos PRs de medição (legado; `proposed-improvements.md`).
+
 ## Fase 1 — itens já decididos
 
 | Item | Origem | Decisão |

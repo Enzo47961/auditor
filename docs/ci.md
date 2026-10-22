@@ -37,7 +37,7 @@ A lógica fica em `auditor-ci` (`src/auditor/ci.py`), testada em `tests/ci`. Os 
 3. O job não faz checkout e não executa código do PR. Instala o auditor no SHA fixado e lê o `headRefOid` do PR (conferido como 40 hex).
 4. Localiza a execução do `auditor-tier1` para esse commit listando as 100 execuções mais recentes do workflow e selecionando pelo `head_sha` no cliente. O filtro `head_sha` da API (o que `gh run list --commit` usa) não é determinístico (passo 9, instrução 22).
 5. Responde com **um** comentário, assinado por `github-actions`:
-   - execução encontrada e concluída: o sumário (`auditor-ci comment`), começando por "Pedido por um humano";
+   - execução encontrada e concluída: o sumário (`auditor-ci comment`), começando por "Pedido por um humano". O sumário traz no topo a linha `classificação: <classification_review_status> (L-26)` (por exemplo, `author-self-review`), tirada dos relatórios; o Job Summary traz a mesma linha;
    - execução em andamento: aviso para pedir de novo quando terminar;
    - execução concluída sem o artefato `auditor-report`: falha de infraestrutura;
    - nenhuma execução entre as 100 mais recentes: aviso com o commit.

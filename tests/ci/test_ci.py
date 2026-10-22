@@ -29,6 +29,37 @@ def run(tmp_path, files, budget=300.0, extra=()):
     return code, outcome, (out / "summary.md").read_text(encoding="utf-8"), gh.read_text(encoding="utf-8")
 
 
+def _summary_outcome(files):
+    return {"infra_failed": False, "timeout_aborted": False, "cache_cold_extension": False, "files": files,
+            "file_duration_p95_s": 1.0, "cache_state": "warm", "first_run": False, "budget_s": 300.0,
+            "clock_origin": "trigger", "setup_elapsed_s": 1.0, "audit_elapsed_s": 1.0, "elapsed_s": 2.0,
+            "timeout_file_s": 90.0, "inspector_cache": {"hits": 1, "misses": 0}, "deleted_files": [],
+            "steady_state_budget_s": 300.0, "first_run_budget_s": 900.0}
+
+
+def _summary_file(review=None):
+    f = {"file": "A.lean", "status": "pass", "counts": {"verified": 1}, "duration_s": 1.0, "inspector_cache": "hit"}
+    if review is not None:
+        f["classification_review_status"] = review
+    return f
+
+
+@pytest.mark.parametrize("files, line", [
+    ([_summary_file("author-self-review")], "classificação: author-self-review (L-26)"),
+    ([_summary_file("author-self-review"), _summary_file("core-only")], "classificação: author-self-review, core-only (L-26)"),
+    ([_summary_file("core-only"), _summary_file("core-only")], "classificação: core-only (L-26)"),
+    ([_summary_file()], "classificação: indeterminada (nenhum relatório) (L-26)"),
+    ([], "classificação: indeterminada (nenhum relatório) (L-26)"),
+])
+def test_summary_always_declares_classification_review(files, line):
+    """L-26 (instrução 23): a declaração viaja com o sumário (Job Summary e comentário do
+    `@auditor report`). Sem a linha, o teste falha; sem relatório, ela diz "indeterminada"."""
+    md = ci.summary_markdown(_summary_outcome(files))
+    assert line in md.splitlines()
+    assert line in ci.comment_body(md, "a" * 40)
+    assert md.index(line) < md.index("cache_state")    # no topo, antes dos números
+
+
 def test_old_budget_flags_removed(tmp_path):
     """D-36 (instrução 12): `--budget`/`--first-run-budget` viraram `--timeout-total`/
     `--timeout-total-first-run`; os nomes antigos não são aceitos."""
@@ -68,6 +99,10 @@ def test_all_pass(tmp_path):
     assert o["cache_state"] == "warm" and not o["first_run"] and not o["cache_cold_extension"]
     assert "infra_failed=false" in gh and "audit_failed=false" in gh and "exit_code=0" in gh
     assert "Não Auditada" in md and ci.LABEL not in md and "cache_state: `warm`" in md
+    review = o["files"][0]["classification_review_status"]
+    assert review == json.loads((tmp_path / "out" / o["files"][0]["report"]).read_text(encoding="utf-8"))[
+        "tcb"]["classification_review_status"]
+    assert f"classificação: {review} (L-26)" in md
 
 
 def test_rejection_fails_job(tmp_path):

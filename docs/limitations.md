@@ -166,3 +166,8 @@ Dados (instrução 20): `tools/layer2/native_usage.py` marcou 2 de 256 505 decla
 - a cópia de um campo de configuração, `native := options.native`, na tática `inclusion` (`Mathlib/Tactic/Inclusion/Core/Elab.lean:348`).
 
 Nos 7 relatórios da camada 2 (primeiro run e PRs de medição), nenhuma declaração tem `native_auxiliary_axiom` entre as razões. A medição valida a Q9 retroativamente: o fail-closed permanente de `native_decide` quase não custa cobertura na biblioteca principal, porque o construto não é usado ali.
+
+## L-29. `@auditor report` de quem não tem acesso: não testado end-to-end
+O passo 9 testou o fluxo @auditor report acionado por OWNER. Não testou o caminho de um comentário de quem não tem acesso — a garantia é a condição author_association, travada por teste unitário, não testada end-to-end na camada 2. Requer segunda conta para teste end-to-end; fica como pendência de informação, não bloqueante.
+
+Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` (`author_association` em OWNER, MEMBER ou COLLABORATOR) e é travada por `test_report_workflow_requires_explicit_human_request`. O teste end-to-end está na pauta da Fase 1 (não bloqueia).

@@ -208,6 +208,10 @@ GROUPS = {
             (WT, r"        if: always() && steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready",
              r"        if: steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready"),
             (WW, r"        run: auditor-ci inspector --project .", r"        run: auditor-ci inspector --project . --check"),
+            # instrução 23: a declaração de revisão da classificação (L-26) no sumário
+            (CI, r'    lines += ["", classification_line(outcome), ""]', r'    lines += [""]'),
+            (CI, r'                if isinstance(review, str):', r'                if False:'),
+            (CI, r"else 'indeterminada (nenhum relatório)'", r"else 'author-self-review'"),
             # instrução 22 (passo 9): busca da execução sem o filtro head_sha do servidor
             (TR, r'select(.head_sha == \"$head\")', r'select(true)'),
             (TR, r"""if ! printf '%s' "$head" | grep -Eq '^[0-9a-f]{40}$'; then""", r"if false; then"),

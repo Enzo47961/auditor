@@ -454,6 +454,24 @@ O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositóri
 - **Passo 9 achou um bug real no `auditor-report`** (filtro `head_sha` da API não determinístico). Corrigido no modelo; detalhes em `maintenance.md`, "Testes de referência dos modos de falha do CI".
 - **Passo 8 passou de primeira:** timeout de arquivo → exit 2, `infra_failed`, job verde, label `auditor-failed-infra`, PR mesclável.
 
+## Quirks conhecidos da API do GitHub
+
+Registro para quem for construir workflows parecidos (instrução 23).
+
+- **O filtro `head_sha` da API de execuções do GitHub Actions não é determinístico.** A mesma consulta, repetida em sequência, alterna entre 0 e 1 resultado. Isso vale para os três endpoints: `/repos/{repo}/actions/runs?head_sha=…`, `/actions/workflows/{arquivo}/runs?head_sha=…` e `/actions/workflows/{id}/runs?head_sha=…`. A listagem **sem** filtro foi estável em todas as repetições. `gh run list --commit` usa esse filtro e herda o problema, em qualquer versão (testado: 2.101.0 e 2.103.0).
+  - Evidência (2026-10-22, `Enzo47961/mathlib4`, `total_count` por endpoint, na ordem arquivo / id / repositório):
+    - commit `769e23c` (execução 39813522377, concluída): 0 / 1 / 1;
+    - commit `d585660`: 1 / 1 / 1;
+    - commit `dd08fb8` (execução 39760172227): 1 / 0 / 1;
+    - seis repetições para `769e23c` (colunas: arquivo, id, repositório e, como controle, os `check-runs` do commit): `1 1 1 1`, `1 1 1 1`, `1 1 1 1`, `1 1 0 1`, `1 1 0 1`, `1 1 1 1`.
+  - Efeito observado: o `@auditor report` respondeu "nenhuma execução" para um commit auditado (passo 9, run 39818084000).
+  - Contorno adotado no `auditor-report.yml`: listar as execuções recentes sem filtro e selecionar `head_sha` no cliente, com o SHA validado como 40 hex antes de entrar no `jq`.
+
+## Rodada da instrução 23 (arquivo `instrução21`) — qualificação no sumário
+
+- **Linha `classificação: … (L-26)` no sumário** (Job Summary e comentário do `@auditor report`), antes do fechamento incondicional da Fase 0. Motivo, do revisor: a L-26 existe para que a declaração viaje com a alegação; uma exceção para "comentário em PR de fork" abre a próxima. O valor vem do `tcb.classification_review_status` de cada relatório; sem relatório legível com o campo, a linha diz "indeterminada", nunca some.
+- **Comentários de PR #1-#9 são legado; qualificação author-self-review é obrigatória em qualquer comentário novo.** Na prática, só o PR #8 tem comentários do `@auditor report` anteriores à linha: o da primeira tentativa do passo 9, que não traz resultado, e o da segunda, que traz o sumário sem a linha. Atualizá-los é opcional e fica fora do fechamento (`roadmap.md`).
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

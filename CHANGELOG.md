@@ -18,6 +18,12 @@ sem período de transição.
 - Prioridades P0 da Fase 1 em `roadmap.md`: `@[implemented_by]` gerado na elaboração; taxa de
   fail-closed da Etapa A (68 % dos 60 arquivos de maior fanout).
 
+### `auditor-ci` (instrução 23)
+- **O sumário (Job Summary e comentário do `@auditor report`) declara a revisão da classificação:**
+  linha `classificação: <status> (L-26)`, com o `tcb.classification_review_status` dos relatórios
+  (por exemplo, `author-self-review`). Sem relatório legível, `indeterminada (nenhum relatório)`.
+  Cada arquivo do `outcome.json` ganha o campo `classification_review_status`.
+
 ### Workflows (instrução 22)
 - **Correção no `auditor-report`:** o `@auditor report` respondia "nenhuma execução" para um commit
   já auditado (passo 9 da camada 2). O filtro `head_sha` da API de execuções do GitHub (usado por

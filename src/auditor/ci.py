@@ -176,6 +176,9 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
                 r = json.loads(report.read_text(encoding="utf-8"))
                 for d in r.get("declarations", []):
                     entry["counts"][d["overall_status"]] = entry["counts"].get(d["overall_status"], 0) + 1
+                review = (r.get("tcb") or {}).get("classification_review_status")
+                if isinstance(review, str):
+                    entry["classification_review_status"] = review
                 entry["infra_reasons"] = [x.get("code") for x in r.get("infrastructure", {}).get("reasons", [])]
             except (json.JSONDecodeError, KeyError, TypeError):
                 entry["exit_code"] = 2
@@ -221,11 +224,20 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
     }
 
 
+def classification_line(outcome: dict) -> str:
+    """L-26 (instrução 23): a declaração de revisão da classificação viaja com todo sumário,
+    inclusive o comentário do `@auditor report`. Vem dos relatórios; sem relatório legível com o
+    campo, o sumário diz que ela é indeterminada, nunca omite a linha."""
+    found = sorted({r["classification_review_status"] for r in outcome.get("files", [])
+                    if isinstance(r.get("classification_review_status"), str)})
+    return f"classificação: {', '.join(found) if found else 'indeterminada (nenhum relatório)'} (L-26)"
+
+
 def summary_markdown(outcome: dict) -> str:
     lines = ["## auditor Tier1 (Fase 0)", ""]
     lines.append("> Correspondência entre enunciado formal e informal: **Não Auditada**. "
                  "Este resultado não significa \"a prova está correta\"; ver o README do auditor.")
-    lines.append("")
+    lines += ["", classification_line(outcome), ""]
     if outcome["infra_failed"]:
         why = ("um arquivo estourou o timeout por arquivo; os seguintes não foram auditados"
                if outcome["timeout_aborted"] else

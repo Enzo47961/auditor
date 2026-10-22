@@ -46,6 +46,13 @@ Depois dos passos 8 e 9, o revisor confirma o fechamento incondicional.
 - **Revisão externa.** Outra IA, sem acesso ao código-fonte; diagnóstico e regras para a revisão independente da Fase 1 em `proposed-improvements.md`.
 - **Validação depois da correção:** suíte 666 passed (`7ba9b6f`); mutação 138/138.
 
+## Registros da instrução 23
+
+- **L-29.** "O passo 9 testou o fluxo @auditor report acionado por OWNER. Não testou o caminho de um comentário de quem não tem acesso — a garantia é a condição author_association, travada por teste unitário, não testada end-to-end na camada 2. Requer segunda conta para teste end-to-end; fica como pendência de informação, não bloqueante." (`docs/limitations.md`).
+- **Não determinismo da API do GitHub.** O filtro `head_sha` da API de execuções alterna entre 0 e 1 resultado para a mesma consulta, nos três endpoints. Foi a causa da primeira falha do passo 9. Evidência e contorno em `proposed-improvements.md`, "Quirks conhecidos da API do GitHub".
+- **Revisão externa descartada.** Resposta do mantenedor: outra IA, sem acesso ao código-fonte. Isso casa com o deslocamento de linha (+16 a +25) das 4 citações. As regras para a revisão independente da Fase 1 foram aprovadas e estão em `roadmap.md`.
+- **Qualificação no sumário.** A linha `classificação: … (L-26)` entra no Job Summary e no comentário do `@auditor report` antes do fechamento incondicional. O passo 9 é re-executado no PR #8 com o sumário qualificado.
+
 ## Medição na camada 2
 
 A distinção entre medição no caminho de sucesso e medição no caminho fail-closed é da arquitetura, não da ferramenta (L-27). Caminho de sucesso: arquivo que a Etapa A aceita inteiro. Caminho fail-closed: arquivo que a Etapa A recusa; nele `unresolved` é o resultado correto.
@@ -87,7 +94,7 @@ Em #5–#8: `clock_origin: trigger`, `build_cache: hit`, `inspector: hit`, `proj
 
 ## Limitações
 
-L-1 a L-28 em `docs/limitations.md`. As que mais pesam na leitura destes resultados: L-1 e L-14 (kernel, compilador e inspetor na TCB), L-5 (`@[implemented_by]` é candidato), L-9 (correspondência não auditada), L-17 (o que a Etapa A não reconhece derruba o arquivo), L-25 e L-26 (classificação do Mathlib fail-closed nos ambíguos e auto-revisada), L-27 (caminho de sucesso e fail-closed separados), L-28 (0 usos reais de avaliação nativa em `Mathlib@e1b2403b`).
+L-1 a L-29 em `docs/limitations.md`. As que mais pesam na leitura destes resultados: L-1 e L-14 (kernel, compilador e inspetor na TCB), L-5 (`@[implemented_by]` é candidato), L-9 (correspondência não auditada), L-17 (o que a Etapa A não reconhece derruba o arquivo), L-25 e L-26 (classificação do Mathlib fail-closed nos ambíguos e auto-revisada), L-27 (caminho de sucesso e fail-closed separados), L-28 (0 usos reais de avaliação nativa em `Mathlib@e1b2403b`).
 
 ## Pauta da Fase 1
 
