@@ -242,6 +242,16 @@ Execução de referência (2026-10-22, auditor `7f7238d`): cache do inspetor do 
 
 Não testado na camada 2: um comentário de quem **não** tem acesso ao repositório não dispara o job. Exigiria uma segunda conta. A garantia é a condição `author_association` do job, travada por `test_report_workflow_requires_explicit_human_request`.
 
+## Atualizar o sumário de uma execução antiga sem alterar o PR (instrução 24)
+
+Situação: o auditor mudou (por exemplo, o sumário ganhou uma linha nova) e um PR de medição precisa de um relatório gerado pelo auditor novo, sem mudar o código do PR.
+
+- **Não usar `gh run rerun`.** O re-run executa o workflow do commit original, com o SHA do auditor antigo, e reproduz o sumário velho.
+- **Fechar e reabrir o PR** (feito pelo mantenedor, `gh pr close N` e `gh pr reopen N`). O evento `reopened` (um dos tipos padrão de `pull_request`) dispara o `auditor-tier1` a partir do merge ref do PR. Num PR que não toca `.github/`, o workflow do merge ref é o do base, com o SHA novo do auditor. Resultado: auditoria nova, sem commit no PR.
+- Conferir no `outcome.json` da execução nova que o auditor é o esperado e que o sumário traz a mudança. Só depois disso pedir o `@auditor report`, que lê a execução mais recente do commit.
+
+Execução de referência (2026-10-22, auditor `69ed9cf`, fork `018d7db`): PR #8 fechado e reaberto; auditoria nova run 39826300196 (`warm`, 135,6 s, 9/9 `verified`, `classification_review_status: author-self-review`); `@auditor report` run 39827471933, com a linha `classificação: author-self-review (L-26)`. Aprovada pelo revisor na instrução 24.
+
 ## Fixação de versões nos workflows (D-25)
 
 **Todas as actions em workflows do auditor são pinadas por SHA; atualização é PR que muda o SHA e é revisado.** Vale para este repositório (`.github/workflows/`) e para os modelos do repositório-alvo (`ci/templates/`). Tag é mutável; SHA de commit não. Se o publicador de uma action for comprometido, uma tag flutuante é um vetor de ataque à cadeia de suprimentos, exatamente o tipo de troca silenciosa que o auditor existe para detectar.

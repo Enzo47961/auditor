@@ -454,6 +454,10 @@ O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositóri
 - **Passo 9 achou um bug real no `auditor-report`** (filtro `head_sha` da API não determinístico). Corrigido no modelo; detalhes em `maintenance.md`, "Testes de referência dos modos de falha do CI".
 - **Passo 8 passou de primeira:** timeout de arquivo → exit 2, `infra_failed`, job verde, label `auditor-failed-infra`, PR mesclável.
 
+## Rodada da instrução 24 (arquivo `instrução22`) — Fase 0 fechada incondicionalmente
+
+- **Pendência da revisão externa descartada: ENCERRADA.** Perguntada 3× e respondida em 2026-10-22: outra IA, sem acesso ao fonte, deslocamento de linha +16 a +25. Regras de revisão independente da Fase 1 registradas em roadmap.md. Pendência encerrada.
+
 ## Quirks conhecidos da API do GitHub
 
 Registro para quem for construir workflows parecidos (instrução 23).

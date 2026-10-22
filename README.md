@@ -4,6 +4,8 @@
 
 Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta **não** significa "a prova está correta" nem "o teorema diz o que o autor afirma".
 
+> **Declaração obrigatória (L-26): `classification_review_status: author-self-review`.** A classificação dos comandos do Mathlib que sustenta os resultados desta ferramenta foi elaborada e revisada pelo mesmo autor; não houve revisão independente. Todo relatório, sumário e comentário declara isso. Nenhum resultado de cobertura do Mathlib pode ser apresentado a terceiros (Mathlib Zulip, artigo, blog ou outro) sem essa qualificação. A revisão independente é item da Fase 1 (`docs/roadmap.md`).
+
 - **Não audita correspondência.** Não verifica se o enunciado formal corresponde ao enunciado informal (artigo, LaTeX, intenção do autor). Todo relatório da Fase 0 declara `correspondence_status: "Não auditada"`, sem exceção. Um teorema que prova a coisa errada recebe o mesmo selo que um que prova a coisa certa.
 - **Não audita o kernel do Lean.** O kernel é âncora de confiança (TCB), não objeto auditado. Um bug no kernel invalida todos os selos e esta ferramenta não o detectaria.
 - **Não usa LLM**, em nenhuma capacidade, em nenhum ponto do código.
@@ -18,9 +20,11 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 
 ## Status
 
-**Estado (2026-10-22): Fase 0 closed at layer 1 + layer 2 measurement level, pending steps 8-9** (`docs/phase0-report.md`; classificação `author-self-review`, L-26). A Fase 1 não abre antes dos passos 8 e 9 do checklist da camada 2 e do fechamento da pendência da revisão externa descartada.
+**Fase 0 = closed unconditionally 2026-10-22. Fase 1 = not started.**
 
-**Fase 0 = Camada 1 (done) + Camada 2 (pending user evidence).** A Fase 0 **não está done**: só é done quando as duas camadas estão completas. O critério de go/no-go da Fase 0 é a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1. **A próxima decisão de projeto (início da Fase 1) depende da camada 2**; os itens da Fase 1 já decididos estão em `docs/roadmap.md`.
+Fechamento confirmado pelo revisor na instrução 24: auditor `69ed9cf`, fork `auditor-base` `018d7db`, 674 testes, 141/141 mutações, passos 8 e 9 da camada 2 (o 9 com sumário qualificado), L-26 declarada em todos os artefatos. Evidência em `docs/phase0-report.md`. A Fase 1 começa pelos dois P0 de `docs/roadmap.md`.
+
+As tabelas abaixo registram como as duas camadas da Fase 0 foram construídas. O critério de go/no-go foi a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1.
 
 **Camada 1 — done no ambiente do builder.** Itens verificáveis sem Mathlib, com evidência produzida no ambiente de desenvolvimento. Toolchain fixado: **`leanprover/lean4:v4.36.0-rc1`** (o do Mathlib `master`, instrução 12). **Q9 decidida (instrução 13):** `native_decide` nunca sai `verified` na Fase 0 (fail-closed permanente; reavaliação pelo kernel é pesquisa da Fase 1).
 
@@ -44,16 +48,16 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 | Testes de mutação versionados (`tools/mutation`) | catálogo de 84 mutações em 5 grupos, com teste de integridade do catálogo |
 | Nenhuma promessa não cumprida no README | pendente (revisão final) |
 
-**Camada 2 — done no ambiente real.** Exige evidência trazida pelo mantenedor. A Fase 0 não é done sem ela.
+**Camada 2 — done no ambiente real** (evidência em `docs/phase0-report.md`).
 
 | Item | Estado |
 |---|---|
-| Allow-list do Mathlib gerada no fork (`auditor-gen-allowlist --project`), com os comandos do Mathlib classificados | **awaiting user evidence** |
-| Primeiro run no fork (cache cold, `first_run: true`) | **awaiting user evidence** |
-| PRs reais do Mathlib no steady-state, com o cache aquecido no branch base (D-61): trivial, médio, fanout no caminho de sucesso e fanout no caminho fail-closed (L-27; ranking de `tools/layer2/fanout.py`), com tempos por `cache_state` (`tools/layer2/timings.py`) e `project_dirty: false` (D-62) | **awaiting user evidence** |
-| Caminho de timeout (`auditor-failed-infra`, sem bloquear merge) | **awaiting user evidence** |
-| p95 por arquivo medido e default do timeout por arquivo reajustado | **awaiting user evidence** |
-| GitHub Action integrada e testada em fork | **awaiting user evidence** |
+| Allow-list do Mathlib gerada no fork (`auditor-gen-allowlist --project`), com os comandos do Mathlib classificados | feito: 259 comandos, 0 sem classificação; regenerada no CI idêntica byte a byte (run 39696176700) |
+| Primeiro run no fork (cache cold, `first_run: true`) | feito: PR #1, 136,1 s |
+| PRs reais do Mathlib no steady-state, com o cache aquecido no branch base (D-61): trivial, médio, fanout no caminho de sucesso e fanout no caminho fail-closed (L-27; ranking de `tools/layer2/fanout.py`), com tempos por `cache_state` (`tools/layer2/timings.py`) e `project_dirty: false` (D-62) | feito: PRs #5–#8, `warm`, 126–142 s; fail-closed à parte (PR #7) |
+| Caminho de timeout (`auditor-failed-infra`, sem bloquear merge) | feito: passo 8, PR #9 |
+| p95 por arquivo medido e default do timeout por arquivo reajustado | **não feito**: adiado para a Fase 1 (`docs/roadmap.md`, "Timeout por arquivo medido") |
+| GitHub Action integrada e testada em fork | feito: `auditor-tier1`, `auditor-label`, `auditor-report` (passo 9, PR #8) e `auditor-warm-cache` no fork |
 
 **Por que duas camadas.** O ambiente de desenvolvimento tem o toolchain Lean (verificado: `lean`, `lake` e `#print axioms` funcionam), mas não tem acesso ao cache de build do Mathlib, e compilar o Mathlib do zero não cabe nele.
 

@@ -1,10 +1,12 @@
 # Relatório da Fase 0
 
 ```
-phase_0_status: "closed at layer 1 + layer 2 measurement, pending steps 8-9"
+phase_0_status: "closed unconditionally at 2026-10-22, auditor 69ed9cf, fork auditor-base 018d7db, 674 testes, 141/141 mutações, step 8 + step 9 qualified, L-26 declared in all artifacts"
 ```
 
-**Atualização (2026-10-22, depois da instrução 22):** os passos 8 e 9 foram executados e a pendência da revisão externa foi respondida (seção "Condições"). A confirmação do fechamento incondicional é do revisor; até lá o status acima não muda.
+**Fechamento incondicional confirmado pelo revisor na instrução 24 (2026-10-22).** A evidência dos quatro critérios aceitos está na seção final, "Evidência do fechamento incondicional". Status anterior, mantido como histórico: `"closed at layer 1 + layer 2 measurement, pending steps 8-9"` (instrução 22).
+
+**Fase 1: autorizada pelo revisor (instrução 24), ainda não iniciada; começa pelos dois P0 de `roadmap.md`.**
 
 Fechamento declarado pelo revisor na instrução 22 (2026-10-22), com duas condições antes de a Fase 1 abrir:
 
@@ -103,3 +105,16 @@ L-1 a L-29 em `docs/limitations.md`. As que mais pesam na leitura destes resulta
 ## Pauta da Fase 1
 
 Prioridades P0 em `docs/roadmap.md`: `@[implemented_by]` gerado na elaboração e a taxa de fail-closed da Etapa A (68 % dos 60 arquivos de maior fanout). A pergunta de pesquisa da Fase 1 (se a hipótese semântica vale a pena) continua em aberto.
+
+## Evidência do fechamento incondicional (instrução 24)
+
+Os quatro critérios aceitos pelo revisor, com os runs:
+
+| Critério | Evidência | Run |
+|---|---|---|
+| Passo 9 re-executado e qualificado | PR #8 fechado e reaberto para gerar auditoria nova com o auditor `69ed9cf`, sem tocar no código do PR: `warm`, 135,6 s, 9/9 `verified`, `classification_review_status: author-self-review` no `outcome.json`. `@auditor report`: comentário único com `classificação: author-self-review (L-26)`; Job Summary qualificado | auditoria [39826300196](https://github.com/Enzo47961/mathlib4/actions/runs/39826300196); comentário [39827471933](https://github.com/Enzo47961/mathlib4/actions/runs/39827471933) |
+| Suíte | 674 passed, 0 failed, sobre `69ed9cf` (eram 666; os 8 novos cobrem a linha L-26) | [39825726718](https://github.com/Enzo47961/auditor/actions/runs/39825726718) |
+| Mutação | grupo `ci` 38/38 sobre `69ed9cf`, incluindo o mutante que remove a linha do sumário e o que troca "indeterminada" por `author-self-review` fixo (equivalente, no sumário, ao sobrevivente real da instrução 19). Estado consolidado: 6 grupos, **141/141**, 0 sobreviventes, 0 pulados (`maintenance.md`) | [39826324751](https://github.com/Enzo47961/mathlib4/actions/runs/39826324751) |
+| `auditor-prep` | verde: 259 comandos, 0 sem classificação, `gen_tcb_roots --check` exit 0, fumaça 20/20 com a linha L-26 no sumário | [39826330043](https://github.com/Enzo47961/mathlib4/actions/runs/39826330043) |
+
+Estado publicado: auditor `master` = `ad8f3d3` no fechamento (código executado no fork: `69ed9cfd1bf6016358d799d31113d5555cc71763`); fork `auditor-base` = `018d7db`.

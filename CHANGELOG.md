@@ -6,6 +6,18 @@ sem período de transição.
 
 ## Não lançado
 
+### Fase 0 — closed unconditionally 2026-10-22 (auditor 69ed9cf)
+- Fechamento incondicional confirmado pelo revisor (instrução 24). Auditor `69ed9cf` executado no
+  fork, `auditor-base` = `018d7db`; suíte **674** passed, 0 failed (run 39825726718); mutação
+  **141/141** em 6 grupos, 0 sobreviventes (grupo `ci` 38/38, run 39826324751); passo 8 (timeout /
+  `auditor-failed-infra`, PR #9) e passo 9 (`@auditor report`, PR #8) executados, o passo 9 com o
+  sumário qualificado (run 39827471933); `auditor-prep` verde (run 39826330043);
+  `classification_review_status: author-self-review` (L-26) declarado em todos os artefatos.
+  Evidência em `docs/phase0-report.md`, seção "Evidência do fechamento incondicional".
+- Pendência da revisão externa descartada encerrada (`proposed-improvements.md`).
+- **Fase 1 autorizada** (ainda não iniciada); começa pelos dois P0 de `roadmap.md`. A entrada abaixo ("pending steps
+  8-9") fica como histórico, não como status.
+
 ### Fase 0 — closed at layer 1 + layer 2 measurement level, author-self-review declared, pending steps 8-9 (2026-10-22)
 - Fechamento declarado pelo revisor (instrução 22). Evidência consolidada em `docs/phase0-report.md`:
   3 PRs `warm` no caminho de sucesso abaixo de 5 min (126 s, 130 s, 138 s), sonda do fanout
