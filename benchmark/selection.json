@@ -1,0 +1,296 @@
+{
+ "population": "Etapa A limpa, biblioteca inteira, fora de Deprecated, Lean, Mathport, Tactic, Testing, Util",
+ "population_files": 7184,
+ "sample": 800,
+ "min_lines": 15,
+ "per_area": 4,
+ "areas_with_candidates": 23,
+ "selected": [
+  {
+   "file": "Mathlib/Algebra/Homology/BifunctorAssociator.lean",
+   "module": "Mathlib.Algebra.Homology.BifunctorAssociator",
+   "name": "HomologicalComplex.mapBifunctor₂₃.d_eq",
+   "line": 634,
+   "length_lines": 81,
+   "area": "Algebra"
+  },
+  {
+   "file": "Mathlib/AlgebraicGeometry/ZariskisMainTheorem.lean",
+   "module": "Mathlib.AlgebraicGeometry.ZariskisMainTheorem",
+   "name": "AlgebraicGeometry.Scheme.Hom.exists_isIso_morphismRestrict_toNormalization",
+   "line": 206,
+   "length_lines": 85,
+   "area": "AlgebraicGeometry"
+  },
+  {
+   "file": "Mathlib/AlgebraicTopology/ModelCategory/FundamentalLemma.lean",
+   "module": "Mathlib.AlgebraicTopology.ModelCategory.FundamentalLemma",
+   "name": "HomotopicalAlgebra.bijective_rightHomotopyClassToHom",
+   "line": 69,
+   "length_lines": 42,
+   "area": "AlgebraicTopology"
+  },
+  {
+   "file": "Mathlib/Analysis/Calculus/ContDiff/Bounds.lean",
+   "module": "Mathlib.Analysis.Calculus.ContDiff.Bounds",
+   "name": "norm_iteratedFDerivWithin_comp_le_aux",
+   "line": 345,
+   "length_lines": 96,
+   "area": "Analysis"
+  },
+  {
+   "file": "Mathlib/CategoryTheory/Presentable/Directed.lean",
+   "module": "Mathlib.CategoryTheory.Presentable.Directed",
+   "name": "CategoryTheory.IsCardinalFiltered.exists_cardinal_directed.final_functor",
+   "line": 452,
+   "length_lines": 54,
+   "area": "CategoryTheory"
+  },
+  {
+   "file": "Mathlib/Combinatorics/SimpleGraph/Regularity/Lemma.lean",
+   "module": "Mathlib.Combinatorics.SimpleGraph.Regularity.Lemma",
+   "name": "szemeredi_regularity",
+   "line": 76,
+   "length_lines": 81,
+   "area": "Combinatorics"
+  },
+  {
+   "file": "Mathlib/Computability/TuringMachine/StackTuringMachine.lean",
+   "module": "Mathlib.Computability.TuringMachine.StackTuringMachine",
+   "name": "Turing.TM2to1.tr_respects_aux₂",
+   "line": 531,
+   "length_lines": 84,
+   "area": "Computability"
+  },
+  {
+   "file": "Mathlib/Condensed/TopComparison.lean",
+   "module": "Mathlib.Condensed.TopComparison",
+   "name": "equalizerCondition_yonedaPresheaf",
+   "line": 64,
+   "length_lines": 25,
+   "area": "Condensed"
+  },
+  {
+   "file": "Mathlib/Data/Nat/Squarefree.lean",
+   "module": "Mathlib.Data.Nat.Squarefree",
+   "name": "Nat.divisors_filter_squarefree",
+   "line": 248,
+   "length_lines": 50,
+   "area": "Data"
+  },
+  {
+   "file": "Mathlib/Dynamics/Ergodic/Action/OfMinimal.lean",
+   "module": "Mathlib.Dynamics.Ergodic.Action.OfMinimal",
+   "name": "DenseRange.zpow_of_ergodic_mul_left",
+   "line": 171,
+   "length_lines": 31,
+   "area": "Dynamics"
+  },
+  {
+   "file": "Mathlib/FieldTheory/Galois/Infinite.lean",
+   "module": "Mathlib.FieldTheory.Galois.Infinite",
+   "name": "InfiniteGalois.fixingSubgroup_fixedField",
+   "line": 143,
+   "length_lines": 49,
+   "area": "FieldTheory"
+  },
+  {
+   "file": "Mathlib/Geometry/Manifold/IntegralCurve/ExistUnique.lean",
+   "module": "Mathlib.Geometry.Manifold.IntegralCurve.ExistUnique",
+   "name": "exists_isMIntegralCurveAt_of_contMDiffAt",
+   "line": 66,
+   "length_lines": 53,
+   "area": "Geometry"
+  },
+  {
+   "file": "Mathlib/GroupTheory/SpecificGroups/Alternating/Centralizer.lean",
+   "module": "Mathlib.GroupTheory.SpecificGroups.Alternating.Centralizer",
+   "name": "Equiv.Perm.count_le_one_of_centralizer_le_alternating",
+   "line": 151,
+   "length_lines": 51,
+   "area": "GroupTheory"
+  },
+  {
+   "file": "Mathlib/LinearAlgebra/PerfectPairing/Restrict.lean",
+   "module": "Mathlib.LinearAlgebra.PerfectPairing.Restrict",
+   "name": "LinearMap.exists_basis_basis_of_span_eq_top_of_mem_algebraMap",
+   "line": 155,
+   "length_lines": 50,
+   "area": "LinearAlgebra"
+  },
+  {
+   "file": "Mathlib/MeasureTheory/Covering/LiminfLimsup.lean",
+   "module": "Mathlib.MeasureTheory.Covering.LiminfLimsup",
+   "name": "blimsup_cthickening_ae_le_of_eventually_mul_le_aux",
+   "line": 44,
+   "length_lines": 109,
+   "area": "MeasureTheory"
+  },
+  {
+   "file": "Mathlib/ModelTheory/Definability.lean",
+   "module": "Mathlib.ModelTheory.Definability",
+   "name": "Set.Definable.image_comp",
+   "line": 238,
+   "length_lines": 35,
+   "area": "ModelTheory"
+  },
+  {
+   "file": "Mathlib/NumberTheory/ArithmeticFunction/Defs.lean",
+   "module": "Mathlib.NumberTheory.ArithmeticFunction.Defs",
+   "name": "ArithmeticFunction.IsMultiplicative.mul",
+   "line": 490,
+   "length_lines": 56,
+   "area": "NumberTheory"
+  },
+  {
+   "file": "Mathlib/Order/LiminfLimsup.lean",
+   "module": "Mathlib.Order.LiminfLimsup",
+   "name": "Filter.HasBasis.liminf_eq_ciSup_ciInf",
+   "line": 792,
+   "length_lines": 37,
+   "area": "Order"
+  },
+  {
+   "file": "Mathlib/Probability/Distributions/Fernique.lean",
+   "module": "Mathlib.Probability.Distributions.Fernique",
+   "name": "ProbabilityTheory.Fernique.lintegral_exp_mul_sq_norm_le_mul",
+   "line": 376,
+   "length_lines": 99,
+   "area": "Probability"
+  },
+  {
+   "file": "Mathlib/RepresentationTheory/Maschke.lean",
+   "module": "Mathlib.RepresentationTheory.Maschke",
+   "name": "MonoidAlgebra.exists_leftInverse_of_injective",
+   "line": 142,
+   "length_lines": 15,
+   "area": "RepresentationTheory"
+  },
+  {
+   "file": "Mathlib/RingTheory/MvPolynomial/Groebner.lean",
+   "module": "Mathlib.RingTheory.MvPolynomial.Groebner",
+   "name": "MonomialOrder.div",
+   "line": 123,
+   "length_lines": 84,
+   "area": "RingTheory"
+  },
+  {
+   "file": "Mathlib/SetTheory/Cardinal/CountableCover.lean",
+   "module": "Mathlib.SetTheory.Cardinal.CountableCover",
+   "name": "Cardinal.mk_subtype_le_of_countable_eventually_mem_aux",
+   "line": 36,
+   "length_lines": 33,
+   "area": "SetTheory"
+  },
+  {
+   "file": "Mathlib/Topology/TietzeExtension.lean",
+   "module": "Mathlib.Topology.TietzeExtension",
+   "name": "BoundedContinuousFunction.exists_extension_forall_exists_le_ge_of_isClosedEmbedding",
+   "line": 319,
+   "length_lines": 105,
+   "area": "Topology"
+  },
+  {
+   "file": "Mathlib/Algebra/CharP/LocalRing.lean",
+   "module": "Mathlib.Algebra.CharP.LocalRing",
+   "name": "charP_zero_or_prime_power",
+   "line": 28,
+   "length_lines": 41,
+   "area": "Algebra"
+  },
+  {
+   "file": "Mathlib/AlgebraicGeometry/IdealSheaf/Subscheme.lean",
+   "module": "Mathlib.AlgebraicGeometry.IdealSheaf.Subscheme",
+   "name": "AlgebraicGeometry.Scheme.IdealSheafData.ideal_le_ker_glueDataObjι",
+   "line": 158,
+   "length_lines": 32,
+   "area": "AlgebraicGeometry"
+  },
+  {
+   "file": "Mathlib/AlgebraicTopology/DoldKan/PInfty.lean",
+   "module": "Mathlib.AlgebraicTopology.DoldKan.PInfty",
+   "name": "AlgebraicTopology.DoldKan.karoubi_PInfty_f",
+   "line": 173,
+   "length_lines": 37,
+   "area": "AlgebraicTopology"
+  },
+  {
+   "file": "Mathlib/Analysis/SpecialFunctions/ContinuousFunctionalCalculus/Rpow/RingInverseOrder.lean",
+   "module": "Mathlib.Analysis.SpecialFunctions.ContinuousFunctionalCalculus.Rpow.RingInverseOrder",
+   "name": "CStarAlgebra.convexOn_ringInverse",
+   "line": 36,
+   "length_lines": 70,
+   "area": "Analysis"
+  },
+  {
+   "file": "Mathlib/CategoryTheory/Presentable/StrongGenerator.lean",
+   "module": "Mathlib.CategoryTheory.Presentable.StrongGenerator",
+   "name": "CategoryTheory.ObjectProperty.IsStrongGenerator.isDense_colimitsCardinalClosure_ι",
+   "line": 86,
+   "length_lines": 51,
+   "area": "CategoryTheory"
+  },
+  {
+   "file": "Mathlib/Combinatorics/Configuration.lean",
+   "module": "Mathlib.Combinatorics.Configuration",
+   "name": "Configuration.Nondegenerate.exists_injective_of_card_le",
+   "line": 123,
+   "length_lines": 43,
+   "area": "Combinatorics"
+  },
+  {
+   "file": "Mathlib/Computability/StateTransition.lean",
+   "module": "Mathlib.Computability.StateTransition",
+   "name": "StateTransition.tr_reaches_rev",
+   "line": 176,
+   "length_lines": 20,
+   "area": "Computability"
+  },
+  {
+   "file": "Mathlib/Data/Seq/Basic.lean",
+   "module": "Mathlib.Data.Seq.Basic",
+   "name": "Stream'.Seq.at_least_as_long_as_coind",
+   "line": 909,
+   "length_lines": 38,
+   "area": "Data"
+  },
+  {
+   "file": "Mathlib/FieldTheory/RatFunc/Luroth.lean",
+   "module": "Mathlib.FieldTheory.RatFunc.Luroth",
+   "name": "RatFunc.Luroth.Q₂_natDegree",
+   "line": 415,
+   "length_lines": 41,
+   "area": "FieldTheory"
+  },
+  {
+   "file": "Mathlib/Geometry/Manifold/VectorBundle/Tensoriality.lean",
+   "module": "Mathlib.Geometry.Manifold.VectorBundle.Tensoriality",
+   "name": "TensorialAt.pointwise",
+   "line": 134,
+   "length_lines": 34,
+   "area": "Geometry"
+  },
+  {
+   "file": "Mathlib/GroupTheory/GroupAction/Primitive.lean",
+   "module": "Mathlib.GroupTheory.GroupAction.Primitive",
+   "name": "MulAction.IsPreprimitive.of_card_lt",
+   "line": 326,
+   "length_lines": 37,
+   "area": "GroupTheory"
+  },
+  {
+   "file": "Mathlib/LinearAlgebra/Dimension/ErdosKaplansky.lean",
+   "module": "Mathlib.LinearAlgebra.Dimension.ErdosKaplansky",
+   "name": "max_aleph0_card_le_rank_fun_nat",
+   "line": 37,
+   "length_lines": 46,
+   "area": "LinearAlgebra"
+  }
+ ],
+ "provenance": {
+  "commit": "afd92f7203cdbb0731f695f0704415e0ff43d8e6",
+  "lake_manifest_sha256": "f77f47dbdf33a5ca838db1937b5d128515b5c23dab39094def3975868efbbdd6",
+  "lean_toolchain": "leanprover/lean4:v4.36.0-rc1"
+ },
+ "stage_a_version": "4"
+}

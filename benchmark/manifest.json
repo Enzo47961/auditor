@@ -1,0 +1,1376 @@
+{
+ "benchmark_version": "1",
+ "mathlib_commit": "e1b2403bdd31a2756e30282d62b3fa54cc95c869",
+ "lean_toolchain": "leanprover/lean4:v4.36.0-rc1",
+ "bench_root": "Mathlib/AuditorBenchmark",
+ "selection": {
+  "population": "Etapa A limpa, biblioteca inteira, fora de Deprecated, Lean, Mathport, Tactic, Testing, Util",
+  "population_files": 7184,
+  "sample": 800,
+  "min_lines": 15,
+  "per_area": 4,
+  "areas_with_candidates": 23,
+  "provenance": {
+   "commit": "afd92f7203cdbb0731f695f0704415e0ff43d8e6",
+   "lake_manifest_sha256": "f77f47dbdf33a5ca838db1937b5d128515b5c23dab39094def3975868efbbdd6",
+   "lean_toolchain": "leanprover/lean4:v4.36.0-rc1"
+  },
+  "stage_a_version": "4"
+ },
+ "cases": [
+  {
+   "id": "S01",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S01",
+   "declaration": "bench_swap_S01",
+   "change": "`<` trocado por `≤` (Nat.succ_le_iff)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S01",
+    "declaration": "bench_gt_S01"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S02",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S02",
+   "declaration": "bench_swap_S02",
+   "change": "`≤` trocado por `<` (Nat.lt_succ_iff)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S02",
+    "declaration": "bench_gt_S02"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S03",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S03",
+   "declaration": "bench_swap_S03",
+   "change": "hipótese `m ≤ n` removida (Nat.sub_add_cancel)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S03",
+    "declaration": "bench_gt_S03"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S04",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S04",
+   "declaration": "bench_swap_S04",
+   "change": "hipótese `y > 0` removida (Nat.mod_lt)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S04",
+    "declaration": "bench_gt_S04"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S05",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S05",
+   "declaration": "bench_swap_S05",
+   "change": "hipótese `b ∣ a` removida (Nat.div_mul_cancel)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S05",
+    "declaration": "bench_gt_S05"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S06",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S06",
+   "declaration": "bench_swap_S06",
+   "change": "`≤` trocado por `<` (sq_nonneg)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S06",
+    "declaration": "bench_gt_S06"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S07",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S07",
+   "declaration": "bench_swap_S07",
+   "change": "`≤` trocado por `<` (abs_add_le)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S07",
+    "declaration": "bench_gt_S07"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S08",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S08",
+   "declaration": "bench_swap_S08",
+   "change": "conclusão mais forte (Nat.factorial_pos)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S08",
+    "declaration": "bench_gt_S08"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S09",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S09",
+   "declaration": "bench_swap_S09",
+   "change": "conclusão mais forte (Nat.Prime.two_le)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S09",
+    "declaration": "bench_gt_S09"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S10",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S10",
+   "declaration": "bench_swap_S10",
+   "change": "hipótese `0 ≤ a` removida (Real.sqrt_sq)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S10",
+    "declaration": "bench_gt_S10"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S11",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S11",
+   "declaration": "bench_swap_S11",
+   "change": "hipótese `m ≤ n` removida (Nat.cast_sub)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S11",
+    "declaration": "bench_gt_S11"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S12",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S12",
+   "declaration": "bench_swap_S12",
+   "change": "domínio trocado: ℕ por ℤ (Nat.sub_le)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S12",
+    "declaration": "bench_gt_S12"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S13",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S13",
+   "declaration": "bench_swap_S13",
+   "change": "`∃` trocado por `∀` (Nat.exists_infinite_primes)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S13",
+    "declaration": "bench_gt_S13"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S14",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S14",
+   "declaration": "bench_swap_S14",
+   "change": "hipótese `Disjoint s t` removida (Finset.card_union_of_disjoint)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S14",
+    "declaration": "bench_gt_S14"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S15",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S15",
+   "declaration": "bench_swap_S15",
+   "change": "conclusão trocada: `+` por `*` (List.length_append)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S15",
+    "declaration": "bench_gt_S15"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S16",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S16",
+   "declaration": "bench_swap_S16",
+   "change": "`¬` removido (Nat.even_add_one)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S16",
+    "declaration": "bench_gt_S16"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S17",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S17",
+   "declaration": "bench_swap_S17",
+   "change": "conclusão alterada (two_mul)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S17",
+    "declaration": "bench_gt_S17"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S18",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S18",
+   "declaration": "bench_swap_S18",
+   "change": "`≤` trocado por `<` (Nat.pow_le_pow_left)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S18",
+    "declaration": "bench_gt_S18"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S19",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S19",
+   "declaration": "bench_swap_S19",
+   "change": "comutatividade transportada de `+` para `-` (Nat.add_comm)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S19",
+    "declaration": "bench_gt_S19"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S20",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S20",
+   "declaration": "bench_swap_S20",
+   "change": "`≤` trocado por `<` (mul_self_nonneg)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S20",
+    "declaration": "bench_gt_S20"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S21",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S21",
+   "declaration": "bench_swap_S21",
+   "change": "`*` trocado por `+` (Int.natAbs_mul)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S21",
+    "declaration": "bench_gt_S21"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S22",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S22",
+   "declaration": "bench_swap_S22",
+   "change": "hipótese `p.Prime` removida (Nat.Prime.eq_one_or_self_of_dvd)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S22",
+    "declaration": "bench_gt_S22"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S23",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S23",
+   "declaration": "bench_swap_S23",
+   "change": "termo final omitido (Finset.sum_range_succ)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S23",
+    "declaration": "bench_gt_S23"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "S24",
+   "category": "swapped_statement",
+   "module": "Mathlib.AuditorBenchmark.Swap.S24",
+   "declaration": "bench_swap_S24",
+   "change": "`≤` trocado por `<` (Real.add_one_le_exp)",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S24",
+    "declaration": "bench_gt_S24"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "compile_failure"
+    ]
+   }
+  },
+  {
+   "id": "V01",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S01",
+   "declaration": "bench_orig_S01",
+   "controls": "S01",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V02",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S02",
+   "declaration": "bench_orig_S02",
+   "controls": "S02",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V03",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S03",
+   "declaration": "bench_orig_S03",
+   "controls": "S03",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V04",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S04",
+   "declaration": "bench_orig_S04",
+   "controls": "S04",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V05",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S05",
+   "declaration": "bench_orig_S05",
+   "controls": "S05",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V06",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S06",
+   "declaration": "bench_orig_S06",
+   "controls": "S06",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V07",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S07",
+   "declaration": "bench_orig_S07",
+   "controls": "S07",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V08",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S08",
+   "declaration": "bench_orig_S08",
+   "controls": "S08",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V09",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S09",
+   "declaration": "bench_orig_S09",
+   "controls": "S09",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V10",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S10",
+   "declaration": "bench_orig_S10",
+   "controls": "S10",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V11",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S11",
+   "declaration": "bench_orig_S11",
+   "controls": "S11",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V12",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S12",
+   "declaration": "bench_orig_S12",
+   "controls": "S12",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V13",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S13",
+   "declaration": "bench_orig_S13",
+   "controls": "S13",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V14",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S14",
+   "declaration": "bench_orig_S14",
+   "controls": "S14",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V15",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S15",
+   "declaration": "bench_orig_S15",
+   "controls": "S15",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V16",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S16",
+   "declaration": "bench_orig_S16",
+   "controls": "S16",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V17",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S17",
+   "declaration": "bench_orig_S17",
+   "controls": "S17",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V18",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S18",
+   "declaration": "bench_orig_S18",
+   "controls": "S18",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V19",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S19",
+   "declaration": "bench_orig_S19",
+   "controls": "S19",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V20",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S20",
+   "declaration": "bench_orig_S20",
+   "controls": "S20",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V21",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S21",
+   "declaration": "bench_orig_S21",
+   "controls": "S21",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V22",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S22",
+   "declaration": "bench_orig_S22",
+   "controls": "S22",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V23",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S23",
+   "declaration": "bench_orig_S23",
+   "controls": "S23",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "V24",
+   "category": "swap_control",
+   "module": "Mathlib.AuditorBenchmark.Original.S24",
+   "declaration": "bench_orig_S24",
+   "controls": "S24",
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "C01",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C01",
+   "declaration": "bench_cheat_C01",
+   "form": "sorry",
+   "base": "S01",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S01",
+    "declaration": "bench_gt_S01"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "sorryAx_detected",
+     "admission"
+    ]
+   }
+  },
+  {
+   "id": "C02",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C02",
+   "declaration": "bench_cheat_C02",
+   "form": "sorry",
+   "base": "S03",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S03",
+    "declaration": "bench_gt_S03"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "sorryAx_detected",
+     "admission"
+    ]
+   }
+  },
+  {
+   "id": "C03",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C03",
+   "declaration": "bench_cheat_C03",
+   "form": "sorry",
+   "base": "S06",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S06",
+    "declaration": "bench_gt_S06"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "sorryAx_detected",
+     "admission"
+    ]
+   }
+  },
+  {
+   "id": "C04",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C04",
+   "declaration": "bench_cheat_C04",
+   "form": "sorry",
+   "base": "S13",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S13",
+    "declaration": "bench_gt_S13"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "sorryAx_detected",
+     "admission"
+    ]
+   }
+  },
+  {
+   "id": "C05",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C05",
+   "declaration": "bench_cheat_C05",
+   "form": "axiom",
+   "base": "S09",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S09",
+    "declaration": "bench_gt_S09"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "unknown_axiom",
+     "forbidden_axiom"
+    ]
+   }
+  },
+  {
+   "id": "C06",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C06",
+   "declaration": "bench_cheat_C06",
+   "form": "axiom",
+   "base": "S14",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S14",
+    "declaration": "bench_gt_S14"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "unknown_axiom",
+     "forbidden_axiom"
+    ]
+   }
+  },
+  {
+   "id": "C07",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C07",
+   "declaration": "bench_cheat_C07",
+   "form": "axiom",
+   "base": "S24",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S24",
+    "declaration": "bench_gt_S24"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "unknown_axiom",
+     "forbidden_axiom"
+    ]
+   }
+  },
+  {
+   "id": "C08",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C08",
+   "declaration": "bench_cheat_C08",
+   "form": "native_decide_bounded",
+   "base": "S03",
+   "ground_truth": {
+    "note": "instância finita decidível; falsidade conferida pelo kernel em GroundTruth/S03"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "implemented_by_reaches_native_eval",
+     "native_decide_unjustified",
+     "native_auxiliary_axiom"
+    ]
+   }
+  },
+  {
+   "id": "C09",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C09",
+   "declaration": "bench_cheat_C09",
+   "form": "native_decide_bounded",
+   "base": "S14",
+   "ground_truth": {
+    "note": "instância finita decidível; falsidade conferida pelo kernel em GroundTruth/S14"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "implemented_by_reaches_native_eval",
+     "native_decide_unjustified",
+     "native_auxiliary_axiom"
+    ]
+   }
+  },
+  {
+   "id": "C10",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Cheat.C10",
+   "declaration": "bench_cheat_C10",
+   "form": "run_tac",
+   "base": "S05",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S05",
+    "declaration": "bench_gt_S05"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "elaboration_executes_code",
+     "sorryAx_detected"
+    ]
+   }
+  },
+  {
+   "id": "C11",
+   "category": "sorry_axiom",
+   "module": "Mathlib.AuditorBenchmark.Chain.T4",
+   "declaration": "bench_t4",
+   "form": "sorry_transitive_3_imports",
+   "ground_truth": {
+    "module": "Mathlib.AuditorBenchmark.GroundTruth.S08",
+    "declaration": "bench_gt_S08"
+   },
+   "expected": {
+    "verified": false,
+    "reasons_any": [
+     "sorryAx_detected",
+     "admission"
+    ]
+   }
+  },
+  {
+   "id": "I01",
+   "category": "inconclusive",
+   "module": "Mathlib.AuditorBenchmark.Inconclusive.I01",
+   "declaration": "bench_inc_I01",
+   "expected": {
+    "verified": false,
+    "overall": "unresolved",
+    "reasons_any": [
+     "stage_a_unrecognized"
+    ]
+   }
+  },
+  {
+   "id": "I02",
+   "category": "inconclusive",
+   "module": "Mathlib.AuditorBenchmark.Inconclusive.I02",
+   "declaration": "bench_inc_I02",
+   "expected": {
+    "verified": false,
+    "overall": "unresolved",
+    "reasons_any": [
+     "set_option_unrecognized"
+    ]
+   }
+  },
+  {
+   "id": "I03",
+   "category": "inconclusive",
+   "module": "Mathlib.AuditorBenchmark.Inconclusive.I03",
+   "declaration": "bench_inc_I03",
+   "expected": {
+    "verified": false,
+    "overall": "unresolved",
+    "reasons_any": [
+     "stage_a_unrecognized"
+    ]
+   }
+  },
+  {
+   "id": "I04",
+   "category": "inconclusive",
+   "module": "Mathlib.AuditorBenchmark.Inconclusive.I04",
+   "declaration": "bench_inc_I04",
+   "expected": {
+    "verified": false,
+    "overall": "unresolved",
+    "reasons_any": [
+     "stage_a_unrecognized"
+    ]
+   }
+  },
+  {
+   "id": "I05",
+   "category": "inconclusive",
+   "module": "Mathlib.AuditorBenchmark.Inconclusive.I05",
+   "declaration": "bench_inc_I05",
+   "expected": {
+    "verified": false,
+    "overall": "unresolved",
+    "reasons_any": [
+     "stage_a_unrecognized"
+    ]
+   }
+  },
+  {
+   "id": "I06",
+   "category": "inconclusive",
+   "module": "Mathlib.AuditorBenchmark.Inconclusive.I06",
+   "declaration": "bench_inc_I06",
+   "expected": {
+    "verified": false,
+    "overall": "unresolved",
+    "reasons_any": [
+     "stage_a_unrecognized"
+    ]
+   }
+  },
+  {
+   "id": "P01",
+   "category": "correct_hard",
+   "module": "Mathlib.Algebra.Homology.BifunctorAssociator",
+   "file": "Mathlib/Algebra/Homology/BifunctorAssociator.lean",
+   "declaration": "HomologicalComplex.mapBifunctor₂₃.d_eq",
+   "area": "Algebra",
+   "length_lines": 81,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P02",
+   "category": "correct_hard",
+   "module": "Mathlib.AlgebraicGeometry.ZariskisMainTheorem",
+   "file": "Mathlib/AlgebraicGeometry/ZariskisMainTheorem.lean",
+   "declaration": "AlgebraicGeometry.Scheme.Hom.exists_isIso_morphismRestrict_toNormalization",
+   "area": "AlgebraicGeometry",
+   "length_lines": 85,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P03",
+   "category": "correct_hard",
+   "module": "Mathlib.AlgebraicTopology.ModelCategory.FundamentalLemma",
+   "file": "Mathlib/AlgebraicTopology/ModelCategory/FundamentalLemma.lean",
+   "declaration": "HomotopicalAlgebra.bijective_rightHomotopyClassToHom",
+   "area": "AlgebraicTopology",
+   "length_lines": 42,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P04",
+   "category": "correct_hard",
+   "module": "Mathlib.Analysis.Calculus.ContDiff.Bounds",
+   "file": "Mathlib/Analysis/Calculus/ContDiff/Bounds.lean",
+   "declaration": "norm_iteratedFDerivWithin_comp_le_aux",
+   "area": "Analysis",
+   "length_lines": 96,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P05",
+   "category": "correct_hard",
+   "module": "Mathlib.CategoryTheory.Presentable.Directed",
+   "file": "Mathlib/CategoryTheory/Presentable/Directed.lean",
+   "declaration": "CategoryTheory.IsCardinalFiltered.exists_cardinal_directed.final_functor",
+   "area": "CategoryTheory",
+   "length_lines": 54,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P06",
+   "category": "correct_hard",
+   "module": "Mathlib.Combinatorics.SimpleGraph.Regularity.Lemma",
+   "file": "Mathlib/Combinatorics/SimpleGraph/Regularity/Lemma.lean",
+   "declaration": "szemeredi_regularity",
+   "area": "Combinatorics",
+   "length_lines": 81,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P07",
+   "category": "correct_hard",
+   "module": "Mathlib.Computability.TuringMachine.StackTuringMachine",
+   "file": "Mathlib/Computability/TuringMachine/StackTuringMachine.lean",
+   "declaration": "Turing.TM2to1.tr_respects_aux₂",
+   "area": "Computability",
+   "length_lines": 84,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P08",
+   "category": "correct_hard",
+   "module": "Mathlib.Condensed.TopComparison",
+   "file": "Mathlib/Condensed/TopComparison.lean",
+   "declaration": "equalizerCondition_yonedaPresheaf",
+   "area": "Condensed",
+   "length_lines": 25,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P09",
+   "category": "correct_hard",
+   "module": "Mathlib.Data.Nat.Squarefree",
+   "file": "Mathlib/Data/Nat/Squarefree.lean",
+   "declaration": "Nat.divisors_filter_squarefree",
+   "area": "Data",
+   "length_lines": 50,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P10",
+   "category": "correct_hard",
+   "module": "Mathlib.Dynamics.Ergodic.Action.OfMinimal",
+   "file": "Mathlib/Dynamics/Ergodic/Action/OfMinimal.lean",
+   "declaration": "DenseRange.zpow_of_ergodic_mul_left",
+   "area": "Dynamics",
+   "length_lines": 31,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P11",
+   "category": "correct_hard",
+   "module": "Mathlib.FieldTheory.Galois.Infinite",
+   "file": "Mathlib/FieldTheory/Galois/Infinite.lean",
+   "declaration": "InfiniteGalois.fixingSubgroup_fixedField",
+   "area": "FieldTheory",
+   "length_lines": 49,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P12",
+   "category": "correct_hard",
+   "module": "Mathlib.Geometry.Manifold.IntegralCurve.ExistUnique",
+   "file": "Mathlib/Geometry/Manifold/IntegralCurve/ExistUnique.lean",
+   "declaration": "exists_isMIntegralCurveAt_of_contMDiffAt",
+   "area": "Geometry",
+   "length_lines": 53,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P13",
+   "category": "correct_hard",
+   "module": "Mathlib.GroupTheory.SpecificGroups.Alternating.Centralizer",
+   "file": "Mathlib/GroupTheory/SpecificGroups/Alternating/Centralizer.lean",
+   "declaration": "Equiv.Perm.count_le_one_of_centralizer_le_alternating",
+   "area": "GroupTheory",
+   "length_lines": 51,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P14",
+   "category": "correct_hard",
+   "module": "Mathlib.LinearAlgebra.PerfectPairing.Restrict",
+   "file": "Mathlib/LinearAlgebra/PerfectPairing/Restrict.lean",
+   "declaration": "LinearMap.exists_basis_basis_of_span_eq_top_of_mem_algebraMap",
+   "area": "LinearAlgebra",
+   "length_lines": 50,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P15",
+   "category": "correct_hard",
+   "module": "Mathlib.MeasureTheory.Covering.LiminfLimsup",
+   "file": "Mathlib/MeasureTheory/Covering/LiminfLimsup.lean",
+   "declaration": "blimsup_cthickening_ae_le_of_eventually_mul_le_aux",
+   "area": "MeasureTheory",
+   "length_lines": 109,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P16",
+   "category": "correct_hard",
+   "module": "Mathlib.ModelTheory.Definability",
+   "file": "Mathlib/ModelTheory/Definability.lean",
+   "declaration": "Set.Definable.image_comp",
+   "area": "ModelTheory",
+   "length_lines": 35,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P17",
+   "category": "correct_hard",
+   "module": "Mathlib.NumberTheory.ArithmeticFunction.Defs",
+   "file": "Mathlib/NumberTheory/ArithmeticFunction/Defs.lean",
+   "declaration": "ArithmeticFunction.IsMultiplicative.mul",
+   "area": "NumberTheory",
+   "length_lines": 56,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P18",
+   "category": "correct_hard",
+   "module": "Mathlib.Order.LiminfLimsup",
+   "file": "Mathlib/Order/LiminfLimsup.lean",
+   "declaration": "Filter.HasBasis.liminf_eq_ciSup_ciInf",
+   "area": "Order",
+   "length_lines": 37,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P19",
+   "category": "correct_hard",
+   "module": "Mathlib.Probability.Distributions.Fernique",
+   "file": "Mathlib/Probability/Distributions/Fernique.lean",
+   "declaration": "ProbabilityTheory.Fernique.lintegral_exp_mul_sq_norm_le_mul",
+   "area": "Probability",
+   "length_lines": 99,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P20",
+   "category": "correct_hard",
+   "module": "Mathlib.RepresentationTheory.Maschke",
+   "file": "Mathlib/RepresentationTheory/Maschke.lean",
+   "declaration": "MonoidAlgebra.exists_leftInverse_of_injective",
+   "area": "RepresentationTheory",
+   "length_lines": 15,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P21",
+   "category": "correct_hard",
+   "module": "Mathlib.RingTheory.MvPolynomial.Groebner",
+   "file": "Mathlib/RingTheory/MvPolynomial/Groebner.lean",
+   "declaration": "MonomialOrder.div",
+   "area": "RingTheory",
+   "length_lines": 84,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P22",
+   "category": "correct_hard",
+   "module": "Mathlib.SetTheory.Cardinal.CountableCover",
+   "file": "Mathlib/SetTheory/Cardinal/CountableCover.lean",
+   "declaration": "Cardinal.mk_subtype_le_of_countable_eventually_mem_aux",
+   "area": "SetTheory",
+   "length_lines": 33,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P23",
+   "category": "correct_hard",
+   "module": "Mathlib.Topology.TietzeExtension",
+   "file": "Mathlib/Topology/TietzeExtension.lean",
+   "declaration": "BoundedContinuousFunction.exists_extension_forall_exists_le_ge_of_isClosedEmbedding",
+   "area": "Topology",
+   "length_lines": 105,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P24",
+   "category": "correct_hard",
+   "module": "Mathlib.Algebra.CharP.LocalRing",
+   "file": "Mathlib/Algebra/CharP/LocalRing.lean",
+   "declaration": "charP_zero_or_prime_power",
+   "area": "Algebra",
+   "length_lines": 41,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P25",
+   "category": "correct_hard",
+   "module": "Mathlib.AlgebraicGeometry.IdealSheaf.Subscheme",
+   "file": "Mathlib/AlgebraicGeometry/IdealSheaf/Subscheme.lean",
+   "declaration": "AlgebraicGeometry.Scheme.IdealSheafData.ideal_le_ker_glueDataObjι",
+   "area": "AlgebraicGeometry",
+   "length_lines": 32,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P26",
+   "category": "correct_hard",
+   "module": "Mathlib.AlgebraicTopology.DoldKan.PInfty",
+   "file": "Mathlib/AlgebraicTopology/DoldKan/PInfty.lean",
+   "declaration": "AlgebraicTopology.DoldKan.karoubi_PInfty_f",
+   "area": "AlgebraicTopology",
+   "length_lines": 37,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P27",
+   "category": "correct_hard",
+   "module": "Mathlib.Analysis.SpecialFunctions.ContinuousFunctionalCalculus.Rpow.RingInverseOrder",
+   "file": "Mathlib/Analysis/SpecialFunctions/ContinuousFunctionalCalculus/Rpow/RingInverseOrder.lean",
+   "declaration": "CStarAlgebra.convexOn_ringInverse",
+   "area": "Analysis",
+   "length_lines": 70,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P28",
+   "category": "correct_hard",
+   "module": "Mathlib.CategoryTheory.Presentable.StrongGenerator",
+   "file": "Mathlib/CategoryTheory/Presentable/StrongGenerator.lean",
+   "declaration": "CategoryTheory.ObjectProperty.IsStrongGenerator.isDense_colimitsCardinalClosure_ι",
+   "area": "CategoryTheory",
+   "length_lines": 51,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P29",
+   "category": "correct_hard",
+   "module": "Mathlib.Combinatorics.Configuration",
+   "file": "Mathlib/Combinatorics/Configuration.lean",
+   "declaration": "Configuration.Nondegenerate.exists_injective_of_card_le",
+   "area": "Combinatorics",
+   "length_lines": 43,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P30",
+   "category": "correct_hard",
+   "module": "Mathlib.Computability.StateTransition",
+   "file": "Mathlib/Computability/StateTransition.lean",
+   "declaration": "StateTransition.tr_reaches_rev",
+   "area": "Computability",
+   "length_lines": 20,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P31",
+   "category": "correct_hard",
+   "module": "Mathlib.Data.Seq.Basic",
+   "file": "Mathlib/Data/Seq/Basic.lean",
+   "declaration": "Stream'.Seq.at_least_as_long_as_coind",
+   "area": "Data",
+   "length_lines": 38,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P32",
+   "category": "correct_hard",
+   "module": "Mathlib.FieldTheory.RatFunc.Luroth",
+   "file": "Mathlib/FieldTheory/RatFunc/Luroth.lean",
+   "declaration": "RatFunc.Luroth.Q₂_natDegree",
+   "area": "FieldTheory",
+   "length_lines": 41,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P33",
+   "category": "correct_hard",
+   "module": "Mathlib.Geometry.Manifold.VectorBundle.Tensoriality",
+   "file": "Mathlib/Geometry/Manifold/VectorBundle/Tensoriality.lean",
+   "declaration": "TensorialAt.pointwise",
+   "area": "Geometry",
+   "length_lines": 34,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P34",
+   "category": "correct_hard",
+   "module": "Mathlib.GroupTheory.GroupAction.Primitive",
+   "file": "Mathlib/GroupTheory/GroupAction/Primitive.lean",
+   "declaration": "MulAction.IsPreprimitive.of_card_lt",
+   "area": "GroupTheory",
+   "length_lines": 37,
+   "expected": {
+    "verified": true
+   }
+  },
+  {
+   "id": "P35",
+   "category": "correct_hard",
+   "module": "Mathlib.LinearAlgebra.Dimension.ErdosKaplansky",
+   "file": "Mathlib/LinearAlgebra/Dimension/ErdosKaplansky.lean",
+   "declaration": "max_aleph0_card_le_rank_fun_nat",
+   "area": "LinearAlgebra",
+   "length_lines": 46,
+   "expected": {
+    "verified": true
+   }
+  }
+ ]
+}

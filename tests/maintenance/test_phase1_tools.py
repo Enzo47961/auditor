@@ -101,3 +101,67 @@ def test_measurement_agrees_with_the_auditor_on_fixture_08(tmp_path):
     cats = {r["name"].split("._@.")[0]: r["categories"] for r in cls["rows"] if r["categories"]}
     assert cats == {"Color.ctorIdx": ["generated_ctor_idx"], "Shape.ctorIdx": ["generated_ctor_idx"],
                     "inst": ["generated_type_name"]}
+
+
+# ------------------------------------------------------------------ 1b: benchmark
+
+import benchmark as bench  # noqa: E402
+
+
+def _case(i, cat, **kw):
+    return {"id": i, "category": cat, "module": f"M.{i}", "declaration": f"d{i}",
+            "expected": kw.pop("expected", {"verified": cat in bench.POSITIVE}), **kw}
+
+
+def test_benchmark_report_counts_by_category_with_validity():
+    manifest = {"cases": [
+        _case("P1", "correct_hard"), _case("P2", "correct_hard"),
+        _case("V1", "swap_control", controls="S1"), _case("V2", "swap_control", controls="S2"),
+        _case("S1", "swapped_statement", expected={"verified": False, "reasons_any": ["compile_failure"]},
+              ground_truth={"module": "G.1", "declaration": "g1"}),
+        _case("S2", "swapped_statement", expected={"verified": False, "reasons_any": ["compile_failure"]},
+              ground_truth={"module": "G.2", "declaration": "g2"}),          # controle falhou → inválido
+        _case("C1", "sorry_axiom", expected={"verified": False, "reasons_any": ["sorryAx_detected"]},
+              ground_truth={"module": "G.1", "declaration": "g1"}),
+        _case("C2", "sorry_axiom", expected={"verified": False, "reasons_any": ["sorryAx_detected"]},
+              ground_truth={"module": "G.9", "declaration": "g9"}),          # ground truth falhou → inválido
+    ]}
+    R = lambda i, ov, codes=(), gt=None: {"id": i, "found": True, "overall": ov, "codes": list(codes),  # noqa: E731
+                                          **({"ground_truth": {"verified": gt}} if gt is not None else {})}
+    data = {"results": [
+        R("P1", "verified"), R("P2", "unresolved", ["implemented_by_candidate"]),
+        R("V1", "verified"), R("V2", "unresolved", ["compile_failure"]),
+        R("S1", "unresolved", ["compile_failure"], gt=True), R("S2", "unresolved", ["compile_failure"], gt=True),
+        R("C1", "rejected", ["sorryAx_detected"], gt=True), R("C2", "verified", [], gt=False),
+    ]}
+    r = bench.report(data, manifest)
+    c = r["by_category"]
+    assert (c["correct_hard"]["valid"], c["correct_hard"]["false_positive_rate"]) == (2, 0.5)
+    assert c["correct_hard"]["alerts_on"][0]["codes"] == ["implemented_by_candidate"]
+    assert (c["swapped_statement"]["valid"], c["swapped_statement"]["sensitivity"]) == (1, 1.0)
+    assert [x["id"] for x in c["swapped_statement"]["invalid"]] == ["S2"]
+    assert (c["sorry_axiom"]["valid"], c["sorry_axiom"]["false_negatives"], c["sorry_axiom"]["reason_ok"]) == (1, 0, 1)
+    assert r["alerts_on_negatives"] == 2 and r["alerts_on_positives"] == 2 and r["precision"] == 0.5
+
+
+def test_benchmark_false_negative_is_reported():
+    manifest = {"cases": [_case("C1", "sorry_axiom", expected={"verified": False, "reasons_any": ["x"]})]}
+    data = {"results": [{"id": "C1", "found": True, "overall": "verified", "codes": []}]}
+    r = bench.report(data, manifest)
+    assert r["by_category"]["sorry_axiom"]["misses"] == ["C1"] and "FALSO NEGATIVO" in bench.to_md(r)
+
+
+def test_benchmark_manifest_is_consistent():
+    """Todo caso negativo tem ground truth ou controle; toda troca tem controle; ids únicos."""
+    m = json.loads((ROOT / "benchmark" / "manifest.json").read_text(encoding="utf-8"))
+    ids = [c["id"] for c in m["cases"]]
+    assert len(ids) == len(set(ids))
+    swaps = {c["id"] for c in m["cases"] if c["category"] == "swapped_statement"}
+    assert swaps == {c["controls"] for c in m["cases"] if c["category"] == "swap_control"}
+    for c in m["cases"]:
+        if c["category"] in bench.NEGATIVE:
+            assert c.get("ground_truth"), c["id"]
+        assert (ROOT / "benchmark" / "lean").exists()
+        if c["module"].startswith("Mathlib.AuditorBenchmark."):
+            rel = c["module"][len("Mathlib.AuditorBenchmark."):].replace(".", "/") + ".lean"
+            assert (ROOT / "benchmark" / "lean" / rel).is_file(), rel
