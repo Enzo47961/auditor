@@ -140,3 +140,19 @@ A L-17 cobre só comandos. A defesa contra execução pré-auditoria, que é o q
   - Relaxá-lo só faz sentido depois da mitigação (b) ou de uma extensão do cruzamento de dependências para código registrado.
   - O mesmo vale para `register_option`, `register_*_attr` e `register_linter_set`, que expandem para `initialize`.
   - O teto de (b) no top-60 cai, portanto, para os arquivos que falham só por `simproc_decl`/`run_cmd`/`with_weak_namespace`/`declare_core_config_elab`, todos mantidos fail-closed ou ainda por ler. Resultado: **(b) não resgata nenhum arquivo do top-60 nesta fase.**
+
+## 8. Remedição oficial no GitHub Actions
+
+| Medição | Run | Etapa A | Top-60 | Mathlib inteiro |
+|---|---|---|---|---|
+| depois de (a) | [39845428621](https://github.com/Enzo47961/mathlib4/actions/runs/39845428621) (auditor `aa5750b`) | v3 | 39/60, **65,0 %** | 1244/8651, **14,4 %** |
+| depois da L-33a | [39849624202](https://github.com/Enzo47961/mathlib4/actions/runs/39849624202) (auditor `d5f6264`) | v4 | 39/60, **65,0 %** | 1282/8651, **14,8 %** |
+
+As duas medições conferem com a local. Fork `afd92f7`; nenhum `.lean` difere de `e1b2403b`.
+
+- **Top-60:** a Etapa A v4 não muda a taxa. Os 2 arquivos com `unsafe` já falhavam por sintaxe ou por comando.
+- **Mathlib inteiro:** o `unsafe` léxico aparece em 74 arquivos, e é a única causa em 40 deles. Daí a alta de 14,4 % para 14,8 %. Os dados estão em `trabalho/p0/measure2/`.
+
+**Não entra nestes números:**
+- `run_tac`/`by_elab`: é achado (`Rejeitada`), não item não reconhecido. São 2 arquivos do Mathlib (`run_tac`), e só um deles, `NumberTheory/Bertrand.lean`, estava limpo.
+- **A detecção por ambiente da L-33a** (constante do alvo cujo tipo alcança `IO.RealWorld`, ou `@[extern]`): só aparece auditando cada arquivo com o inspetor. **Não medida no Mathlib inteiro**; fica como pendência da sub-fase.

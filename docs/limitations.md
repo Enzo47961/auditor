@@ -214,7 +214,7 @@ Taxa de fail-closed da Etapa A no top-60 é 65,0% após (a); teto de 53,3% mesmo
 - Sem relaxar `run_cmd`, o teto é 56,7 %.
 - O kill criterion do P0-2 (> 50 % depois de (a) e (b)) está atingido.
 - **Medida adicional, que não substitui o gate:** na biblioteca `Mathlib` inteira, a taxa é 14,4 % (1244 de 8651). A causa dominante é `notation` (553 arquivos), uma macro gerada pelo toolchain. Se `notation` gerada pelo toolchain puder ser reconhecida como TCB (a mesma lógica do `ctorIdx` do P0-1), a taxa cai muito. Pergunta para a Fase 2 (`roadmap.md`).
-- Estes números são da Etapa A v3, antes da L-33a. A L-33a acrescenta fail-closed (`unsafe`, `run_tac`, código executável por ambiente), então a taxa só pode subir. A remedição oficial no fork entra em `docs/p0-2-fail-closed.md`.
+- Remedição oficial com a Etapa A v4 (L-33a), run 39849624202: top-60 inalterado (65,0 %); Mathlib inteiro 14,8 % (`unsafe` léxico em 74 arquivos). A detecção por ambiente da L-33a não está nesses números (`docs/p0-2-fail-closed.md`, seção 8).
 
 ## L-34. Atributo gerado na elaboração derruba 7,35 % das declarações do Mathlib (P0-1)
 Atributo gerado na elaboração é causa de fail-closed em 7,35% das declarações; a política de TCB para gerado precisa de revisão na Fase 2.
