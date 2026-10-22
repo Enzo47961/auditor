@@ -17,9 +17,10 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-STAGE_A_VERSION = "3"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
+STAGE_A_VERSION = "4"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
 # 3 (Fase 1, P0-2 a): continuações de termo e `add_decl_doc` depois de docstring na coluna 0;
 #   chave `cmd%` na coluna 0; continuações do core valem também com allow-list de projeto
+# 4 (Fase 1, L-33 a): `run_tac` e `by_elab` em qualquer posição → `elaboration_code_execution`
 DATA = Path(__file__).resolve().parent.parent / "data"
 CONFUSABLES_FILE = DATA / "unicode" / "confusables-16.0.0.txt"
 
@@ -297,6 +298,10 @@ def _settle_continuations(allow: dict, core: dict | None) -> dict:
     crescer continua válida) e NUNCA incluem um token que o ambiente tem como comando."""
     for k in ("continuation", "doc_continuation"):
         allow[k] = set(allow.get(k, set())) | (core[k] if core else set())
+    if core:   # classificação de risco do core vale sobre allow-list de projeto gerada antes (L-33)
+        for k in ("syntax_extension", "metaprogramming"):
+            allow[k] = set(allow[k]) | core[k]
+        allow["allowed"] = set(allow["allowed"]) - core["syntax_extension"] - core["metaprogramming"]
     commands = set().union(*(allow[k] for k in COMMAND_KEYS))
     for k in ("continuation", "doc_continuation"):
         allow[k] -= commands
@@ -475,6 +480,13 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
         # --- candidatos
         if t.text in ("sorry", "admit"):
             res.findings.append(Item(t.text, t.line, t.col))
+        elif t.text in EXECUTES_CODE:
+            res.findings.append(Item("elaboration_code_execution", t.line, t.col, {"syntax": t.text}))
+        elif t.text == "unsafe":
+            # L-33a: `unsafe` (modificador ou termo) esconde código arbitrário, inclusive IO, num tipo
+            # puro (`unsafeBaseIO`); um termo avaliado na elaboração (configuração de tática,
+            # `include_str`, `eval%`) o executa. Só o texto mostra o que o usuário escreveu.
+            res.unrecognized.append(Item("unsafe_code", t.line, t.col))
         elif t.text == "native_decide":
             res.findings.append(Item("native_decide", t.line, t.col, {"form": "native_decide"}))
         elif t.text == "native":
@@ -539,6 +551,15 @@ def _keyword_not_declaration(toks: list[Token], k: int) -> bool:
 
 
 UNLOCK_LIMITS_OPTIONS = ("maxRecDepth", "maxHeartbeats", "synthInstance.maxHeartbeats")
+
+# L-33 (a): tática e termo que executam, NO PONTO onde aparecem, código do usuário com acesso a IO
+# durante a elaboração do próprio arquivo (TacticM/TermElabM), antes da Etapa B. O código é avaliado
+# e descartado (`withoutModifyingEnv`): só o texto o revela. Palavras reservadas, detectadas em
+# qualquer posição. Inventário e fontes: docs/l33-inventory.md.
+EXECUTES_CODE = {
+    "run_tac": "Lean/Elab/Tactic/BuiltinTactic.lean:685",
+    "by_elab": "Lean/Elab/BuiltinNotation.lean:594",
+}
 
 MODIFIERS = {"private", "protected", "noncomputable", "partial", "unsafe", "nonrec", "public", "meta"}
 

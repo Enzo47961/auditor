@@ -86,3 +86,26 @@ def test_timeout_file_default_is_90_and_timeout_is_alias(tmp_path, monkeypatch):
     assert m.main(base + ["--timeout", "12"]) == 2
     m.main(base + ["--timeout-file", "7"])
     assert seen == [90.0, 7.0]
+
+
+# ------------------------------------------------------------------ L-33 (a): dependência alterada
+
+def test_dependency_execution_crosses_changed_files_with_imports(tmp_path):
+    from types import SimpleNamespace
+    import auditor.__main__ as m
+    (tmp_path / "lean-toolchain").write_text((ROOT / "lean-toolchain").read_text(encoding="utf-8"))
+    (tmp_path / "lakefile.lean").write_text("import Lake\n")
+    (tmp_path / "P").mkdir()
+    target, dep, other, bad = (tmp_path / "P" / n for n in ("T.lean", "Dep.lean", "Other.lean", "Bad.lean"))
+    target.write_text("import P.Dep\ntheorem x : True := trivial\n")
+    dep.write_text("theorem d : True := by\n  run_tac pure ()\n  trivial\n")
+    other.write_text("theorem o : True := by\n  run_tac pure ()\n  trivial\n")   # não importado
+    bad.write_text("def s := \"aberta\n")                                          # ilegível
+    sb = SimpleNamespace(imports=["Init", "P.Dep", "P.Bad"], project_root=str(tmp_path))
+    out = m.dependency_execution(target, sb, [str(target), str(dep), str(other), str(bad)])
+    assert [o["module"] for o in out] == ["P.Dep", "P.Bad"]
+    assert out[0]["items"] == [{"syntax": "run_tac", "line": 2}]
+    assert out[1]["unreadable"] == ["lex_error"]
+    assert m.dependency_execution(target, sb, []) == []
+    assert m.dependency_execution(target, SimpleNamespace(imports=None, project_root=str(tmp_path)),
+                                  [str(dep)]) == []

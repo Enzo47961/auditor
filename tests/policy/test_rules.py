@@ -337,3 +337,44 @@ def test_dependent_of_rejected_keeps_own_state():
     ag.fill_depends_on_rejected([a, b])
     assert a["proof_status"]["value"] == "Rejeitada"
     assert b["overall_status"] == "verified" and b["depends_on_rejected"] == ["a"]
+
+
+# ------------------------------------------------------------------ L-33 (a): execução na elaboração
+
+class _SA:
+    def __init__(self, findings):
+        self.findings = findings
+
+
+def _exec_finding(syntax, line):
+    from auditor.tier1.stage_a import Item
+    return Item("elaboration_code_execution", line, 2, {"syntax": syntax})
+
+
+def test_elaboration_execution_rejects_every_declaration_of_the_file():
+    eff = ag.stage_a_execution_effects(_SA([_exec_finding("run_tac", 5)]))
+    p, m, o, r = ev(fact(), file_effects=eff)
+    assert (p, m, o) == ("Rejeitada", "Conforme", "rejected")
+    assert "elaboration_executes_code" in codes(r, "proof_status")
+    assert r["policy_violations"] == [{"rule": "elaboration_executes_code",
+                                       "items": [{"syntax": "run_tac", "line": 5}]}]
+
+
+def test_no_execution_no_effect():
+    assert ag.stage_a_execution_effects(_SA([])) == []
+    assert ag.dependency_execution_effects([]) == []
+
+
+def test_dependency_execution_is_unresolved_not_rejected():
+    eff = ag.dependency_execution_effects([{"module": "Fixture.Dep", "items": [{"syntax": "run_tac", "line": 4}]}])
+    p, m, o, r = ev(fact(), file_effects=eff)
+    assert (p, m, o) == ("Não resolvida", "Conforme", "unresolved")
+    assert "dependency_executes_code" in codes(r, "proof_status")
+
+
+def test_target_defining_executable_code_is_unresolved():
+    eff = ag.execution_capable_effects([{"name": "myTac", "reason": "io_type"}])
+    p, m, o, r = ev(fact(), file_effects=eff)
+    assert (p, m, o) == ("Não resolvida", "Conforme", "unresolved")
+    assert "target_defines_executable_code" in codes(r, "proof_status")
+    assert ag.execution_capable_effects([]) == []

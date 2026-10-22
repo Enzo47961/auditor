@@ -1,7 +1,7 @@
 # P0-2 — Taxa de fail-closed da Etapa A (Fase 1, sub-fase 1a.2)
 
 ```
-status: em andamento — (a) feito; (b) parado para decisão do revisor (achado sobre a L-17, seção 5); (c) remedido depois de (a)
+status: em andamento — (a) feito; kill criterion atingido (L-30); (b) aguarda a L-33a (feita) e a remedição oficial; (c) remedido depois de (a)
 ```
 
 Classificação: `author-self-review` (L-26). Nenhum número deste documento é alegação de cobertura do Mathlib a terceiros.
@@ -119,4 +119,24 @@ A L-17 cobre só comandos. A defesa contra execução pré-auditoria, que é o q
 - Decisão do revisor sobre o achado da seção 5 (L-33).
 - Retomar (b) caso a caso, com teste de ausência de efeito para cada relaxamento.
 - Remedir (c) no fork, com a medição oficial no GitHub Actions.
-- L-30 (taxa final e causas remanescentes), depois de (b).
+- ~~L-30~~ registrada (instrução 24): 65,0 % depois de (a); teto 53,3 %; cobertura do Mathlib bloqueada até a Fase 2.
+
+## 7. Resposta do revisor (instrução 24) e sequência confirmada
+
+- **Kill criterion atingido é resultado correto.** Registrado como L-30, sem maquiar o número. A taxa de 14,4 % da biblioteca inteira fica registrada à parte. A causa dominante (`notation` gerada pelo toolchain) vira pergunta para a Fase 2.
+- **L-33 (pergunta 1), opção (c) aprovada:**
+  - o (a) foi aplicado (L-33a, `docs/l33-inventory.md`);
+  - o (b), hash do inspetor e do auditor, é item da Fase 1.
+- **Sequência de (b) do P0-2 (pergunta 2), confirmada:**
+  - retomar só depois da L-33a;
+  - `register_option`, `register_*_attr` e `register_linter_set` pela mesma leitura de `initialize`;
+  - `run_cmd` e `simproc_decl` mantidos fail-closed.
+- **Exigência do revisor sobre `initialize`, confirmada por execução (cenário 10):**
+  - (1) não executa na elaboração do próprio arquivo;
+  - (2) executa quando o arquivo é importado.
+
+  Logo, `initialize` em dependência é vetor de execução. A Etapa A não vê a dependência, e o cruzamento léxico da L-33a só cobre `run_tac`/`by_elab`.
+  - **Decisão:** `initialize` **não** é reclassificado como `allowed`, nem no alvo. No alvo, a L-33a por ambiente já o marca (o procedimento é uma constante `IO …`).
+  - Relaxá-lo só faz sentido depois da mitigação (b) ou de uma extensão do cruzamento de dependências para código registrado.
+  - O mesmo vale para `register_option`, `register_*_attr` e `register_linter_set`, que expandem para `initialize`.
+  - O teto de (b) no top-60 cai, portanto, para os arquivos que falham só por `simproc_decl`/`run_cmd`/`with_weak_namespace`/`declare_core_config_elab`, todos mantidos fail-closed ou ainda por ler. Resultado: **(b) não resgata nenhum arquivo do top-60 nesta fase.**

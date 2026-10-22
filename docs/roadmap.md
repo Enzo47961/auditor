@@ -16,6 +16,30 @@ Antes de qualquer outro item da Fase 1, e antes de qualquer relaxamento de class
 
 A pergunta de pesquisa da Fase 1 (se a hipótese semântica vale a pena) continua em aberto.
 
+## Fase 1 — L-33: defesa contra execução e contra adulteração (instrução 24)
+
+- **(a) Feito (L-33a):**
+  - fail-closed léxico de `run_tac`/`by_elab` (Rejeitada) e de `unsafe`;
+  - código executável definido no alvo, por ambiente (inspetor v5);
+  - dependência alterada com execução (`--changed`);
+  - `show_panel_widgets` reclassificado.
+
+  Inventário: `docs/l33-inventory.md`.
+- **(b) A fazer, como defesa em profundidade, sem bloquear o (a):**
+  - o workflow calcula o SHA-256 do binário do inspetor e do pacote do auditor (`$RUNNER_TEMP/auditor-tool`) no início, roda o `lake build` do alvo e recalcula antes de invocar o inspetor;
+  - se mudou, `Não resolvida` com `toolchain_tampered`;
+  - **teste:** fixture com `run_tac` que tenta sobrescrever o inspetor deve sair `toolchain_tampered`; o fixture que só grava um marcador não muda o hash, e isso é o esperado.
+
+  (a) defende contra execução, (b) contra adulteração; as duas são necessárias.
+- **Pendente da L-33a:**
+  - estender o cruzamento de dependências ao código registrado (atributo, `initialize`, `unsafe`) de arquivos alterados;
+  - inventariar as dependências externas do Mathlib (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph).
+
+## Fase 2 — perguntas registradas na Fase 1 (instrução 24)
+
+- **`notation` gerada pelo toolchain como TCB.** É a causa dominante de fail-closed no Mathlib inteiro (553 dos 1244 arquivos). Se a macro gerada por `notation`/`infix` puder ser reconhecida como do toolchain, a taxa cai muito. É a mesma lógica do `ctorIdx` (P0-1).
+- **`ctorIdx` reconhecido pela forma** (`getObjTagNat` + `casesOn`), com teste de equivalência no toolchain fixado. Não aplicar antes (instrução 24).
+
 ## Fase 1 — revisão independente da classificação (regras aprovadas, instrução 23)
 
 Origem: a primeira tentativa de revisão independente foi descartada. Era outra IA, sem acesso ao código-fonte, e as citações vieram com linhas deslocadas (`proposed-improvements.md`). Regras, literalmente como aprovadas:

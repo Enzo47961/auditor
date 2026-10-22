@@ -35,7 +35,8 @@ def seal(decl: dict, fp: str | None) -> str:
 
 
 def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: float,
-          timeout_s: float, timeout_test: str | None, allow_empty: bool = False) -> tuple[dict, int]:
+          timeout_s: float, timeout_test: str | None, allow_empty: bool = False,
+          dependency_execution: list[dict] | None = None) -> tuple[dict, int]:
     infra: list[dict] = []
     file_unrecognized: list[dict] = []
     a_names = ag.stage_a_names(sa)
@@ -74,7 +75,9 @@ def build(target: Path, sa, sb, policy, policy_error: str | None, *, started: fl
     if decls is None:
         b_names = [d["name"] for d in sb.declarations]
         reach, hb, so_file = ag.options_in_reach(policy, sa, b_names)
-        file_effects = ag.stage_a_file_effects(sa) + so_file
+        file_effects = ag.stage_a_file_effects(sa) + ag.stage_a_execution_effects(sa) + so_file \
+            + ag.dependency_execution_effects(dependency_execution or []) \
+            + ag.execution_capable_effects(sb.execution_capable)
         if any(u["code"] in ag.STAGE_A_INFRA for u in infra):
             file_effects.append(ag.P("unresolved", "stage_a_incomplete"))
         anomalies: dict[str, list] = {}

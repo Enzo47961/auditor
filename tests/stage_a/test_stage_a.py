@@ -378,3 +378,59 @@ def test_real_declaration_name_still_required(proj):
     assert codes(r.unrecognized) == ["declaration_name_unresolved"]
     r = run(proj, "axiom ax : False\nexample := (ax)\n")
     assert [f.detail.get("name") for f in r.findings if f.code == "axiom"] == ["ax"]
+
+
+# ------------------------------------------------------------------ L-33 (a): execução na elaboração
+
+@pytest.mark.parametrize("src,line", [
+    ("theorem t : True := by\n  run_tac do (IO.println \"x\" : IO Unit)\n  trivial\n", 2),
+    ("theorem t : True := by\n  first\n  | run_tac pure ()\n  | trivial\n", 3),
+    ("open Lean in\ntheorem u : True := by_elab do\n  return mkConst ``True.intro\n", 2),
+])
+def test_code_execution_detected_anywhere(proj, src, line):
+    """`run_tac`/`by_elab` executam código do usuário na elaboração: achado em qualquer posição."""
+    r = run(proj, src)
+    assert [(f.code, f.line) for f in r.findings if f.code == "elaboration_code_execution"] == \
+        [("elaboration_code_execution", line)]
+
+
+@pytest.mark.parametrize("src", [
+    "-- run_tac do IO.println \"x\"\ntheorem t : True := trivial\n",
+    "def s : String := \"by_elab\"\n",
+    "def «run_tac» : Nat := 1\n",
+])
+def test_code_execution_not_in_comments_strings_or_quoted_names(proj, src):
+    assert "elaboration_code_execution" not in codes(run(proj, src).findings)
+
+
+def test_executes_code_inventory_cites_the_toolchain_source():
+    assert set(A.EXECUTES_CODE) == {"run_tac", "by_elab"}
+    assert all(v.startswith("Lean/") and ":" in v for v in A.EXECUTES_CODE.values())
+
+
+@pytest.mark.parametrize("src,line", [
+    ("unsafe def f : Nat := 0\n", 1),
+    ("def g : Nat := unsafe (unsafeCast 0)\n", 1),
+    ("theorem t : True := by\n  exact (unsafe trivial)\n", 2),
+])
+def test_unsafe_is_unrecognized_anywhere(proj, src, line):
+    assert [(i.code, i.line) for i in run(proj, src).unrecognized if i.code == "unsafe_code"] == [("unsafe_code", line)]
+
+
+def test_unsafe_in_comment_string_or_quoted_name_is_not_flagged(proj):
+    r = run(proj, "-- unsafe\ndef s : String := \"unsafe\"\ndef «unsafe» : Nat := 0\n")
+    assert "unsafe_code" not in codes(r.unrecognized)
+
+
+def test_show_panel_widgets_is_fail_closed(proj):
+    """L-33: avalia termos do arquivo (Lean/Widget/Commands.lean:70–75), como `#widget`."""
+    assert "metaprogramming_command" in codes(run(proj, "show_panel_widgets [- w]\n").unrecognized)
+
+
+def test_core_risk_classification_prevails_over_older_project_allowlist():
+    """Allow-list de projeto gerada antes da reclassificação: o risco do core vale sobre ela."""
+    allow = {"allowed": {"show_panel_widgets", "theorem"}, "syntax_extension": set(), "metaprogramming": set(),
+             "unclassified": set(), "continuation": set(), "doc_continuation": set()}
+    out = A._settle_continuations(allow, A.load_allowlist(TOOLCHAIN))
+    assert "show_panel_widgets" in out["metaprogramming"] and "show_panel_widgets" not in out["allowed"]
+    assert "theorem" in out["allowed"]

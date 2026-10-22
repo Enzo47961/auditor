@@ -6,6 +6,18 @@ sem período de transição.
 
 ## Não lançado
 
+### L-33a: código do usuário executado na elaboração (Fase 1, instrução 24)
+- **Etapa A v4.**
+  - `run_tac` e `by_elab`, em qualquer posição: achado `elaboration_code_execution`. Toda declaração do arquivo sai **Rejeitada** (`elaboration_executes_code`, em `policy_violations`).
+  - `unsafe` em qualquer posição: `Não resolvida` (`unsafe_code`).
+- **Inspetor v5:**
+  - `imports` (fecho de imports);
+  - `execution_capable`: constantes do módulo-alvo cujo tipo alcança `IO.RealWorld`, ou com `@[extern]`. Deixam o arquivo `Não resolvida` (`target_defines_executable_code`).
+- **`auditor check --changed <arquivo>`** (repetível) e o `auditor-ci`, que passa os arquivos alterados: uma dependência alterada e importada que executa código na elaboração deixa o alvo `Não resolvida` (`dependency_executes_code`).
+- **Classificação do core v5:** `show_panel_widgets` sai de `allowed` (avalia termos do arquivo). A classificação de risco do core vale sobre allow-lists de projeto geradas antes.
+- Cenários de conformidade 09 (execução na elaboração) e 10 (ground truth: `initialize` roda em quem importa). Inventário em `docs/l33-inventory.md`; L-17 emendada (L-33a); L-30 registrada; nota no `phase0-report.md`.
+- **Repositórios-alvo:** o inspetor muda de versão (o cache é refeito); a allow-list de projeto não precisa ser regenerada.
+
 ### Etapa A versão 3 (Fase 1, P0-2 (a), instrução 24)
 - **Menos falsos positivos na coluna 0.** Termo continuado na coluna 0 deixa de ser
   `unknown_command`. Exemplos: `{ … with }`, `(…)`, `⟨…⟩`, `[…]`, `match`, `let`, `fun`, `do`,

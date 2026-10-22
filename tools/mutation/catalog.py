@@ -259,3 +259,45 @@ GROUPS = {
         ],
     },
 }
+
+# Fase 1, L-33 (a): código do usuário executado na elaboração (instrução 24)
+MN = "src/auditor/__main__.py"
+GROUPS["stage_a"]["mutations"] += [
+    (SA, '        elif t.text in EXECUTES_CODE:', '        elif False:'),
+    (SA, '    "run_tac": "Lean/Elab/Tactic/BuiltinTactic.lean:685",\n', ''),   # pedida pelo revisor
+    (SA, '    "by_elab": "Lean/Elab/BuiltinNotation.lean:594",\n', ''),
+]
+GROUPS["policy"]["mutations"] += [
+    (AG, '    return [P("rejected", "elaboration_executes_code", {"items": items}, v)]', '    return []'),
+    (AG, '    return [P("rejected", "elaboration_executes_code", {"items": items}, v)]',
+     '    return [P("unresolved", "elaboration_executes_code", {"items": items}, v)]'),
+    (AG, '    return [P("unresolved", "dependency_executes_code", {"modules": modules})]', '    return []'),
+    (RP, '            + ag.dependency_execution_effects(dependency_execution or [])', '            + []'),
+    (MN, '        if m is None or m not in imported:', '        if m is None:'),
+    (MN, '        if items or unreadable:', '        if items:'),
+]
+GROUPS["stage_b"]["mutations"] += [
+    (SB, '    if isinstance(imports, list):', '    if True:'),
+]
+GROUPS["ci"]["mutations"] += [
+    (CI, '            + [a for g in existing if g != f for a in ("--changed", g)]   # L-33: dependências do PR',
+     '            + []'),
+]
+GROUPS["policy"]["tests"] += ["tests/conformance/test_08_generated_implemented_by.py",
+                              "tests/conformance/test_09_elaboration_execution.py"]
+# L-33a: `unsafe` léxico; código executável definido no alvo (por ambiente, inspetor v5)
+GROUPS["stage_a"]["mutations"] += [
+    (SA, '        elif t.text == "unsafe":', '        elif False:'),
+]
+GROUPS["policy"]["mutations"] += [
+    (AG, '    return [P("unresolved", "target_defines_executable_code", {"definitions": capable})]', '    return []'),
+    (RP, '            + ag.execution_capable_effects(sb.execution_capable)', '            + []'),
+    (INS, '    if cur == ``IO.RealWorld then return true', '    if false then return true'),
+    (INS, '    if isExtern c.env n then', '    if false then'),
+]
+GROUPS["stage_b"]["mutations"] += [
+    (SB, '    if isinstance(capable, list):', '    if True:'),
+]
+GROUPS["stage_a"]["mutations"] += [
+    (SA, '            allow[k] = set(allow[k]) | core[k]', '            allow[k] = set(allow[k])'),
+]

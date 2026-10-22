@@ -399,3 +399,19 @@ def test_inspector_build_without_binary_is_exit_2(tmp_path, monkeypatch):
     gh = tmp_path / "gh"
     assert ci.main(["inspector", "--project", str(proj), "--github-output", str(gh)]) == 2
     assert "built=false" in gh.read_text(encoding="utf-8")
+
+
+def test_each_audit_receives_the_other_changed_files(tmp_path, monkeypatch):
+    """L-33 (a): cada `auditor check` recebe os outros arquivos alterados (`--changed`), para cruzar
+    dependências do PR que executam código na elaboração. Sem Lean: o comando é interceptado."""
+    a, b, c = (tmp_path / n for n in ("A.lean", "B.lean", "C.lean"))
+    for f in (a, b, c):
+        f.write_text("theorem t : True := trivial\n")
+    seen = []
+
+    class Done:
+        returncode = 0
+    monkeypatch.setattr(ci.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or Done())
+    ci.audit_files([str(a), str(b), str(c)], str(DEFAULT_POLICY), tmp_path / "out")
+    changed = [[cmd[i + 1] for i, x in enumerate(cmd) if x == "--changed"] for cmd in seen]
+    assert changed == [[str(b), str(c)], [str(a), str(c)], [str(a), str(b)]]

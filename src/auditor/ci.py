@@ -161,7 +161,8 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
         entry["timeout_s"] = round(limit, 1)
         report = out_dir / f"report-{i:04d}.json"
         cmd = [sys.executable, "-m", "auditor", "check", f, "--output", str(report), "--policy", policy,
-               "--timeout-file", f"{limit:.1f}"] + (["--allow-empty"] if allow_empty else [])
+               "--timeout-file", f"{limit:.1f}"] + (["--allow-empty"] if allow_empty else []) \
+            + [a for g in existing if g != f for a in ("--changed", g)]   # L-33: dependências do PR
         t0 = time.monotonic()
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",

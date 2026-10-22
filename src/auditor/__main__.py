@@ -47,7 +47,8 @@ def check(args: argparse.Namespace) -> int:
         sb = stage_b.analyze(target, timeout_s=args.timeout)
     report, code = rp.build(target, sa, sb, policy, policy_error, started=started,
                             timeout_s=args.timeout, timeout_test=args.timeout_test,
-                            allow_empty=args.allow_empty)
+                            allow_empty=args.allow_empty,
+                            dependency_execution=dependency_execution(target, sb, args.changed or []))
 
     errors = validation_errors(report)
     if errors:   # bug do agregador: nunca entregar relatório fora do schema como se fosse válido
@@ -69,6 +70,30 @@ def check(args: argparse.Namespace) -> int:
     return code
 
 
+def dependency_execution(target: Path, sb, changed: list[str]) -> list[dict]:
+    """L-33 (a): arquivos alterados (`--changed`) que o alvo importa e que executam código na
+    elaboração. Sem a lista, nada é cruzado: dependências locais não alteradas são as do branch base
+    (limitations.md, L-33a)."""
+    from auditor.tier1 import stage_a, stage_b
+    if sb is None or sb.imports is None or not sb.project_root:
+        return []
+    imported, root, out = set(sb.imports), Path(sb.project_root), []
+    for f in changed:
+        p = Path(f)
+        if not p.is_file() or p.resolve() == target.resolve():
+            continue
+        m = stage_b.module_name(p, root)
+        if m is None or m not in imported:
+            continue
+        sa = stage_a.analyze(p)
+        items = [{"syntax": x.detail.get("syntax"), "line": x.line} for x in sa.findings
+                 if x.code == "elaboration_code_execution"]
+        unreadable = [u.code for u in sa.unrecognized if u.code in ("lex_error", "unreadable_input")]
+        if items or unreadable:   # dependência ilegível: não dá para afirmar que não executa
+            out.append({"module": m, "items": items, **({"unreadable": unreadable} if unreadable else {})})
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     _utf8_stdio()
     ap = argparse.ArgumentParser(prog="auditor", description="Verificador mecânico de integridade "
@@ -83,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="timeout deste arquivo em segundos (padrão: 90)")
     c.add_argument("--timeout-test", choices=["artificial"], default=None,
                    help="marca o relatório como teste de timeout com limite artificial (L-11)")
+    c.add_argument("--changed", action="append", metavar="ARQUIVO",
+                   help="arquivo .lean alterado no PR (repetível); dependências alteradas que executam "
+                        "código na elaboração tornam o alvo Não resolvida (L-33)")
     c.add_argument("--allow-empty", action="store_true",
                    help="arquivo sem declarações (ex.: só imports) sai com exit 0 em vez de 2 (D-15)")
     try:

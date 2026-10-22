@@ -8,6 +8,8 @@ phase_0_status: "closed unconditionally at 2026-10-22, auditor 69ed9cf, fork aud
 
 **Fase 1: autorizada pelo revisor (instrução 24), ainda não iniciada; começa pelos dois P0 de `roadmap.md`.**
 
+**Nota (Fase 1, instrução 24) — a L-17 estava incompleta.** A L-17 estava incompleta; a Fase 1 descobriu que táticas e termos (run_tac, by_elab) executam código sem detecção. A L-17 foi emendada na Fase 1. Os resultados da Fase 0 permanecem válidos porque os PRs medidos não usavam esses mecanismos. Detalhe: L-33 e L-33a em `limitations.md`; inventário em `docs/l33-inventory.md`.
+
 Fechamento declarado pelo revisor na instrução 22 (2026-10-22), com duas condições antes de a Fase 1 abrir:
 
 1. passos 8 (timeout / `auditor-failed-infra`) e 9 (`@auditor report` a pedido humano) do `docs/layer2-checklist.md`;

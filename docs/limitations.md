@@ -85,6 +85,8 @@ A Fase 0 verifica que a allow-list de projeto corresponde ao ambiente fixado (`e
 O pino não cobre o código-fonte do próprio projeto. Um comando que o projeto redefina entre a geração e a auditoria mantém a classificação antiga. Um comando novo do projeto cai em `unknown_command` (fail-closed). A sintaxe vinda de import é coberta pela Etapa B (L-2).
 
 ## L-17. Critério para comandos `#…` e outros comandos de elaboração (Q8)
+**Emendado pela L-33a (Fase 1):** o critério vale para comando, tática, termo ou atributo. Texto original, para histórico:
+
 **Critério normativo:** um comando é fail-closed na Etapa A se **pode executar código compilado em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente**. Decisões futuras sobre comandos devem ser derivadas deste critério, não de pesquisa caso a caso.
 
 **Por que este critério.** Um `@[extern]` ou `@[implemented_by]` malicioso em código de usuário pode executar I/O durante a elaboração, antes de qualquer auditoria. Bloquear esses comandos é defesa em profundidade contra **execução pré-auditoria**. A corrupção de axiomas não é o alvo aqui: ela é coberta pela Etapa B, que inspeciona o ambiente elaborado.
@@ -172,12 +174,44 @@ O passo 9 testou o fluxo @auditor report acionado por OWNER. Não testou o camin
 
 Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` (`author_association` em OWNER, MEMBER ou COLLABORATOR) e é travada por `test_report_workflow_requires_explicit_human_request`. O teste end-to-end está na pauta da Fase 1 (não bloqueia).
 
-## L-33. Código do usuário executado na elaboração por tática ou termo não é detectado pela Etapa A
-**Achado da Fase 1 (P0-2, 2026-10-22), aguardando decisão do revisor.** A L-17 torna fail-closed os *comandos* que podem executar código na elaboração, antes da Etapa B. Táticas e termos que fazem o mesmo não são detectados. Demonstrado no toolchain fixado (`leanprover/lean4:v4.36.0-rc1`):
+## L-33. Código do usuário executado na elaboração por tática ou termo não era detectado pela Etapa A
+**Achado da Fase 1 (P0-2, 2026-10-22).** A L-17 tornava fail-closed só os *comandos* que podem executar código na elaboração, antes da Etapa B.
+
+**Demonstração**, no toolchain fixado (`leanprover/lean4:v4.36.0-rc1`):
 - `run_tac do (IO.FS.writeFile "marker" "x" : IO Unit)` (tática) e `by_elab do …` (termo) gravaram um arquivo durante o `lake build` do arquivo;
-- a Etapa A não registrou nenhum item;
-- o auditor completo deu `verified`, exit 0.
+- a Etapa A não registrava nada;
+- o auditor dava `verified`, exit 0.
 
-O resultado da prova está correto (o kernel conferiu `True.intro`). O que falha é a garantia da L-17: código do PR roda no runner antes da inspeção, no mesmo usuário que tem o binário do inspetor em cache e o auditor instalado. Um atributo que registra elaborador ou extensão no próprio arquivo (`@[tactic …]`, `@[term_elab …]`, extensões de táticas do Mathlib) é uma via da mesma família, ainda não inventariada; uma tentativa com `@[tactic]` sobre `trivial` não executou no teste.
+**Natureza da lacuna:** de integridade, não de cobertura (revisor, instrução 24). O código do PR roda no runner, no mesmo usuário que tem o inspetor em cache e o auditor instalado, e a Etapa B não vê a execução: o ambiente Lean não muda, só o sistema de arquivos.
 
-Até a decisão, a limitação vale para todo relatório, e nenhum relaxamento de comando por (b) é aplicado.
+**Resposta: emenda L-33a, implementada na Etapa A v4 e no inspetor v5.** Inventário com fonte em `docs/l33-inventory.md`.
+
+## L-33a. Emenda da L-17: comando, tática, termo ou atributo
+**Critério normativo emendado (instrução 24):** um comando, tática, termo ou atributo é fail-closed se pode executar código do usuário em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente. A L-17 original cobria só comandos.
+
+**Aplicação** (`docs/l33-inventory.md`):
+- **Execução no ponto, léxica:** `run_tac` e `by_elab`, em qualquer posição.
+  - Resultado **`Rejeitada`** (`elaboration_executes_code`, em `policy_violations`): a execução é violação concreta, não ambiguidade.
+  - Vale para todas as declarações do arquivo, porque a execução aconteceu no build que a Etapa B audita.
+- **`unsafe`, léxico:** em qualquer posição, `Não resolvida` (`unsafe_code`). Esconde IO num tipo puro, executado se um termo for avaliado na elaboração (configuração de tática, `include_str`, `eval%`).
+- **Por ambiente** (inspetor v5): toda constante do módulo-alvo cujo **tipo** alcança `IO.RealWorld` (elaborador, tática, simproc, handler de atributo, procedimento de `initialize`), ou com `@[extern]`, deixa o arquivo `Não resolvida` (`target_defines_executable_code`).
+  - Registrar não prova que executou.
+  - Não há lista de nomes de atributo: o tipo decide.
+- **Dependência alterada no PR:** o alvo que importa (fecho de imports do inspetor) um arquivo alterado com `run_tac`/`by_elab` (ou ilegível) sai `Não resolvida` (`dependency_executes_code`). O `auditor-ci` passa os arquivos alterados a cada auditoria (`--changed`).
+- **`show_panel_widgets`** passou de `allowed` a `metaprogramming` (classificação do core v5): avalia termos do arquivo, como `#widget`. A classificação de risco do core passa a valer sobre uma allow-list de projeto gerada antes.
+
+**Limites declarados:**
+- **Dependência alterada que só registra código** (via atributo, `initialize`, `unsafe`), sem `run_tac`/`by_elab`. Ela mesma sai `Não resolvida` como alvo, mas o alvo que a importa não herda a sinalização: o cruzamento de dependências só usa o achado léxico.
+  - O caso concreto é o `initialize` de uma dependência alterada. Ele **executa** quando o alvo é compilado: cenário 10, ground truth, as duas metades conferidas por execução.
+- **CLI sem `--changed`:** não cruza dependências (`auditor check` sozinho). O `auditor-ci` sempre passa a lista.
+- **Dependências externas do Mathlib** (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph) não foram inventariadas. A defesa por ambiente vale para o código do alvo, onde quer que o atributo tenha sido definido.
+- **`lakefile.lean` alterado no PR** executa código no `lake build`: fora do alcance da Etapa A.
+- Para todos esses casos, e para qualquer mecanismo fora do inventário, a defesa é a **mitigação estrutural (b)**: hash do inspetor e do auditor antes e depois do `lake build`, `toolchain_tampered`. É item da Fase 1 (`roadmap.md`). Ela detecta adulteração, não execução: (a) e (b) são defesas diferentes, e as duas são necessárias.
+
+## L-30. Taxa de fail-closed da Etapa A no top-60 por fanout (P0-2)
+Taxa de fail-closed da Etapa A no top-60 é 65,0% após (a); teto de 53,3% mesmo relaxando tudo; a cobertura do Mathlib fica bloqueada até a Fase 2.
+- 39 dos 60 falham: 18 só por sintaxe, 7 só por comando não sintático, 14 pelas duas causas. 32 declaram sintaxe genuína, que a instrução 24 mantém fail-closed.
+- Sem relaxar `run_cmd`, o teto é 56,7 %.
+- O kill criterion do P0-2 (> 50 % depois de (a) e (b)) está atingido.
+- **Medida adicional, que não substitui o gate:** na biblioteca `Mathlib` inteira, a taxa é 14,4 % (1244 de 8651). A causa dominante é `notation` (553 arquivos), uma macro gerada pelo toolchain. Se `notation` gerada pelo toolchain puder ser reconhecida como TCB (a mesma lógica do `ctorIdx` do P0-1), a taxa cai muito. Pergunta para a Fase 2 (`roadmap.md`).
+- Estes números são da Etapa A v3, antes da L-33a. A L-33a acrescenta fail-closed (`unsafe`, `run_tac`, código executável por ambiente), então a taxa só pode subir. A remedição oficial no fork entra em `docs/p0-2-fail-closed.md`.

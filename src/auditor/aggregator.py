@@ -347,6 +347,36 @@ def stage_a_file_effects(sa) -> list[Effect]:
               {"items": [{"code": u.code, "line": u.line, **u.detail} for u in content]})]
 
 
+def stage_a_execution_effects(sa) -> list[Effect]:
+    """L-33 (a): código do usuário executado na elaboração do arquivo (`run_tac`, `by_elab`). É
+    violação concreta, não ambiguidade: Rejeitada para todas as declarações do arquivo, porque a
+    execução aconteceu no build que a Etapa B audita."""
+    items = [{"syntax": f.detail.get("syntax"), "line": f.line} for f in sa.findings
+             if f.code == "elaboration_code_execution"]
+    if not items:
+        return []
+    v = {"rule": "elaboration_executes_code", "items": items}
+    return [P("rejected", "elaboration_executes_code", {"items": items}, v)]
+
+
+def execution_capable_effects(capable: list[dict]) -> list[Effect]:
+    """L-33a, por ambiente: o módulo-alvo define código que o elaborador pode executar (tipo que
+    alcança `IO.RealWorld`: elaborador, tática, simproc, handler de atributo, `initialize`; ou
+    `@[extern]`). Registrar não prova que executou: Não resolvida, não Rejeitada."""
+    if not capable:
+        return []
+    return [P("unresolved", "target_defines_executable_code", {"definitions": capable})]
+
+
+def dependency_execution_effects(modules: list[dict]) -> list[Effect]:
+    """L-33 (a), dependência: um módulo alterado no PR e importado pelo alvo executa código na
+    elaboração (achado léxico dele). A execução aconteceu no build do alvo, mas não no texto do
+    alvo: Não resolvida, como o `sorry` transitivo é rastreado até a origem."""
+    if not modules:
+        return []
+    return [P("unresolved", "dependency_executes_code", {"modules": modules})]
+
+
 def file_rel_path(target: Path, root: str | None) -> str:
     try:
         return Path(target).resolve().relative_to(Path(root).resolve()).as_posix() if root else Path(target).name

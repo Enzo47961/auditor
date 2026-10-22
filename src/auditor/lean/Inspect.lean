@@ -27,6 +27,9 @@ Para cada declaração do módulo-alvo escrita no fonte:
 * `missing` — constantes referenciadas que não existem no ambiente (o algoritmo
   oficial as ignora em silêncio);
 * `docstring`, `depends_on` (outras declarações do alvo no fecho).
+No nível do arquivo, também `imports` (os módulos do fecho de imports) e `execution_capable` (as
+constantes do módulo capazes de executar código na elaboração: tipo que alcança `IO.RealWorld`, ou
+`@[extern]`), v5, L-33.
 No nível do arquivo: `sysroot`, `search_path` (para conferência contra o manifest),
 `owners` (docstring de toda declaração dona encontrada, inclusive fora do alvo).
 Também emite os metadados do fingerprint (`@[simp]`, `@[ext]`, `@[reducible]`,
@@ -37,7 +40,7 @@ O ambiente é importado SEM carregar as extensões (`loadExts := false`): carreg
 PR auditado — dentro deste processo (D-39). Toda extensão é lida pelas entradas gravadas em
 cada módulo (`getModuleEntries`), que a importação disponibiliza sem executar nada. -/
 
-def inspectorVersion : String := "4"
+def inspectorVersion : String := "5"
 
 /-- Dependências diretas, espelhando `Lean.CollectAxioms.collect` (v4.36.0-rc1: o tipo de um
 axioma também é percorrido). -/
@@ -129,6 +132,40 @@ def nativeAuxTactic? (ci : ConstantInfo) : Option Name :=
       if e.hasLooseBVars || e.hasFVar || e.hasMVar then none else some (.mkSimple tac)
     else none
   | _, _ => none
+
+/-- L-33a: o TIPO alcança `IO.RealWorld` pelo fecho de dependências (definições incluídas)? Toda
+mônada de meta-programação do Lean (`CoreM`, `MetaM`, `TermElabM`, `TacticM`, `CommandElabM`) é
+construída sobre `EIO`, isto é, sobre `IO.RealWorld`: uma constante com esse tipo é código que, se o
+elaborador a executar, tem acesso a IO. Memo negativo compartilhado entre as constantes do módulo. -/
+def typeReachesWorld (c : Ctx) (noWorld : IO.Ref NameSet) (ty : Expr) : IO Bool := do
+  let mut stack := ty.getUsedConstants
+  let mut seen : NameSet := {}
+  let mut order : Array Name := #[]
+  while h : stack.size > 0 do
+    let cur := stack.back
+    stack := stack.pop
+    if cur == ``IO.RealWorld then return true
+    if seen.contains cur || (← noWorld.get).contains cur then continue
+    seen := seen.insert cur
+    order := order.push cur
+    if let some ds ← c.deps? cur then
+      for d in ds do stack := stack.push d
+  noWorld.modify fun s => order.foldl (·.insert ·) s
+  return false
+
+/-- L-33a: constantes do módulo-alvo (todas, inclusive as geradas) capazes de executar código na
+elaboração: tipo que alcança `IO.RealWorld` (elaborador, tática, simproc, handler de atributo,
+procedimento de `initialize`…) ou `@[extern]`. Fato bruto; a decisão é do agregador. -/
+def executionCapable (c : Ctx) (modIdx : ModuleIdx) : IO Json := do
+  let noWorld ← IO.mkRef {}
+  let mut out := #[]
+  for n in c.env.header.moduleData[modIdx.toNat]!.constNames do
+    let some ci := c.env.find? n | continue
+    if isExtern c.env n then
+      out := out.push <| Json.mkObj [("name", nameJ n), ("reason", toJson "extern")]
+    else if ← typeReachesWorld c noWorld ci.type then
+      out := out.push <| Json.mkObj [("name", nameJ n), ("reason", toJson "io_type")]
+  return Json.arr (out.qsort (·.compress < ·.compress))
 
 /-- Declarações do alvo escritas no fonte: têm faixa de declaração e não são detalhe interno. -/
 def targetDecls (env : Environment) (modIdx : ModuleIdx) : Array Name := Id.run do
@@ -259,6 +296,9 @@ def main (args : List String) : IO UInt32 := do
     ("search_path", toJson (sp.map (·.toString))),
     ("module", toJson modStr),
     ("module_constant_count", toJson env.header.moduleData[modIdx.toNat]!.constNames.size),
+    -- módulos importados (fecho), para cruzar com os arquivos alterados do PR (L-33, dependência)
+    ("imports", toJson ((env.header.moduleNames.filter (· != mod)).map toString)),
+    ("execution_capable", ← executionCapable c modIdx),
     ("declarations", Json.arr out),
     ("owners", Json.arr ownersJ),
     ("metadata", metadata env)]

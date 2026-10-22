@@ -380,7 +380,7 @@ def _facts(**over):
          "axiom_referrers": [], "implemented_by": [], "extern": [], "missing": [],
          "depends_on": [], "docstring": None, "native_auxiliary": []}
     f = {"inspector_version": B.INSPECTOR_VERSION, "lean_version": "4.36.0-rc1", "lean_githash": "x",
-         "module": "M", "declarations": [d],
+         "module": "M", "declarations": [d], "imports": ["Init"], "execution_capable": [],
          "metadata": {k: [] for k in ("simp", "ext", "reducible", "implemented_by")}}
     for k, v in over.items():
         (d if k in d else f)[k] = v
@@ -414,6 +414,8 @@ def test_ingest_anomalies_exposed(over, code):
     ({"inspector_version": "0"}, "inspector_version_mismatch"),
     ({"module": "Other"}, "module_mismatch"),
     ({"metadata": {"simp": []}}, "metadata_missing"),
+    ({"imports": None}, "inspector_field_missing"),     # L-33: sem imports, não há cruzamento
+    ({"execution_capable": None}, "inspector_field_missing"),
 ])
 def test_ingest_file_level_mismatch(over, code):
     assert code in [u["code"] for u in _ingest(_facts(**over)).unrecognized]

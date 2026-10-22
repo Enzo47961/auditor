@@ -27,7 +27,7 @@ from pathlib import Path
 from auditor import tcb_boundary as tb
 
 STAGE_B_VERSION = "1"
-INSPECTOR_VERSION = "4"            # deve bater com `inspectorVersion` em Inspect.lean
+INSPECTOR_VERSION = "5"            # deve bater com `inspectorVersion` em Inspect.lean
 PKG = Path(__file__).resolve().parent.parent
 INSPECT_SRC = PKG / "lean" / "Inspect.lean"
 INSPECTOR_LAKEFILE = """import Lake
@@ -55,6 +55,8 @@ class StageBResult:
     owners: dict = field(default_factory=dict)                 # dona → {docstring, module}
     boundary: dict | None = None                               # fronteira de TCB usada (Q7)
     metadata: dict | None = None                               # hashes e contagens
+    imports: list[str] | None = None                           # fecho de imports do alvo (L-33)
+    execution_capable: list[dict] = field(default_factory=list)  # código executável do alvo (L-33a)
 
 
 class InspectorBuildError(Exception):
@@ -296,6 +298,16 @@ def _ingest(res: StageBResult, facts: dict, expected_version: str) -> None:
                     res.anomalies.append({"declaration": name, "code": "owner_unresolved",
                                           "detail": {"axiom": ref["axiom"], "referrer": r["name"]}})
         res.declarations.append(d)
+    imports = facts.get("imports")
+    if isinstance(imports, list):
+        res.imports = imports
+    else:
+        res.unrecognized.append({"code": "inspector_field_missing", "detail": "imports"})
+    capable = facts.get("execution_capable")
+    if isinstance(capable, list):
+        res.execution_capable = capable
+    else:
+        res.unrecognized.append({"code": "inspector_field_missing", "detail": "execution_capable"})
     res.owners = {o["name"]: {"docstring": o.get("docstring"), "module": o.get("module")}
                   for o in facts.get("owners", [])}
 

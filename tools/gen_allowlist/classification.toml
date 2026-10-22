@@ -27,7 +27,10 @@
 # coinductive (declaração, como inductive); recall (só confere declaração existente);
 # unlock_limits (a Etapa A o registra como os três `set_option … 0` que ele aplica, e a
 # política de set_option decide; D-41). Os demais novos estão abaixo.
-classification_version = "4"
+# Fase 1, L-33 (instrução 24): `show_panel_widgets` saiu de `allowed`. Ele avalia, com `evalModule` e
+# `evalWidgetInstance`, termos escritos no arquivo (Lean/Widget/Commands.lean:62–75; UserWidget.lean:20–29),
+# como o `#widget` que já era fail-closed. Inventário em docs/l33-inventory.md.
+classification_version = "5"
 
 syntax_extension = [
   "binder_predicate", "declare_syntax_cat", "declare_simp_like_tactic", "elab", "elab_rules",
@@ -36,6 +39,7 @@ syntax_extension = [
 ]
 
 metaprogramming = [
+  "show_panel_widgets",   # L-33: avalia termos do arquivo (Widget/Commands.lean:70–75)
   "#eval", "#eval!", "#exit", "#with_exporting", "#dump_async_env_state",
   "#reduce", "#guard", "#widget", "#guard_expr", "#check_tactic", "#check_tactic_failure",
   "builtin_dsimproc", "builtin_dsimproc_decl", "builtin_grind_propagator", "builtin_initialize",
