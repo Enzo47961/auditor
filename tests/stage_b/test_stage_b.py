@@ -73,7 +73,8 @@ def test_result_has_no_positive_conclusion_field():
     fields = {f.name for f in dataclasses.fields(B.StageBResult)}
     assert fields == {"file", "project_root", "module", "toolchain", "stage_b_version", "build",
                       "inspector", "declarations", "anomalies", "unrecognized", "owners",
-                      "boundary", "metadata"}
+                      "boundary", "metadata",
+                      "imports", "execution_capable"}   # L-33a: fatos brutos, não conclusões
 
 
 def test_inspector_version_matches_source():
