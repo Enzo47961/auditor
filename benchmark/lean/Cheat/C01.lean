@@ -1,6 +1,6 @@
 module
 
-public import Mathlib.Order.Basic
+public import Mathlib.Algebra.Order.Ring.Nat
 
 @[expose] public section
 

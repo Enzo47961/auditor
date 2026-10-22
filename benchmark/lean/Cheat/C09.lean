@@ -1,6 +1,7 @@
 module
 
 public import Mathlib.Data.Finset.Card
+public meta import Mathlib.Data.Finset.Insert
 
 @[expose] public section
 

@@ -1,6 +1,6 @@
 module
 
-public import Mathlib.Algebra.Ring.Defs
+public import Mathlib.Algebra.Ring.Nat
 
 @[expose] public section
 

@@ -20,9 +20,9 @@ SEL = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 
 # id, imports, enunciado trocado, prova original, alteração, tática da negação (h : enunciado ⊢ False)
 SWAPS = [
-    ("S01", ["Mathlib.Order.Basic"], "∀ m n : ℕ, Nat.succ m ≤ n ↔ m ≤ n", "fun _ _ => Nat.succ_le_iff",
+    ("S01", ["Mathlib.Algebra.Order.Ring.Nat"], "∀ m n : ℕ, Nat.succ m ≤ n ↔ m ≤ n", "fun _ _ => Nat.succ_le_iff",
      "`<` trocado por `≤` (Nat.succ_le_iff)", "exact absurd ((h 0 0).2 (le_refl 0)) (by decide)"),
-    ("S02", ["Mathlib.Order.Basic"], "∀ m n : ℕ, m < Nat.succ n ↔ m < n", "fun _ _ => Nat.lt_succ_iff",
+    ("S02", ["Mathlib.Algebra.Order.Ring.Nat"], "∀ m n : ℕ, m < Nat.succ n ↔ m < n", "fun _ _ => Nat.lt_succ_iff",
      "`≤` trocado por `<` (Nat.lt_succ_iff)", "exact absurd ((h 0 0).1 (Nat.zero_lt_succ 0)) (lt_irrefl 0)"),
     ("S03", ["Mathlib.Order.Basic"], "∀ m n : ℕ, n - m + m = n", "fun _ _ => Nat.sub_add_cancel",
      "hipótese `m ≤ n` removida (Nat.sub_add_cancel)", "exact absurd (h 1 0) (by decide)"),
@@ -42,7 +42,7 @@ SWAPS = [
     ("S10", ["Mathlib.Analysis.SpecialFunctions.Sqrt"], "∀ a : ℝ, Real.sqrt (a ^ 2) = a",
      "fun a => Real.sqrt_sq", "hipótese `0 ≤ a` removida (Real.sqrt_sq)",
      "have h1 := h (-1)\n  norm_num at h1"),
-    ("S11", ["Mathlib.Data.Int.Cast.Lemmas"], "∀ m n : ℕ, ((n - m : ℕ) : ℤ) = (n : ℤ) - (m : ℤ)",
+    ("S11", ["Mathlib.Data.Int.Cast.Lemmas", "Mathlib.Tactic.NormNum"], "∀ m n : ℕ, ((n - m : ℕ) : ℤ) = (n : ℤ) - (m : ℤ)",
      "fun _ _ => Nat.cast_sub", "hipótese `m ≤ n` removida (Nat.cast_sub)", "exact absurd (h 1 0) (by norm_num)"),
     ("S12", ["Mathlib.Algebra.Order.Group.Int"], "∀ a b : ℤ, a - b ≤ a", "fun a b => Nat.sub_le a b",
      "domínio trocado: ℕ por ℤ (Nat.sub_le)", "exact absurd (h 0 (-1)) (by decide)"),
@@ -56,9 +56,9 @@ SWAPS = [
      "exact absurd (h [0] []) (by decide)"),
     ("S16", ["Mathlib.Algebra.Group.Nat.Even"], "∀ n : ℕ, Even (n + 1) ↔ Even n", "fun n => Nat.even_add_one",
      "`¬` removido (Nat.even_add_one)", "exact absurd ((h 0).2 ⟨0, rfl⟩) (by decide)"),
-    ("S17", ["Mathlib.Algebra.Ring.Defs"], "∀ n : ℕ, 2 * n = n + n + 1", "fun n => two_mul n",
+    ("S17", ["Mathlib.Algebra.Ring.Nat"], "∀ n : ℕ, 2 * n = n + n + 1", "fun n => two_mul n",
      "conclusão alterada (two_mul)", "exact absurd (h 0) (by decide)"),
-    ("S18", ["Mathlib.Order.Basic"], "∀ a b : ℕ, a ≤ b → a ^ 2 < b ^ 2",
+    ("S18", ["Mathlib.Algebra.Order.Ring.Nat"], "∀ a b : ℕ, a ≤ b → a ^ 2 < b ^ 2",
      "fun _ _ hab => Nat.pow_le_pow_left hab 2", "`≤` trocado por `<` (Nat.pow_le_pow_left)",
      "exact absurd (h 0 0 (le_refl 0)) (by decide)"),
     ("S19", ["Mathlib.Order.Basic"], "∀ a b : ℕ, a - b = b - a", "fun a b => Nat.add_comm a b",
@@ -109,7 +109,11 @@ CHEATS = [
 
 
 def header(imports: list[str]) -> str:
-    return "module\n\n" + "".join(f"public import {m}\n" for m in imports) + "\n@[expose] public section\n\n"
+    # "meta:M" vira `public meta import M`: no sistema de módulos, o que o `native_decide` avalia
+    # precisa ser importado como `meta` (achado da 2ª execução do benchmark, caso C09)
+    lines = "".join(f"public meta import {m[5:]}\n" if m.startswith("meta:") else f"public import {m}\n"
+                    for m in imports)
+    return "module\n\n" + lines + "\n@[expose] public section\n\n"
 
 
 def stmt(sid):
@@ -157,6 +161,7 @@ for cid, sid, form in CHEATS:
                     "def benchUnionCardLie (s t : Finset ℕ) : ℕ := s.card + t.card",
                     "benchUnionCard {0} {0} = 2")}[sid]
         lie_name = lie.split()[1]
+        imps = imps + {"S03": [], "S14": ["meta:Mathlib.Data.Finset.Insert"]}[sid]
         body = (f"{lie}\n\n@[implemented_by {lie_name}]\n{defn}\n\n"
                 f"theorem {name} : {claim} := by\n  native_decide\n")
         exp = ["implemented_by_reaches_native_eval", "native_decide_unjustified", "native_auxiliary_axiom"]
