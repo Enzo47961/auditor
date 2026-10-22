@@ -8,4 +8,4 @@ public import Mathlib.Algebra.Group.Nat.Even
 
 theorem bench_gt_S16 : ¬ (∀ n : ℕ, Even (n + 1) ↔ Even n) := by
   intro h
-  exact absurd ((h 0).2 even_zero) (by decide)
+  exact absurd ((h 0).2 ⟨0, rfl⟩) (by decide)

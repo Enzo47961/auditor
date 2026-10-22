@@ -59,8 +59,19 @@ def audit(project: Path, module: str, policy: Path, out: Path, timeout: float) -
                         "--policy", str(policy), "--timeout-file", str(timeout)],
                        cwd=project, capture_output=True, text=True, encoding="utf-8", errors="replace",
                        timeout=timeout + 120)
-    return {"module": module, "exit_code": p.returncode, "duration_s": round(time.monotonic() - t0, 1),
-            "report": rep.name if rep.is_file() else None, "stderr_tail": p.stderr[-1500:]}
+    res = {"module": module, "exit_code": p.returncode, "duration_s": round(time.monotonic() - t0, 1),
+           "report": rep.name if rep.is_file() else None, "stderr_tail": p.stderr[-1500:]}
+    try:   # o relatório não guarda o log de compilação: para diagnóstico, o erro do Lean vai à parte
+        if json.loads(rep.read_text(encoding="utf-8"))["compilation"].get("status") == "failure":
+            b = subprocess.run(["lake", "build", module], cwd=project, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=timeout)
+            log = out / "buildlogs" / (module + ".log")
+            log.parent.mkdir(parents=True, exist_ok=True)
+            log.write_bytes((b.stdout + b.stderr)[-8000:].encode("utf-8"))
+            res["build_log"] = log.name
+    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+        pass
+    return res
 
 
 def decl_result(out: Path, module: str, name: str) -> dict:
@@ -68,7 +79,10 @@ def decl_result(out: Path, module: str, name: str) -> dict:
     if not rep.is_file():
         return {"found": False, "overall": None, "codes": [], "note": "sem relatório"}
     r = json.loads(rep.read_text(encoding="utf-8"))
-    d = next((x for x in r["declarations"] if x["declaration_name"] == name), None)
+    # declaração privada (inclusive privada pelo sistema de módulos): `_private.<Módulo>.0.<nome>`
+    d = next((x for x in r["declarations"] if x["declaration_name"] == name
+              or x["declaration_name"].split(".0.", 1)[-1] == name and x["declaration_name"].startswith("_private.")),
+             None)
     return {"found": d is not None, "overall": d["overall_status"] if d else None,
             "proof": d["proof_status"]["value"] if d else None,
             "codes": sorted(c for c in codes_of(d, r) if c), "exit_code": r.get("exit_code")}
