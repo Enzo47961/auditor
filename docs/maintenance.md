@@ -260,3 +260,13 @@ Execução de referência (2026-10-22, auditor `69ed9cf`, fork `018d7db`): PR #8
 - Para atualizar: obter o SHA do commit da tag nova (`git ls-remote --tags https://github.com/actions/<nome>`; em tag anotada, usar a linha `^{}`), trocar SHA e comentário juntos, ler o changelog da action e abrir PR. Quem revisa confere o SHA contra a tag.
 - **elan:** o `elan-init.sh` baixa a release `latest` do elan, então fixar a tag do script não fixa o elan (D-35). Os workflows baixam o binário da release fixada (`ELAN_VERSION`) e conferem `ELAN_SHA256` antes de executar. Para atualizar: baixar `elan-x86_64-unknown-linux-gnu.tar.gz` da release nova, calcular o SHA-256, trocar os dois valores em `ci.yml` e `auditor-tier1.yml` no mesmo PR.
 - Resíduos não fixados por hash no CI (L-18): o toolchain Lean que o elan baixa a partir de `lean-toolchain` e as dependências Python resolvidas pelo pip. As versões efetivas entram na TCB do relatório (`kernel.githash`, `aggregator.python_dependencies`).
+
+**Fase 1, instrução 24 (P0-2 (a), L-33a).** Os 6 grupos foram re-rodados sobre `a0e3387`:
+- 10 mutações novas da Etapa A v3 (continuações, `add_decl_doc`, `cmd%`, palavra de declaração fora de posição, guarda do gerador);
+- 18 da L-33a (`run_tac`/`by_elab`, inclusive a remoção de `run_tac` da lista, pedida pelo revisor; `unsafe`; `execution_capable` e `imports` do inspetor v5; `--changed`; risco do core sobre allow-list antiga).
+
+Resultado: **169/169 detectadas, 0 sobreviventes, 0 puladas** (`auditor-mutation`, run 39851946124). Suíte no `ci.yml` (run 39851133711 sobre `a0e3387`): **778 passed, 0 failed**.
+
+Uma rodada sobre `d5f6264` foi **cancelada**: dois testes já falhavam sem mutação (fixture que não compilava e contrato da Etapa B desatualizado, corrigidos em `aa3d552`). Com teste quebrado, toda mutação do grupo pareceria detectada.
+
+**Estado em 2026-10-22: 6 grupos, 169/169.**
