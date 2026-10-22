@@ -272,3 +272,5 @@ Uma rodada sobre `d5f6264` foi **cancelada**: dois testes já falhavam sem muta�
 **Estado em 2026-10-22: 6 grupos, 169/169.**
 
 **Prática (instrução 25): mutação só roda sobre suíte verde.** Uma rodada sobre suíte vermelha é descartada, não interpretada: com um teste já falhando, toda mutação do grupo parece detectada, e o número vira ruído. Antes de disparar o `auditor-mutation`, conferir que o `ci.yml` do mesmo commit está verde. Exemplo: a rodada sobre `d5f6264` foi cancelada e refeita sobre `a0e3387`.
+
+**L-33 (b), instrução 25.** Os 6 grupos foram re-rodados sobre `a18d131`, com a suíte verde (run 39861318092, 788 passed). Há 5 mutações novas da (b): o hash do pacote do auditor, o hash do inspetor, a parada do inspetor quando há adulteração, o `toolchain_tampered` no relatório e a conferência entre arquivos no `auditor-ci`. Resultado: **174/174 detectadas, 0 sobreviventes, 0 puladas** (`auditor-mutation`, run 39862103829). **Estado em 2026-10-22: 6 grupos, 174/174.**
