@@ -156,6 +156,15 @@ def load_core(toolchain: str) -> dict:
     return data
 
 
+def check_continuations(commands, continuation, doc_continuation) -> None:
+    """Continuação nunca é token inicial de comando (Fase 1, P0-2 a). Se o ambiente tem um comando
+    com o token, a lista de continuações está errada para ele: recusa (exit 2), não corrige."""
+    clash = {c.strip("«»") for c in commands} & (set(continuation) | set(doc_continuation))
+    if clash:
+        raise AllowlistError(f"token de continuação é token inicial de comando neste ambiente: "
+                             f"{sorted(clash)}")
+
+
 def build_project(project: Path, classification: Path | None, libs: list[str] | None = None) -> dict:
     project = project.resolve()
     tc_file, manifest = project / "lean-toolchain", project / "lake-manifest.json"
@@ -176,6 +185,7 @@ def build_project(project: Path, classification: Path | None, libs: list[str] | 
     if missing:
         raise AllowlistError(f"allow-list do core não corresponde ao ambiente do projeto: {sorted(missing)}")
     new = extracted - core_cmds
+    check_continuations(extracted, core["continuation"], core.get("doc_continuation", []))
 
     cls_path = classification or (project / PROJECT_CLASSIFICATION_REL)
     cls: dict = {"classification_version": None, **{k: [] for k in CLASS_KEYS}}
@@ -224,6 +234,7 @@ def build_project(project: Path, classification: Path | None, libs: list[str] | 
         "syntax_extension": sorted(set(core["syntax_extension"]) | set(cls["syntax_extension"])),
         "metaprogramming": sorted(set(core["metaprogramming"]) | set(cls["metaprogramming"])),
         "continuation": core["continuation"],
+        "doc_continuation": core.get("doc_continuation", []),
         "unclassified": sorted(new - classified),
     }
 

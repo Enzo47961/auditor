@@ -61,4 +61,16 @@ metaprogramming = [
 
 # Tokens que não são comandos mas aparecem legitimamente na coluna 0 como
 # continuação de um comando (casamento de padrões, cláusulas). Mantido à mão.
-continuation = ["|", "where", "termination_by", "decreasing_by", "with", ")", "]", "}", "⟩"]
+# Nenhum pode ser token inicial de comando: o gerador recusa (exit 2) se for, no core ou no
+# projeto, e a Etapa A descarta o que o projeto tiver como comando. Fase 1, P0-2 (a): termos
+# escritos na coluna 0 no Mathlib (`{ … with }`, `(…)`, `⟨…⟩`, `match`, `let`, `f!"…"`,
+# `docs/p0-2-fail-closed.md`) e as palavras de termo da lista do revisor (instrução 24).
+continuation = ["|", "where", "termination_by", "decreasing_by", "with", ")", "]", "}", "⟩",
+  "{", "(", "⟨", "[",
+  "match", "do", "let", "have", "show", "from", "by", "fun", "if", "then", "else", "for", "calc",
+  "f!", "s!", "m!"]
+
+# Segundo token de comando cujo primeiro token é OBRIGATORIAMENTE uma docstring: aceito na
+# coluna 0 só logo depois de `/--`. `add_decl_doc`: `docComment >> "add_decl_doc " >> ident`
+# (Lean/Parser/Command.lean:939, v4.36.0-rc1). Como `continuation`, nunca token inicial.
+doc_continuation = ["add_decl_doc"]

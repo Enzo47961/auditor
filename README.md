@@ -20,7 +20,7 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 
 ## Status
 
-**Fase 0 = closed unconditionally 2026-10-22. Fase 1 = not started.**
+**Fase 0 = closed unconditionally 2026-10-22. Fase 1 = em andamento (sub-fase 1a: P0-1 e P0-2; `docs/p0-1-implemented-by.md`, `docs/p0-2-fail-closed.md`).**
 
 Fechamento confirmado pelo revisor na instrução 24: auditor `69ed9cf`, fork `auditor-base` `018d7db`, 674 testes, 141/141 mutações, passos 8 e 9 da camada 2 (o 9 com sumário qualificado), L-26 declarada em todos os artefatos. Evidência em `docs/phase0-report.md`. A Fase 1 começa pelos dois P0 de `docs/roadmap.md`.
 

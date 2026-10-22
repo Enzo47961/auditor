@@ -17,7 +17,9 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-STAGE_A_VERSION = "2"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
+STAGE_A_VERSION = "3"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
+# 3 (Fase 1, P0-2 a): continuações de termo e `add_decl_doc` depois de docstring na coluna 0;
+#   chave `cmd%` na coluna 0; continuações do core valem também com allow-list de projeto
 DATA = Path(__file__).resolve().parent.parent / "data"
 CONFUSABLES_FILE = DATA / "unicode" / "confusables-16.0.0.txt"
 
@@ -285,7 +287,20 @@ def _norm(tokentext: str) -> str:
     return tokentext[1:-1] if tokentext.startswith("«") and tokentext.endswith("»") else tokentext
 
 
-SET_KEYS = ("allowed", "syntax_extension", "metaprogramming", "continuation", "unclassified")
+SET_KEYS = ("allowed", "syntax_extension", "metaprogramming", "continuation", "doc_continuation",
+            "unclassified")
+COMMAND_KEYS = ("allowed", "syntax_extension", "metaprogramming", "unclassified")
+
+
+def _settle_continuations(allow: dict, core: dict | None) -> dict:
+    """Continuações valem pelo core do toolchain (uma allow-list de projeto gerada antes de a lista
+    crescer continua válida) e NUNCA incluem um token que o ambiente tem como comando."""
+    for k in ("continuation", "doc_continuation"):
+        allow[k] = set(allow.get(k, set())) | (core[k] if core else set())
+    commands = set().union(*(allow[k] for k in COMMAND_KEYS))
+    for k in ("continuation", "doc_continuation"):
+        allow[k] -= commands
+    return allow
 
 
 def _prepare(data: dict) -> dict:
@@ -369,10 +384,14 @@ def analyze(target: Path, src: str | None = None, allowlist_file: Path | None = 
             allow, why = load_project_allowlist(proj_file, root, toolchain)
             if allow is None:
                 res.unrecognized.append(Item("allowlist_stale", 0, 0, {"file": str(proj_file), "detail": why}))
+            else:
+                allow = _settle_continuations(allow, load_allowlist(toolchain))
         else:
             allow = load_allowlist(toolchain)
             if allow is None:
                 res.unrecognized.append(Item("allowlist_unavailable", 0, 0, {"toolchain": toolchain}))
+            else:
+                allow = _settle_continuations(allow, None)
         if allow is not None:
             res.allowlist = {k: allow.get(k) for k in (
                 "kind", "toolchain", "env_pin", "generator_version", "classification_version",
@@ -394,6 +413,7 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
     risky_syntax = allow["syntax_extension"] if allow else set()
     risky_meta = allow["metaprogramming"] if allow else set()
     unclassified = allow["unclassified"] if allow else set()
+    allowed = allow["allowed"] if allow else set()
     ns: list[str | None] = []
 
     def nxt(k: int, off: int = 1) -> Token | None:
@@ -410,20 +430,24 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
         # `module` (sistema de módulos, v4.36) é palavra de cabeçalho, não comando: só é aceito
         # como primeiro token do arquivo (comentários não viram token), antes dos imports (D-57).
         header_module = k == 0 and t.kind == "ident" and not t.quoted and t.text == "module"
+        # `cmd%` é um token só para o Lean (`compile_inductive%`); o lexer daqui o separa em dois
+        word = t.text
+        if t.kind == "ident" and (n1 := nxt(k)) is not None and n1.text == "%" \
+                and (word + "%") in (risky_syntax | risky_meta | allowed | unclassified):
+            word = word + "%"
         if allow is not None and at_command_start and not header_module:
-            key = t.text if t.kind in ("ident", "symbol", "hashcmd") else (
+            key = word if t.kind in ("ident", "symbol", "hashcmd") else (
                 t.text[:3] if t.kind == "doc" else None)
-            if key is not None and key not in allow["allowed"] and key not in allow["continuation"] \
+            # segundo token de comando que começa obrigatoriamente por docstring (`add_decl_doc`)
+            after_doc = k > 0 and toks[k - 1].kind == "doc" and toks[k - 1].text.startswith("/--")
+            if key is not None and key not in allowed and key not in allow["continuation"] \
+                    and not (after_doc and key in allow["doc_continuation"]) \
                     and key not in risky_syntax and key not in risky_meta and key not in unclassified:
                 res.unrecognized.append(Item("unknown_command", t.line, t.col, {"token": key}))
 
         # --- comandos de risco: palavras reservadas em qualquer posição; comandos cujo token é
         # símbolo (`?`, `«$»`) só no início de comando, porque o símbolo aparece em termos
         # (`?_`, `?m`: metavariáveis sintéticas; D-56)
-        word = t.text
-        if t.kind == "ident" and (n1 := nxt(k)) is not None and n1.text == "%" \
-                and (word + "%") in (risky_syntax | risky_meta):
-            word = word + "%"
         if (t.kind in ("ident", "hashcmd") and not t.quoted) or \
                 (at_command_start and t.kind in ("ident", "symbol")):
             if word in risky_syntax:
@@ -485,7 +509,7 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
             }))
 
         # --- declarações
-        if t.text in DECL_KEYWORDS:
+        if t.text in DECL_KEYWORDS and not _keyword_not_declaration(toks, k):
             n1 = nxt(k)
             name = None
             if n1 is not None and n1.kind == "ident" and t.text not in ("example",) \
@@ -498,6 +522,20 @@ def _scan_tokens(toks: list[Token], allow: dict | None, res: StageAResult) -> No
             res.declarations.append(Item("declaration", t.line, t.col, {"keyword": t.text, "name": name}))
             if t.text == "axiom":
                 res.findings.append(Item("axiom", t.line, t.col, {"name": name}))
+
+
+def _keyword_not_declaration(toks: list[Token], k: int) -> bool:
+    """Palavra de declaração numa posição em que ela não começa declaração (Fase 1, P0-2 a):
+    `.abbrev` (construtor ou campo), `` `lemma `` (literal de nome), `(lemma := …)` (argumento
+    nomeado) e o atributo `class` em `[class]` / `@[class, …]`."""
+    t, p = toks[k], (toks[k - 1] if k else None)
+    n = toks[k + 1] if k + 1 < len(toks) else None
+    if p is not None and p.text in (".", "`") and p.line == t.line and p.col + len(p.text) == t.col:
+        return True
+    if n is not None and n.text == ":=":
+        return True
+    return t.text == "class" and p is not None and p.text in ("[", "@[", ",") \
+        and n is not None and n.text in ("]", ",")
 
 
 UNLOCK_LIMITS_OPTIONS = ("maxRecDepth", "maxHeartbeats", "synthInstance.maxHeartbeats")

@@ -291,3 +291,90 @@ def test_allowlist_content_must_match_its_toolchain(tmp_path, monkeypatch):
     (tmp_path / "allowlist" / A.allowlist_path(TOOLCHAIN).name).write_text(json.dumps(tampered))
     monkeypatch.setattr(A, "DATA", tmp_path)
     assert A.load_allowlist(TOOLCHAIN) is None
+
+
+# ------------------------------------------------------------------ Fase 1, P0-2 (a): continuações
+
+@pytest.mark.parametrize("src", [
+    "instance : Inhabited Nat :=\n{ default := 0 }\n",                    # Mathlib: `{ … with }` na coluna 0
+    "theorem t : True ∧ True :=\n⟨trivial, trivial⟩\n",
+    "def x : Nat :=\n(1 + 1)\n",
+    "def l : List Nat :=\n[1, 2]\n",
+    "def f (n : Nat) : Nat :=\nmatch n with\n| 0 => 0\n| _ => 1\n",
+    "def g : Nat :=\nlet y := 1; y\n",
+    "def h : Nat → Nat :=\nfun n => n\n",
+    "def s (n : Nat) : String :=\nf!\"{n}\"\n",
+    "def io : IO Unit :=\ndo\n  pure ()\n",
+    "theorem u : True :=\nby trivial\n",
+])
+def test_term_continuations_at_column_zero_are_not_unknown(proj, src):
+    """Termo continuado na coluna 0 não é comando (falso positivo medido no Mathlib, P0-2 a)."""
+    assert run(proj, src).unrecognized == []
+
+
+def test_continuations_are_never_command_tokens_in_the_pinned_core():
+    """Nenhuma continuação é token inicial de comando do toolchain fixado (o gerador recusa; aqui
+    a conferência é sobre o arquivo versionado)."""
+    allow = A.load_allowlist(TOOLCHAIN)
+    commands = set().union(*(allow[k] for k in A.COMMAND_KEYS))
+    assert {"match", "let", "{", "(", "f!", "add_decl_doc"} <= allow["continuation"] | allow["doc_continuation"]
+    assert not (allow["continuation"] | allow["doc_continuation"]) & commands
+
+
+def test_check_continuations_refuses_a_command_token():
+    from auditor.allowlist import AllowlistError, check_continuations
+    check_continuations({"theorem", "«cmd%»"}, ["match"], ["add_decl_doc"])
+    with pytest.raises(AllowlistError):
+        check_continuations({"theorem", "match"}, ["match"], [])
+    with pytest.raises(AllowlistError):
+        check_continuations({"«add_decl_doc»"}, [], ["add_decl_doc"])
+
+
+def test_continuation_that_is_a_command_in_the_environment_is_dropped():
+    """Se o ambiente tem `calc` como comando, `calc` deixa de ser continuação (fail-closed)."""
+    allow = {"allowed": set(), "syntax_extension": set(), "metaprogramming": {"calc"},
+             "unclassified": set(), "continuation": {"|"}, "doc_continuation": set()}
+    out = A._settle_continuations(allow, A.load_allowlist(TOOLCHAIN))
+    assert "calc" not in out["continuation"] and "match" in out["continuation"] and "|" in out["continuation"]
+    assert "add_decl_doc" in out["doc_continuation"]
+
+
+def test_add_decl_doc_only_right_after_a_docstring(proj):
+    """`docComment >> "add_decl_doc " >> ident` (Lean/Parser/Command.lean:939): sem a docstring
+    `/--` logo antes, `add_decl_doc` na coluna 0 continua não reconhecido."""
+    assert run(proj, "structure P where\n  x : Nat\n/-- doc -/\nadd_decl_doc P.x\n").unrecognized == []
+    for src in ["add_decl_doc P.x\n", "/-! doc do módulo -/\nadd_decl_doc P.x\n",
+                "/-- doc -/\ntheorem t : True := trivial\nadd_decl_doc t\n"]:
+        assert [(i.code, i.detail.get("token")) for i in run(proj, src).unrecognized] == \
+            [("unknown_command", "add_decl_doc")], src
+
+
+def test_percent_command_at_column_zero_is_classified_not_unknown(proj):
+    """`cmd%` é um token para o Lean: na coluna 0 sai pela classificação, não como desconhecido."""
+    r = run(proj, "cbv_simproc_pattern% foo\n")
+    assert codes(r.unrecognized) == ["metaprogramming_command"]
+
+
+def test_continuation_does_not_hide_risky_commands(proj):
+    r = run(proj, "def g : Nat :=\nlet y := 1; y\n#eval g\n(\n#eval g)\n")
+    assert codes(r.unrecognized) == ["metaprogramming_command", "metaprogramming_command"]
+
+
+@pytest.mark.parametrize("src", [
+    "def k (x : Nat) : Nat := match x with\n  | 0 => 1\n  | _ => 2\nexample : Nat := k .abbrev\n",
+    "def names : List Lean.Name := [`theorem, `lemma]\n",
+    "def finsum (lemma := finsum_def') : Nat := 0\n",
+    "structure U where\nattribute [class] U\n",
+    "@[class, simp] structure S where\n",
+])
+def test_declaration_keyword_in_non_declaration_position(proj, src):
+    """`.abbrev`, `` `lemma ``, `(lemma := …)`, `[class]`: não começam declaração (P0-2 a)."""
+    r = run(proj, src)
+    assert "declaration_name_unresolved" not in codes(r.unrecognized), r.unrecognized
+
+
+def test_real_declaration_name_still_required(proj):
+    r = run(proj, "theorem\n")
+    assert codes(r.unrecognized) == ["declaration_name_unresolved"]
+    r = run(proj, "axiom ax : False\nexample := (ax)\n")
+    assert [f.detail.get("name") for f in r.findings if f.code == "axiom"] == ["ax"]

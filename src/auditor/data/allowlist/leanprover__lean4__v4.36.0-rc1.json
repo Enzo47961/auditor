@@ -180,6 +180,29 @@
     ")",
     "]",
     "}",
-    "⟩"
+    "⟩",
+    "{",
+    "(",
+    "⟨",
+    "[",
+    "match",
+    "do",
+    "let",
+    "have",
+    "show",
+    "from",
+    "by",
+    "fun",
+    "if",
+    "then",
+    "else",
+    "for",
+    "calc",
+    "f!",
+    "s!",
+    "m!"
+  ],
+  "doc_continuation": [
+    "add_decl_doc"
   ]
 }

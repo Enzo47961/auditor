@@ -171,3 +171,13 @@ Nos 7 relatórios da camada 2 (primeiro run e PRs de medição), nenhuma declara
 O passo 9 testou o fluxo @auditor report acionado por OWNER. Não testou o caminho de um comentário de quem não tem acesso — a garantia é a condição author_association, travada por teste unitário, não testada end-to-end na camada 2. Requer segunda conta para teste end-to-end; fica como pendência de informação, não bloqueante.
 
 Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` (`author_association` em OWNER, MEMBER ou COLLABORATOR) e é travada por `test_report_workflow_requires_explicit_human_request`. O teste end-to-end está na pauta da Fase 1 (não bloqueia).
+
+## L-33. Código do usuário executado na elaboração por tática ou termo não é detectado pela Etapa A
+**Achado da Fase 1 (P0-2, 2026-10-22), aguardando decisão do revisor.** A L-17 torna fail-closed os *comandos* que podem executar código na elaboração, antes da Etapa B. Táticas e termos que fazem o mesmo não são detectados. Demonstrado no toolchain fixado (`leanprover/lean4:v4.36.0-rc1`):
+- `run_tac do (IO.FS.writeFile "marker" "x" : IO Unit)` (tática) e `by_elab do …` (termo) gravaram um arquivo durante o `lake build` do arquivo;
+- a Etapa A não registrou nenhum item;
+- o auditor completo deu `verified`, exit 0.
+
+O resultado da prova está correto (o kernel conferiu `True.intro`). O que falha é a garantia da L-17: código do PR roda no runner antes da inspeção, no mesmo usuário que tem o binário do inspetor em cache e o auditor instalado. Um atributo que registra elaborador ou extensão no próprio arquivo (`@[tactic …]`, `@[term_elab …]`, extensões de táticas do Mathlib) é uma via da mesma família, ainda não inventariada; uma tentativa com `@[tactic]` sobre `trivial` não executou no teste.
+
+Até a decisão, a limitação vale para todo relatório, e nenhum relaxamento de comando por (b) é aplicado.

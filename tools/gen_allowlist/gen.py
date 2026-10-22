@@ -20,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from auditor.allowlist import AllowlistError, core_path, extract_core, render  # noqa: E402
+from auditor.allowlist import AllowlistError, check_continuations, core_path, extract_core, render  # noqa: E402
 
 GENERATOR_VERSION = "1"
 
@@ -34,6 +34,7 @@ def build(toolchain: str) -> dict:
         if stale:
             sys.exit(f"classification.toml cita comandos inexistentes em {toolchain}: {sorted(stale)}")
     risky = set(cls["syntax_extension"]) | set(cls["metaprogramming"])
+    check_continuations(known, cls["continuation"], cls["doc_continuation"])
     return {
         "kind": "core",
         "toolchain": toolchain,
@@ -44,6 +45,7 @@ def build(toolchain: str) -> dict:
         "syntax_extension": sorted(cls["syntax_extension"]),
         "metaprogramming": sorted(cls["metaprogramming"]),
         "continuation": cls["continuation"],
+        "doc_continuation": cls["doc_continuation"],
     }
 
 

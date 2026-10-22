@@ -6,6 +6,28 @@ sem período de transição.
 
 ## Não lançado
 
+### Etapa A versão 3 (Fase 1, P0-2 (a), instrução 24)
+- **Menos falsos positivos na coluna 0.** Termo continuado na coluna 0 deixa de ser
+  `unknown_command`. Exemplos: `{ … with }`, `(…)`, `⟨…⟩`, `[…]`, `match`, `let`, `fun`, `do`,
+  `for`, `have`, `show`, `from`, `by`, `if`/`then`/`else`, `calc`, `f!`/`s!`/`m!`.
+  `add_decl_doc` é aceito na coluna 0 só logo depois de uma docstring `/--`. `cmd%` na coluna 0
+  sai pela classificação, não como desconhecido.
+- **Menos `declaration_name_unresolved` falsos:** `.abbrev`, `` `lemma ``, `(lemma := …)` e o
+  atributo `class` não são declarações.
+- **Guardas:** o gerador da allow-list (core e projeto) recusa (exit 2) uma continuação que seja
+  token inicial de comando no ambiente; a Etapa A descarta em tempo de execução qualquer
+  continuação que o projeto tenha como comando. As continuações do core valem também com uma
+  allow-list de projeto gerada antes (o fork não precisa ser regenerado).
+- Efeito medido (`docs/p0-2-fail-closed.md`): top-60 por fanout de 68,3 % para 65,0 % de
+  fail-closed; Mathlib inteiro de 15,4 % para 14,4 %.
+- **Achado registrado, sem correção (L-33):** `run_tac` e `by_elab` executam código do usuário na
+  elaboração sem que a Etapa A os detecte. Aguarda decisão do revisor.
+
+### Fase 1 — P0-1 (instrução 24)
+- Cenário de conformidade `08-generated-implemented-by`: `@[implemented_by]` gerado pelo Lean
+  (`T.ctorIdx`, `deriving TypeName`) sai `implemented_by_candidate`, nunca `verified`.
+- Ferramentas de medição em `tools/phase1/` (P0-1 e P0-2) e o workflow `auditor-measure` do fork.
+
 ### Fase 0 — closed unconditionally 2026-10-22 (auditor 69ed9cf)
 - Fechamento incondicional confirmado pelo revisor (instrução 24). Auditor `69ed9cf` executado no
   fork, `auditor-base` = `018d7db`; suíte **674** passed, 0 failed (run 39825726718); mutação
