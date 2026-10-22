@@ -4,6 +4,8 @@
 phase_0_status: "closed at layer 1 + layer 2 measurement, pending steps 8-9"
 ```
 
+**Atualização (2026-10-22, depois da instrução 22):** os passos 8 e 9 foram executados e a pendência da revisão externa foi respondida (seção "Condições"). A confirmação do fechamento incondicional é do revisor; até lá o status acima não muda.
+
 Fechamento declarado pelo revisor na instrução 22 (2026-10-22), com duas condições antes de a Fase 1 abrir:
 
 1. passos 8 (timeout / `auditor-failed-infra`) e 9 (`@auditor report` a pedido humano) do `docs/layer2-checklist.md`;
@@ -33,9 +35,16 @@ Depois dos passos 8 e 9, o revisor confirma o fechamento incondicional.
 | Todos os relatórios com `project_dirty: false` | cumprido | PRs #5–#8 e fumaça do `auditor-prep` (D-62) |
 | L-27 emendada ("Etapa A limpa") | cumprido | `docs/limitations.md` |
 | Esclarecimento do PR #6 | cumprido: (a) | erro de redação no relatório da instrução 20; sem bug na Etapa A |
-| Passo 8 (timeout / `auditor-failed-infra`) | **pendente** | — |
-| Passo 9 (`@auditor report` a pedido humano) | **pendente** | — |
-| Pendência da revisão externa descartada | **pendente** | `proposed-improvements.md` |
+| Passo 8 (timeout / `auditor-failed-infra`) | executado, passou | PR #9: `timeout_kind: file`, exit 2, `infra_failed: true`, job verde, PR mesclável, label `auditor-failed-infra`, nenhum comentário |
+| Passo 9 (`@auditor report` a pedido humano) | executado; 1ª tentativa falhou (bug corrigido), 2ª passou | PR #8: um comentário "Pedido por um humano", sumário correto (`maintenance.md`) |
+| Pendência da revisão externa descartada | respondida | outra IA sem acesso ao código-fonte (`proposed-improvements.md`) |
+
+## Condições
+
+- **Passo 8.** PR #9 (`l2-timeout-w`, `timeout-file-seconds: 5`, nunca para merge), run 39818035267: `Hydra.lean` `timeout` aos 5,54 s, `exit_code: 2`, `infra_failed: true`, `cache_state: warm`, job verde, `mergeable`, label `auditor-failed-infra`. Teste de referência em `maintenance.md`.
+- **Passo 9.** A 1ª tentativa (run 39818084000) respondeu "nenhuma execução" para um commit auditado: o filtro `head_sha` da API do GitHub não é determinístico. Corrigido no modelo `auditor-report.yml` (auditor `7ba9b6f`, fork `465d97e`); a 2ª tentativa (run 39821013448) postou um único comentário correto. Não testado: comentário de quem não tem acesso (exigiria outra conta); a garantia é a condição `author_association`, travada por teste.
+- **Revisão externa.** Outra IA, sem acesso ao código-fonte; diagnóstico e regras para a revisão independente da Fase 1 em `proposed-improvements.md`.
+- **Validação depois da correção:** suíte 666 passed (`7ba9b6f`); mutação 138/138.
 
 ## Medição na camada 2
 
@@ -53,6 +62,7 @@ A distinção entre medição no caminho de sucesso e medição no caminho fail-
 | #6 | `l2-medio-w` | `Algebra/Homology/Embedding/Connect.lean` | sucesso (arquivo) | `warm` | `7f7238d` | 129,7 s | sonda `verified`; 29 `verified` / 10 `unresolved`; exit 1 |
 | #7 | `l2-fanout-failclosed-w` | `Data/Set/Defs.lean` | fail-closed | `warm` | `7f7238d` | 142,1 s | 37/37 `unresolved` por `stage_a_unrecognized`; sonda `unresolved` (correto, L-17) |
 | #8 | `l2-fanout-success-w` | `Data/String/Defs.lean` (posição 4, 8147 dependentes) | sucesso | `warm` | `7f7238d` | 137,6 s | sonda `verified`; 9/9 `verified`; exit 0 |
+| #9 | `l2-timeout-w` | `Logic/Hydra.lean`, `timeout-file-seconds: 5` | passo 8 (infra) | `warm` | `7f7238d` | 119,3 s | `timeout`, exit 2, `infra_failed`, job verde, `auditor-failed-infra` |
 
 Em #5–#8: `clock_origin: trigger`, `build_cache: hit`, `inspector: hit`, `project_dirty: false`, nenhum sinal de ambiente nem timeout.
 
@@ -71,7 +81,7 @@ Em #5–#8: `clock_origin: trigger`, `build_cache: hit`, `inspector: hit`, `proj
 | Item | Resultado |
 |---|---|
 | Suíte (`ci.yml`, Linux) | 662 passed, 0 failed (runs 39758445713 sobre `7f7238d` e 39813452380 sobre `0c64a3e`) |
-| Mutação | 6 grupos, 135/135 detectadas, 0 sobreviventes, 0 puladas (`maintenance.md`) |
+| Mutação | 6 grupos, 135/135 detectadas, 0 sobreviventes, 0 puladas (`maintenance.md`); 138/138 depois da correção do passo 9 |
 | `auditor-prep` (run 39812801650) | verde; allow-list com 259 comandos, 0 sem classificação, 8651 módulos; `gen_tcb_roots --check` exit 0; fumaça 20/20, `project_dirty: false` |
 | Allow-list do Mathlib | regenerada no CI, idêntica byte a byte à commitada (run 39696176700) |
 
