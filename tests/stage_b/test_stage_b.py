@@ -321,7 +321,8 @@ def test_macro_custom_invisible_to_stage_b():
 def test_circular_dependency_is_build_failure():
     r = inspect("circular")
     assert r.build["status"] == "failure" and r.build["cycle_detected"] is True
-    assert r.declarations == [] and r.inspector is None
+    # L-33 (b): o inspetor é preparado ANTES do build do alvo; com o build falho, ele não roda
+    assert r.declarations == [] and r.inspector is not None and r.imports is None
 
 
 @pytest.fixture

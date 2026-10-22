@@ -21,7 +21,8 @@ def audit(tmp_path, env_extra, pythonpath):
     proj = tmp_path / "proj"
     shutil.copytree(FIX, proj, ignore=shutil.ignore_patterns(".lake"))
     out = tmp_path / "report.json"
-    env = {**os.environ, "PYTHONPATH": str(pythonpath), **env_extra}
+    env = {k: v for k, v in os.environ.items() if k != "AUDITOR_TAMPER_TARGET"}
+    env.update({"PYTHONPATH": str(pythonpath), **env_extra})
     p = subprocess.run([sys.executable, "-m", "auditor", "check", str(proj / "Fixture" / "Tamper.lean"),
                         "--output", str(out), "--policy", str(DEFAULT_POLICY)],
                        capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=900)
@@ -65,7 +66,7 @@ def test_tampering_with_the_inspector_binary_is_detected(tmp_path):
 def test_execution_without_tampering_is_rejected_not_tampered(tmp_path):
     """Sem alvo de adulteração, o hash não muda: o que vale é o (a), `run_tac` → Rejeitada."""
     require_lake()
-    code, r = audit(tmp_path, {"AUDITOR_TAMPER_TARGET": ""}, ROOT / "src")
+    code, r = audit(tmp_path, {}, ROOT / "src")
     assert code == 1
     assert "toolchain_tampered" not in reasons(r)
     assert {d["overall_status"] for d in r["declarations"]} == {"rejected"}

@@ -136,10 +136,15 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
                 allow_empty: bool = False, timeout_file_s: float = DEFAULT_TIMEOUT_FILE_S,
                 first_run_budget_s: float = DEFAULT_FIRST_RUN_BUDGET_S, build_cache: str = "none",
                 setup_elapsed_s: float = 0.0, clock_origin: str = "auditor_start") -> dict:
-    started = time.monotonic()
-    out_dir.mkdir(parents=True, exist_ok=True)
     existing = [f for f in files if Path(f).suffix == ".lean" and Path(f).is_file()]
     deleted = [f for f in files if Path(f).suffix == ".lean" and not Path(f).is_file()]
+    # L-33 (b), entre arquivos: cada `auditor check` é um processo novo, que carregaria um auditor
+    # adulterado pelo build do arquivo anterior (inclusive a própria checagem). Este processo foi
+    # carregado antes de qualquer build: ele confere o pacote e o inspetor depois de cada arquivo.
+    # A referência é tirada antes do relógio do orçamento: é custo do auditor, não da auditoria.
+    guard = _integrity(Path(existing[0])) if existing else None
+    started = time.monotonic()
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     inspector = _inspector_cached(Path(existing[0])) if existing else None
     state = cache_state(build_cache, inspector)
@@ -150,10 +155,6 @@ def audit_files(files: list[str], policy: str, out_dir: Path, budget_s: float = 
         _prebuild_inspector(Path(existing[0]))
 
     results, aborted, tampered = [], False, False
-    # L-33 (b), entre arquivos: cada `auditor check` é um processo novo, que carregaria um auditor
-    # adulterado pelo build do arquivo anterior (inclusive a própria checagem). Este processo foi
-    # carregado antes de qualquer build: ele confere o pacote e o inspetor depois de cada arquivo.
-    guard = _integrity(Path(existing[0])) if existing else None
     for i, f in enumerate(existing):
         entry = {"file": f, "report": None, "exit_code": None, "status": None,
                  "duration_s": 0.0, "timeout_s": None, "inspector_cache": None, "counts": {}}
