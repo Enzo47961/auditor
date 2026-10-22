@@ -151,6 +151,19 @@ def test_report_workflow_requires_explicit_human_request():
     assert "author_association" in cond and "github.event.issue.pull_request" in cond
 
 
+def test_report_workflow_finds_the_run_without_server_side_sha_filter():
+    """Passo 9 (instrução 22): `gh run list --commit` (filtro `head_sha` da API) respondeu "nenhuma
+    execução" para um commit auditado; a mesma consulta alterna entre 0 e 1 resultado. A busca
+    lista sem filtro e seleciona o commit no cliente; execução em andamento não é "falha de infra"."""
+    run = [s for s in steps(load(TPL / "auditor-report.yml")) if s.get("name") == "publicar o sumário pedido"][0]["run"]
+    assert "--commit" not in run and "head_sha=" not in run
+    assert "actions/workflows/auditor-tier1.yml/runs?per_page=100" in run
+    assert 'select(.head_sha == \\"$head\\")' in run
+    assert "grep -Eq '^[0-9a-f]{40}$'" in run          # o SHA vai para dentro do filtro jq
+    assert '[ "${run#* }" != "completed" ]' in run and "ainda em andamento" in run
+    assert run.index("ainda em andamento") < run.index("gh run download")
+
+
 def test_caller_template_runs_only_on_lean_changes():
     d = load(TPL / "auditor-tier1.yml")
     assert d["on"]["pull_request"]["paths"] == ["**.lean"]

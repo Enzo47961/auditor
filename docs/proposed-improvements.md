@@ -444,6 +444,16 @@ O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositóri
 - **Explicação do `inspector: miss` com arquivo `hit` (ressalva do relatório anterior):** o sinal de cache é medido antes da compilação prévia do inspetor (`_prebuild_inspector`); o campo do arquivo é medido depois dela. Os dois estão certos: o primeiro diz que o cache veio frio, o segundo que o arquivo não pagou a compilação.
 - **Origem da revisão externa descartada:** perguntada ao mantenedor três vezes, sem resposta. Registrado sem bloquear, por instrução do revisor. Se a Fase 1 precisar de revisão independente real, saber o que falhou na primeira tentativa vai importar.
 
+## Rodada da instrução 22 (arquivo `instrução20`) — Fase 0 fechada com condições
+
+- **Origem da revisão externa descartada: respondida pelo mantenedor.** Foi outra IA, **sem acesso ao código-fonte**. Diagnóstico: as 4 citações tinham o texto certo, mas em linhas deslocadas (+16 a +25). Isso é compatível com conhecimento prévio dos arquivos (outra versão, ou memória), sem o fonte do commit fixado aberto. Falha da primeira tentativa de revisão independente, diagnóstico: **revisor sem o fonte no commit fixado**. Consequências para a revisão independente da Fase 1:
+  - o revisor recebe o fonte no commit fixado (`e1b2403b` ou o vigente), não descrições nem trechos;
+  - toda citação traz arquivo, linha e SHA do commit;
+  - as citações são conferidas mecanicamente contra o commit antes de a revisão ser aceita: uma linha que não bate invalida a citação, como aconteceu aqui;
+  - o revisor se identifica (pessoa, ou modelo e sessão), com o grau de independência declarado (`reviewer_independence`).
+- **Passo 9 achou um bug real no `auditor-report`** (filtro `head_sha` da API não determinístico). Corrigido no modelo; detalhes em `maintenance.md`, "Testes de referência dos modos de falha do CI".
+- **Passo 8 passou de primeira:** timeout de arquivo → exit 2, `infra_failed`, job verde, label `auditor-failed-infra`, PR mesclável.
+
 ## Correções feitas na retomada (sessão no Windows)
 
 - O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.

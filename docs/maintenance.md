@@ -224,6 +224,20 @@ Um cache que sempre dá hit não testa o caminho que salva. Com o branch base aq
 
 Execução de referência (2026-10-22, auditor `7f7238d`): cache do inspetor do base apagado (id 9332096105); PR #6 (`Connect.lean`, exit 1) re-rodado (run 39760129710): tentativa 2 construiu e salvou em `refs/pull/6/merge`; tentativa 3 `inspector: hit`, `warm`, 125,2 s; base re-aquecido (run 39761275384).
 
+## Testes de referência dos modos de falha do CI (passos 8 e 9, instrução 22)
+
+**Passo 8: timeout de infraestrutura.** Num branch do fork, acrescentar `timeout-file-seconds: 5` ao `with:` do `auditor-tier1.yml` e tocar um `.lean` cuja auditoria leve mais que isso (`Mathlib/Logic/Hydra.lean`, ~13 s). Abrir o PR e nunca fazer merge. Esperado e verificado (PR #9, run 39818035267, auditor `7f7238d`):
+- arquivo `timeout`, `timeout_kind: file`, `duration_s` 5,54 com `timeout_s` 5;
+- `exit_code: 2`, `infra_failed: true`, `audit_failed: false`, `timeout_aborted: true`;
+- `cache_state: warm`, ou seja, o timeout não se confunde com cache frio;
+- job **verde**, PR `mergeable` (não bloqueia);
+- label `auditor-failed-infra` (não `auditor-first-run`);
+- nenhum comentário no PR.
+
+**Passo 9: `@auditor report`.** O dono do fork comenta `@auditor report` num PR já auditado. Esperado: um único comentário de `github-actions` com o sumário, começando por "Pedido por um humano". Primeira execução (PR #8, run 39818084000, 2026-10-22): **falhou**. Respondeu "nenhuma execução para o commit `769e23c`", embora a execução 39813522377 existisse e estivesse concluída. Causa: o filtro `head_sha` da API de execuções (usado por `gh run list --commit`) não é determinístico. A mesma consulta, repetida, alternou entre 0 e 1 resultado nos três endpoints (`/actions/runs`, `/actions/workflows/<arquivo>/runs`, `/actions/workflows/<id>/runs`). Não depende da versão do `gh`: 2.101.0 e 2.103.0 deram os dois resultados. Correção no modelo `auditor-report.yml`: listar sem filtro no servidor e selecionar o commit no cliente; execução ainda em andamento tem mensagem própria, em vez de "falha de infraestrutura". Conferida contra o fork (PRs #1, #5, #8, #9, três vezes cada). Teste e 3 mutações no grupo `ci`.
+
+Não testado na camada 2: um comentário de quem **não** tem acesso ao repositório não dispara o job. Exigiria uma segunda conta. A garantia é a condição `author_association` do job, travada por `test_report_workflow_requires_explicit_human_request`.
+
 ## Fixação de versões nos workflows (D-25)
 
 **Todas as actions em workflows do auditor são pinadas por SHA; atualização é PR que muda o SHA e é revisado.** Vale para este repositório (`.github/workflows/`) e para os modelos do repositório-alvo (`ci/templates/`). Tag é mutável; SHA de commit não. Se o publicador de uma action for comprometido, uma tag flutuante é um vetor de ataque à cadeia de suprimentos, exatamente o tipo de troca silenciosa que o auditor existe para detectar.

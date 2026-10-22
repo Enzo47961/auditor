@@ -18,6 +18,14 @@ sem período de transição.
 - Prioridades P0 da Fase 1 em `roadmap.md`: `@[implemented_by]` gerado na elaboração; taxa de
   fail-closed da Etapa A (68 % dos 60 arquivos de maior fanout).
 
+### Workflows (instrução 22)
+- **Correção no `auditor-report`:** o `@auditor report` respondia "nenhuma execução" para um commit
+  já auditado (passo 9 da camada 2). O filtro `head_sha` da API de execuções do GitHub (usado por
+  `gh run list --commit`) não é determinístico. A busca agora lista as 100 execuções mais recentes
+  do `auditor-tier1` e seleciona o commit no cliente. Uma execução em andamento ganha mensagem
+  própria, em vez de "falha de infraestrutura". **Repositórios-alvo precisam recopiar o modelo**
+  `ci/templates/auditor-report.yml`.
+
 ### Marco: validação completa antes da medição (2026-10-22)
 - Suíte no `ci.yml` (Linux) **633 passed, 0 failed** (`fe95112`). Mutação em 6 grupos **125/125**,
   depois de pegar 1 sobrevivente real: `classification_review_status` trocado por uma constante.

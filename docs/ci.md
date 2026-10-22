@@ -29,6 +29,19 @@ A lógica fica em `auditor-ci` (`src/auditor/ci.py`), testada em `tests/ci`. Os 
   - rejeição ou não resolução (`audit_failed`): um passo dedicado falha o job. Se o check é obrigatório é configuração do repositório-alvo (D-22).
 - **Sumário** no Job Summary, com o aviso "Correspondência: Não Auditada", `cache_state`, tempos (preparação, auditoria, total) e p95 por arquivo. **Relatórios completos** no artefato `auditor-report`, junto com `outcome.json` (formato `auditor-ci-outcome/2`) e `summary.md`.
 - **Comentário no PR só a pedido humano:** um comentário cuja primeira linha começa com `@auditor report`, de OWNER, MEMBER ou COLLABORATOR, publica o sumário da última execução para o commit atual. O sistema nunca comenta por iniciativa própria.
+
+### Fluxo humano acionado (`@auditor report`, passo 9 da camada 2)
+
+1. Um humano com acesso ao repositório comenta `@auditor report` no PR. O comentário fica no PR com a conta dele: a identificação do pedido é a do humano, não a de um bot.
+2. O `auditor-report` dispara por `issue_comment`. A condição do job exige PR, primeira linha começando por `@auditor report` e `author_association` em OWNER, MEMBER ou COLLABORATOR. Qualquer outro comentário não cria job.
+3. O job não faz checkout e não executa código do PR. Instala o auditor no SHA fixado e lê o `headRefOid` do PR (conferido como 40 hex).
+4. Localiza a execução do `auditor-tier1` para esse commit listando as 100 execuções mais recentes do workflow e selecionando pelo `head_sha` no cliente. O filtro `head_sha` da API (o que `gh run list --commit` usa) não é determinístico (passo 9, instrução 22).
+5. Responde com **um** comentário, assinado por `github-actions`:
+   - execução encontrada e concluída: o sumário (`auditor-ci comment`), começando por "Pedido por um humano";
+   - execução em andamento: aviso para pedir de novo quando terminar;
+   - execução concluída sem o artefato `auditor-report`: falha de infraestrutura;
+   - nenhuma execução entre as 100 mais recentes: aviso com o commit.
+6. O relatório completo continua só no artefato `auditor-report` da execução do `auditor-tier1`. O comentário é o sumário.
 - **Cache do inspetor (D-7):** `actions/cache` em `~/.cache/auditor`, chave por ref do auditor + `lean-toolchain`. O Job Summary registra, por arquivo, se o binário estava em cache (`hit`/`miss`).
 - **Fixação de versões (D-25, obrigatória):** toda action por SHA de commit, com a versão num comentário; elan baixado da release `v4.2.4` e conferido por SHA-256. O `elan-init.sh` não é usado: mesmo tirado de uma tag, ele baixa a release `latest` do elan. Procedimento de atualização em `docs/maintenance.md`.
 

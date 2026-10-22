@@ -22,6 +22,7 @@ CI = "src/auditor/ci.py"
 GT = "tools/gen_tcb_roots.py"
 WT = ".github/workflows/auditor-tier1.yml"
 WW = ".github/workflows/auditor-warm-cache.yml"
+TR = "ci/templates/auditor-report.yml"
 
 GROUPS = {
     "stage_a": {
@@ -207,6 +208,10 @@ GROUPS = {
             (WT, r"        if: always() && steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready",
              r"        if: steps.inspector-cache.outputs.cache-hit != 'true' && steps.inspector-ready"),
             (WW, r"        run: auditor-ci inspector --project .", r"        run: auditor-ci inspector --project . --check"),
+            # instrução 22 (passo 9): busca da execução sem o filtro head_sha do servidor
+            (TR, r'select(.head_sha == \"$head\")', r'select(true)'),
+            (TR, r"""if ! printf '%s' "$head" | grep -Eq '^[0-9a-f]{40}$'; then""", r"if false; then"),
+            (TR, r'          if [ "${run#* }" != "completed" ]; then', r'          if false; then'),
             (WW, r"    runs-on: ubuntu-24.04   # fixado (D-55); o mesmo runner", r"    runs-on: ubuntu-22.04   # fixado (D-55); o mesmo runner"),
             (WW, "          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.sha }}\n\n      - name: resumo",
              "          key: mathlib-cache-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}-${{ github.ref }}\n\n      - name: resumo"),

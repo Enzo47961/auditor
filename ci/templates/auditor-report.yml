@@ -38,10 +38,22 @@ jobs:
           PR: ${{ github.event.issue.number }}
         run: |
           head=$(gh pr view "$PR" --repo "$REPO" --json headRefOid --jq .headRefOid)
-          run_id=$(gh run list --repo "$REPO" --workflow auditor-tier1.yml --commit "$head" --limit 1 \
-                     --json databaseId --jq '.[0].databaseId // empty')
-          if [ -z "$run_id" ]; then
-            gh pr comment "$PR" --repo "$REPO" --body "auditor: nenhuma execução para o commit \`$head\`."
+          if ! printf '%s' "$head" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "headRefOid inesperado: $head" >&2
+            exit 1
+          fi
+          # Passo 9 da camada 2 (instrução 22): o filtro `head_sha` da API (o que `gh run list` usa)
+          # não é determinístico: a mesma consulta alterna entre 0 e 1 resultado. A busca lista as
+          # execuções recentes SEM filtro no servidor e seleciona o commit aqui.
+          run=$(gh api "repos/$REPO/actions/workflows/auditor-tier1.yml/runs?per_page=100" \
+                  --jq "[.workflow_runs[] | select(.head_sha == \"$head\")][0] | select(. != null) | \"\(.id) \(.status)\"")
+          if [ -z "$run" ]; then
+            gh pr comment "$PR" --repo "$REPO" --body "auditor: nenhuma execução do auditor-tier1 encontrada para o commit \`$head\` (entre as 100 mais recentes)."
+            exit 0
+          fi
+          run_id=${run%% *}
+          if [ "${run#* }" != "completed" ]; then
+            gh pr comment "$PR" --repo "$REPO" --body "auditor: execução $run_id do commit \`$head\` ainda em andamento; peça de novo quando terminar."
             exit 0
           fi
           if ! gh run download "$run_id" --repo "$REPO" --name auditor-report --dir rep; then
