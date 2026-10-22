@@ -17,10 +17,11 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-STAGE_A_VERSION = "4"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
+STAGE_A_VERSION = "5"   # 2: `module` de cabeçalho (D-57); comandos-símbolo só no início (D-56)
 # 3 (Fase 1, P0-2 a): continuações de termo e `add_decl_doc` depois de docstring na coluna 0;
 #   chave `cmd%` na coluna 0; continuações do core valem também com allow-list de projeto
 # 4 (Fase 1, L-33 a): `run_tac` e `by_elab` em qualquer posição → `elaboration_code_execution`
+# 5 (Fase 1, 1b): `set_option … in` se vincula através de `open … in` e a `instance` com nome escrito
 DATA = Path(__file__).resolve().parent.parent / "data"
 CONFUSABLES_FILE = DATA / "unicode" / "confusables-16.0.0.txt"
 
@@ -586,6 +587,27 @@ def _bound_declaration(toks: list[Token], k: int, ns: list[str | None]) -> str |
         elif t.kind == "ident" and t.text == "unlock_limits" and k + 1 < len(toks) \
                 and toks[k + 1].text == "in":
             k += 2
+        elif t.kind == "ident" and t.text == "open":
+            # `open A B in <cmd>` encadeado (Fase 1, 1b): o comando seguinte é o do `in`
+            j = k + 1
+            while j < len(toks) and toks[j].kind == "ident" and toks[j].text != "in" \
+                    and toks[j].text not in DECL_KEYWORDS:
+                j += 1
+            if j < len(toks) and toks[j].kind == "ident" and toks[j].text == "in" and j > k + 1:
+                k = j + 1
+            else:
+                return None
+        elif t.kind == "ident" and t.text == "instance":
+            # `instance [(priority := n)] nome …` tem nome escrito; sem ele, o nome é gerado: sem vínculo
+            j = k + 1
+            if j + 1 < len(toks) and toks[j].text == "(" and toks[j + 1].text == "priority":
+                while j < len(toks) and toks[j].text != ")":
+                    j += 1
+                j += 1
+            if j < len(toks) and toks[j].kind == "ident" and toks[j].text not in DECL_KEYWORDS:
+                raw = toks[j].text
+                return raw[len("_root_."):] if raw.startswith("_root_.") else ".".join([*(x for x in ns if x), raw])
+            return None
         elif t.kind == "ident" and t.text in DECL_KEYWORDS and t.text not in ANONYMOUS_OK \
                 and k + 1 < len(toks) and toks[k + 1].kind == "ident":
             raw = toks[k + 1].text

@@ -316,3 +316,10 @@ GROUPS["ci"]["mutations"] += [
     (CI, '        if changed:\n            entry["status"], entry["tampered"], tampered =',
      '        if False:\n            entry["status"], entry["tampered"], tampered ='),
 ]
+# Fase 1, 1b: vínculo de `set_option … in` através de `open … in` e a `instance` com nome
+GROUPS["stage_a"]["mutations"] += [
+    (SA, '                k = j + 1\n            else:\n                return None',
+     '                return None\n            else:\n                return None'),
+    (SA, '            if j < len(toks) and toks[j].kind == "ident" and toks[j].text not in DECL_KEYWORDS:\n                raw',
+     '            if False:\n                raw'),
+]

@@ -434,3 +434,23 @@ def test_core_risk_classification_prevails_over_older_project_allowlist():
     out = A._settle_continuations(allow, A.load_allowlist(TOOLCHAIN))
     assert "show_panel_widgets" in out["metaprogramming"] and "show_panel_widgets" not in out["allowed"]
     assert "theorem" in out["allowed"]
+
+
+# ------------------------------------------------------------------ Fase 1, 1b: vínculo de `set_option … in`
+
+@pytest.mark.parametrize("src,expected", [
+    # `open … in` encadeado depois de `set_option … in` (padrão do Mathlib)
+    ("namespace N\nset_option maxHeartbeats 0 in\nopen Nat in\ntheorem t : True := trivial\nend N\n", "N.t"),
+    ("set_option maxHeartbeats 0 in\nopen Nat Finset in\nlemma u : True := trivial\n", "u"),
+    # `instance` com nome escrito, com e sem prioridade
+    ("namespace N\nset_option maxHeartbeats 0 in\ninstance instFoo : Inhabited Nat := ⟨0⟩\nend N\n", "N.instFoo"),
+    ("set_option maxHeartbeats 0 in\ninstance (priority := 100) instBar : Inhabited Nat := ⟨0⟩\n", "instBar"),
+    # instância anônima: nome gerado, sem vínculo (fail-closed)
+    ("set_option maxHeartbeats 0 in\ninstance : Inhabited Nat := ⟨0⟩\n", None),
+    ("set_option maxHeartbeats 0 in\ninstance [Inhabited Nat] : Inhabited (List Nat) := ⟨[]⟩\n", None),
+    # `open` sem `in` não é encadeamento
+    ("set_option maxHeartbeats 0 in\nopen Nat\ntheorem t : True := trivial\n", None),
+])
+def test_set_option_in_binds_through_open_in_and_named_instance(proj, src, expected):
+    r = run(proj, src)
+    assert [f.detail["applies_to"] for f in r.findings if f.code == "set_option"] == [expected]
