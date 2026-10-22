@@ -6,6 +6,18 @@ sem período de transição.
 
 ## Não lançado
 
+### Fase 0 — closed at layer 1 + layer 2 measurement level, author-self-review declared, pending steps 8-9 (2026-10-22)
+- Fechamento declarado pelo revisor (instrução 22). Evidência consolidada em `docs/phase0-report.md`:
+  3 PRs `warm` no caminho de sucesso abaixo de 5 min (126 s, 130 s, 138 s), sonda do fanout
+  `verified` (`Data/String/Defs.lean`, 9/9), caminho fail-closed reportado à parte (PR #7), 662
+  testes, mutação 135/135, allow-list idêntica byte a byte, todos os relatórios com
+  `classification_review_status: author-self-review` e `project_dirty: false`.
+- **Condições antes de a Fase 1 abrir:** passos 8 (timeout / `auditor-failed-infra`) e 9
+  (`@auditor report` a pedido humano) do checklist da camada 2; pendência da revisão externa
+  descartada fechada (respondida ou declarada como não respondida).
+- Prioridades P0 da Fase 1 em `roadmap.md`: `@[implemented_by]` gerado na elaboração; taxa de
+  fail-closed da Etapa A (68 % dos 60 arquivos de maior fanout).
+
 ### Marco: validação completa antes da medição (2026-10-22)
 - Suíte no `ci.yml` (Linux) **633 passed, 0 failed** (`fe95112`). Mutação em 6 grupos **125/125**,
   depois de pegar 1 sobrevivente real: `classification_review_status` trocado por uma constante.

@@ -18,6 +18,8 @@ Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta *
 
 ## Status
 
+**Estado (2026-10-22): Fase 0 closed at layer 1 + layer 2 measurement level, pending steps 8-9** (`docs/phase0-report.md`; classificação `author-self-review`, L-26). A Fase 1 não abre antes dos passos 8 e 9 do checklist da camada 2 e do fechamento da pendência da revisão externa descartada.
+
 **Fase 0 = Camada 1 (done) + Camada 2 (pending user evidence).** A Fase 0 **não está done**: só é done quando as duas camadas estão completas. O critério de go/no-go da Fase 0 é a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1. **A próxima decisão de projeto (início da Fase 1) depende da camada 2**; os itens da Fase 1 já decididos estão em `docs/roadmap.md`.
 
 **Camada 1 — done no ambiente do builder.** Itens verificáveis sem Mathlib, com evidência produzida no ambiente de desenvolvimento. Toolchain fixado: **`leanprover/lean4:v4.36.0-rc1`** (o do Mathlib `master`, instrução 12). **Q9 decidida (instrução 13):** `native_decide` nunca sai `verified` na Fase 0 (fail-closed permanente; reavaliação pelo kernel é pesquisa da Fase 1).
