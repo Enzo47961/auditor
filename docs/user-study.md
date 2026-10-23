@@ -250,7 +250,14 @@ Contando por causa distinta, há 25 alertas de causa conhecida e 13 outros. Dos 
 
 **Data do pré-registro:** 23/10/2026. É anterior ao envio do convite, a qualquer resposta e a qualquer formulário. Esta seção substitui as definições de falso alerta das seções 0 e 4 onde elas divergirem. Nada daqui muda depois dos dados; um desvio só pode ser reportado como desvio, com o motivo.
 
-**Artefatos congelados** (commit `4feec56` do auditor; SHA-256 do conteúdo no commit):
+**Congelamento:**
+- **data:** 23/10/2026;
+- **run que gerou os alertas:** 39977160187 (`auditor-study`, modo `study`; auditor `ae9f791`; Mathlib `e1b2403b`);
+- **commit dos artefatos:** `4feec56`.
+
+Qualquer um pode conferir que os alertas não mudaram entre o congelamento e a análise: os hashes abaixo são do conteúdo no commit, e a run guarda os relatórios de origem.
+
+**Artefatos congelados** (SHA-256 do conteúdo no commit `4feec56`):
 
 | Artefato | Origem | SHA-256 |
 |---|---|---|
@@ -286,7 +293,8 @@ As regras:
 - **Taxa de falsos alertas** (critérios das seções 5 e 6) = categoria 2 / (categoria 1 + categoria 2), em **declarações**, **só no estrato sucesso**.
   - No estrato fail-closed, a categoria 1 é rara, e a taxa não é definida.
   - A categoria 2 também é reportada em causas.
-  - A unidade é declaração porque a categoria 1 (`verified`) não tem causa. Esta leitura da fórmula da instrução 30 está marcada para confirmação do revisor.
+  - A unidade é declaração porque a categoria 1 (`verified`) não tem causa. **Confirmado pelo revisor** (instrução 31). O denominador é o conjunto das declarações que a ferramenta avaliou sem alarme (1) ou com alarme falso (2). As categorias 3 e 4 ficam fora, porque admitem limitação em vez de avaliar.
+  - **Os dois números são sempre reportados:** a taxa em declarações (a fórmula) e a contagem em causas distintas (transparência).
 - **Taxa de não-cobertura** = categoria 4 / todas as declarações, por estrato, com o número de causas e o tempo que o revisor gastou nelas (coluna `noncoverage_min`).
 - **T_net principal** = T_convencional − (T_assistido − tempo em causas conhecidas), por PR.
   - O resultado é a **mediana** dos 10 PRs, reportada também por estrato.
@@ -333,3 +341,22 @@ Classificação de `study/alerts.json` (`study/categories.json`), em declaraçõ
 - o falso alerta **percebido** pelos revisores.
 
 Isto é declarado aqui para não parecer, depois, que o critério de precisão foi "aprovado" pelo estudo: ele foi fixado pela saída congelada da ferramenta.
+
+**Ressalva obrigatória (instrução 31).** O 0 % da categoria 2 foi fixado pelos dados congelados, gerados antes dos formulários. **Ele mede a ferramenta no escopo que ela cobre, não na configuração de produção**, e não é uma propriedade universal. Qualquer apresentação deste resultado deve trazer as três qualificações abaixo, além da L-26 (classificação auto-revisada):
+- **Amostra pequena e de um momento:** 10 PRs (5 no estrato sucesso), integrados ao Mathlib entre 21 e 22/10/2026 e reaplicados sobre `e1b2403b`. Não é uma estimativa para o Mathlib inteiro.
+- **"Falso alerta" aqui ≠ "falso positivo" da 1b.** Os 28,6 % da 1b (L-31) contavam toda prova correta que não saiu `verified`. Os 10 casos eram `Não resolvida` por `ctorIdx` gerado ou por `backward.*`, o que nesta taxonomia é a **categoria 3**, não a 2. A categoria 2 da 1b também foi zero. O número comparável aos 28,6 % é a proporção de declarações corretas que não saem `verified` no estrato sucesso: categoria 3 / (1 + 3) = **119 / 751 = 15,8 %**, por causas conhecidas. É reportado junto.
+- **As causas conhecidas continuam na amostra.** Com a exclusão por declaração (instrução 28), `ctorIdx` e `backward.*` não saíram da amostra: entram como categoria 3, contadas e cronometradas à parte. A Fase 2, ao corrigir essas causas, re-mede com a amostra completa.
+
+*Texto sugerido pelo revisor (instrução 31), registrado como foi recebido.* "O 0% de categoria 2 foi fixado pelos dados congelados (alertas gerados antes dos formulários) e é consequência direta da exclusão (B): a amostra exclui arquivos que caem por `ctorIdx` gerado e por `backward.*`, que são as duas causas conhecidas de falso positivo na 1b (L-31). O 0% mede a ferramenta no escopo que ela cobre, não na configuração de produção. A Fase 2, quando corrigir essas duas causas, re-mede com amostra completa. Qualquer apresentação deste resultado deve declarar essa qualificação."
+
+O texto adotado acima difere do sugerido em dois fatos:
+- a exclusão (B) por PR foi substituída pela exclusão por declaração (instrução 28), e as duas causas estão na amostra;
+- as duas causas produziam `Não resolvida` (categoria 3), não categoria 2. Por isso, excluí-las não explicaria o 0 % da categoria 2.
+
+A divergência foi levada ao revisor (relatório de 23/10).
+
+### 11.7 Critério × diagnóstico (instrução 31)
+
+O critério de falsos alertas (< 30 %) aplica-se **apenas à categoria 2 mecânica**. O falso alerta percebido, isto é, as causas das categorias 3 e 4 que os revisores julgaram falsas, é reportado como **diagnóstico**, não como critério. A distinção existe porque o mecânico mede uma propriedade do output, e o percebido mede a experiência do revisor, que depende do briefing e das expectativas.
+- O diagnóstico é reportado por categoria, com as razões dadas pelos revisores.
+- Se um revisor julgar a não-cobertura (categoria 4) "falso alerta", isso indica que o briefing não explicou bem a diferença. O briefing pode ser ajustado antes do próximo estudo, mas isso não invalida o resultado atual.
