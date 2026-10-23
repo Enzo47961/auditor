@@ -98,3 +98,37 @@ O custo por revisor é de cerca de 7 revisões de 15 a 25 minutos, mais 15 minut
 - **Nomes:** só com consentimento explícito de cada participante.
 - **Qualificação obrigatória em todo lugar:** a classificação é auto-revisada (L-26), e o escopo é o da opção (B).
 - **Resultado:** registrado nesta página e, se for o caso, como L-32.
+
+## 8. Resultado da seleção e da exclusão (B): parada para decisão (2026-10-23)
+
+**Seleção mecânica** (`tools/phase1/study_select.py`; `study/selection.json`): dos 31 PRs integrados ao Mathlib depois de `e1b2403b`, **13 elegíveis**, 8 do estrato sucesso e 5 do fail-closed. Os demais saíram por CI, documentação, infraestrutura, mais de 5 arquivos ou diff que não aplica.
+
+**Exclusão (B), por PR** (`tools/phase1/study_audit.py`; `study/audit.json`; run 39936018705): **9 dos 13 excluídos**.
+
+| PR | Estrato | Exclusão | `verified` / declarações |
+|---|---|---|---|
+| #45105 | fail-closed | `backward.*` | 0/248 |
+| #45097 | fail-closed | mantido | 229/432 |
+| #45102 | sucesso | `backward.*` | 82/83 |
+| #43841 | sucesso | mantido | 0/88 (só `target_defines_executable_code`: um delaborador) |
+| #44400 | sucesso | mantido | 62/62 |
+| #44425 | fail-closed | `backward.*`, `ctorIdx` | 0/175 |
+| #44511 | fail-closed | `backward.*` | 222/636 |
+| #44969 | fail-closed | `backward.*` | 90/293 |
+| #45117 | sucesso | `backward.*` | 76/77 |
+| #44973 | sucesso | `backward.*` | 88/117 |
+| #45025 | sucesso | mantido | 114/114 |
+| #45180 | sucesso | `backward.*` | 73/74 |
+| #45114 | sucesso | `backward.*` | 177/178 |
+
+**Mantidos:** 3 do sucesso (#43841, #44400, #45025) e 1 do fail-closed (#45097). Faltam 6 para os 10.
+
+**Achado 1: `backward.*` está em quase todo arquivo alterado.** Em 5 dos 9 excluídos, a causa é **uma** declaração entre 74 e 178. A exclusão por PR elimina o PR inteiro por uma declaração.
+
+**Achado 2: a regra por ambiente da L-33a dispara em arquivos matemáticos.** As constantes marcadas (`target_defines_executable_code`) são:
+- **delaboradores:** escritos à mão (`@[delab …]`, como `WithAbs.delabToAbs`) ou gerados por `notation`/`notation3` (`…_delab_app_…`);
+- **extensões do `positivity`** (`@[positivity]`): `evalIntervalLength`, `evalGelfandRadius`.
+
+Os dois são código que o elaborador executa: delaboradores, ao formatar mensagens durante a elaboração; `positivity`, quando a tática é usada. Pela L-33a, `Não resolvida` é o resultado correto (fail-closed). Mas é um **custo de cobertura não medido até aqui**: no #43841, um único delaborador derruba as 88 declarações do arquivo. Esse custo apareceu em 5 dos 13 PRs. Nos arquivos com `notation`, ele se soma ao fail-closed da Etapa A.
+
+**Decisão pedida ao revisor** antes de o convite ser enviado e de os defeitos serem injetados: relatório de 23/10, perguntas 1 e 2.

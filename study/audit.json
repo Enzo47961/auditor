@@ -1,0 +1,275 @@
+{
+ "base": "e1b2403bdd31a2756e30282d62b3fa54cc95c869",
+ "rule": "exclusão (B): ctorIdx gerado ou backward.* (instrução 26)",
+ "kept": {
+  "success": [
+   43841,
+   44400,
+   45025
+  ],
+  "fail_closed": [
+   45097
+  ]
+ },
+ "excluded": [
+  {
+   "pr": 45105,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 45102,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 44425,
+   "causes": [
+    "backward.*",
+    "ctorIdx"
+   ]
+  },
+  {
+   "pr": 44511,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 44969,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 45117,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 44973,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 45180,
+   "causes": [
+    "backward.*"
+   ]
+  },
+  {
+   "pr": 45114,
+   "causes": [
+    "backward.*"
+   ]
+  }
+ ],
+ "run": "auditor-measurements run 39936018705, auditor f385e3a",
+ "prs": [
+  {
+   "pr": 45105,
+   "sha": "7e47a8809dbc44c9b493fe3779e42207b22e56c1",
+   "author": "vihdzp",
+   "stratum": "fail_closed",
+   "files": [
+    "Mathlib/SetTheory/Ordinal/Basic.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 248,
+   "verified": 0
+  },
+  {
+   "pr": 45097,
+   "sha": "b575e0bbdec41cf856f3f53ee0d30f83820c645b",
+   "author": "sgouezel",
+   "stratum": "fail_closed",
+   "files": [
+    "Mathlib/MeasureTheory/MeasurableSpace/Defs.lean",
+    "Mathlib/MeasureTheory/Measure/Continuity.lean",
+    "Mathlib/MeasureTheory/Measure/NullMeasurable.lean",
+    "Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean",
+    "Mathlib/Probability/Process/Stopping.lean"
+   ],
+   "excluded": false,
+   "exclusion_causes": [],
+   "declarations": 432,
+   "verified": 229
+  },
+  {
+   "pr": 45102,
+   "sha": "88ae51157d07d52ce2075da8039ba0b3f4355730",
+   "author": "wwylele",
+   "stratum": "success",
+   "files": [
+    "Mathlib/Analysis/Calculus/FDeriv/Analytic.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 83,
+   "verified": 82
+  },
+  {
+   "pr": 43841,
+   "sha": "573535abb37a6d98df5f7ad70993a75724d14cb7",
+   "author": "tb65536",
+   "stratum": "success",
+   "files": [
+    "Mathlib/Analysis/Normed/Ring/WithAbs.lean"
+   ],
+   "excluded": false,
+   "exclusion_causes": [],
+   "declarations": 88,
+   "verified": 0
+  },
+  {
+   "pr": 44400,
+   "sha": "7f647dda2a986b7b020eff340382f564796ad59a",
+   "author": "sgouezel",
+   "stratum": "success",
+   "files": [
+    "Mathlib/RingTheory/MvPowerSeries/Restricted.lean"
+   ],
+   "excluded": false,
+   "exclusion_causes": [],
+   "declarations": 62,
+   "verified": 62
+  },
+  {
+   "pr": 44425,
+   "sha": "91cc66b80f73d67fa20730e411b99826bde933f0",
+   "author": "JovanGerb",
+   "stratum": "fail_closed",
+   "files": [
+    "Mathlib/Algebra/Order/Interval/Basic.lean",
+    "Mathlib/Data/FP/Basic.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*",
+    "ctorIdx"
+   ],
+   "declarations": 175,
+   "verified": 0
+  },
+  {
+   "pr": 44511,
+   "sha": "cfc1b3da268fe6af6c74ccb4a91fe52de42a34c0",
+   "author": "eric-wieser",
+   "stratum": "fail_closed",
+   "files": [
+    "Mathlib/MeasureTheory/Function/SimpleFunc.lean",
+    "Mathlib/MeasureTheory/Integral/Lebesgue/Basic.lean",
+    "Mathlib/MeasureTheory/Integral/Lebesgue/Countable.lean",
+    "Mathlib/Topology/Algebra/InfiniteSum/Basic.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 636,
+   "verified": 222
+  },
+  {
+   "pr": 44969,
+   "sha": "4e006b96901cfe4f8e7261376d330974dff1e02f",
+   "author": "tb65536",
+   "stratum": "fail_closed",
+   "files": [
+    "Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean",
+    "Mathlib/Analysis/Matrix/Normed.lean",
+    "Mathlib/NumberTheory/NumberField/House.lean",
+    "Mathlib/NumberTheory/SiegelsLemma.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 293,
+   "verified": 90
+  },
+  {
+   "pr": 45117,
+   "sha": "94d4e1d4cc69cbd57e34133f2d5c9d8c48c00f9c",
+   "author": "SnirBroshi",
+   "stratum": "success",
+   "files": [
+    "Mathlib/LinearAlgebra/Matrix/Rank.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 77,
+   "verified": 76
+  },
+  {
+   "pr": 44973,
+   "sha": "6fcf84ef4d59992492e50df6ea5135af79118a96",
+   "author": "tb65536",
+   "stratum": "success",
+   "files": [
+    "Mathlib/Analysis/Matrix/GelfandRadius.lean",
+    "Mathlib/Analysis/Matrix/Normed.lean",
+    "Mathlib/Analysis/Normed/Algebra/GelfandRadius.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 117,
+   "verified": 88
+  },
+  {
+   "pr": 45025,
+   "sha": "ba5499e069f24171b4be2229dea365c897205f5e",
+   "author": "NirvanaC93",
+   "stratum": "success",
+   "files": [
+    "Mathlib/Algebra/Ring/Parity.lean"
+   ],
+   "excluded": false,
+   "exclusion_causes": [],
+   "declarations": 114,
+   "verified": 114
+  },
+  {
+   "pr": 45180,
+   "sha": "d414f239922da523b382f46e3100b3f34f23f564",
+   "author": "tb65536",
+   "stratum": "success",
+   "files": [
+    "Mathlib/Algebra/Module/Submodule/Range.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 74,
+   "verified": 73
+  },
+  {
+   "pr": 45114,
+   "sha": "d79fa7b650321259f6f7257eec20974e91979f8d",
+   "author": "YaelDillies",
+   "stratum": "success",
+   "files": [
+    "Mathlib/Algebra/FreeMonoid/Basic.lean"
+   ],
+   "excluded": true,
+   "exclusion_causes": [
+    "backward.*"
+   ],
+   "declarations": 178,
+   "verified": 177
+  }
+ ]
+}
