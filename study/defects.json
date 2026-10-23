@@ -1,5 +1,5 @@
 {
- "rule": "instruções 27 e 28: defeito injetado em PR real, alteração pontual; a razão do alerta não pode ser de causa conhecida (ctorIdx, backward.*, delaborador/positivity)",
+ "rule": "instruções 27 e 28: defeito injetado em PR real, alteração pontual; a razão do alerta não pode ser de causa conhecida (ctorIdx, backward.*, delaborador/positivity); `defect_reasons`: razões que, nos arquivos do defeito, correspondem ao defeito real (categoria 5 da taxonomia, instrução 30)",
  "known_causes": [
   "implemented_by_candidate:ctorIdx",
   "set_option:backward.*",
@@ -35,7 +35,11 @@
      "reason": "sorryAx_detected"
     }
    ],
-   "history": "primeira versão em #45025 (`isUnit_mul_self_iff`), conferida na run 39973055204; movida para #44400 porque, pela regra mecânica (ordem de integração), #45025 é o 6º do estrato sucesso e fica fora dos 5 (instrução 29)"
+   "history": "primeira versão em #45025 (`isUnit_mul_self_iff`), conferida na run 39973055204; movida para #44400 porque, pela regra mecânica (ordem de integração), #45025 é o 6º do estrato sucesso e fica fora dos 5 (instrução 29)",
+   "defect_reasons": [
+    "sorryAx_detected"
+   ],
+   "to_additive": "A propagação via `to_additive` faz parte do teste, não é acidente (instrução 30): o `sorry` está no lema multiplicativo `Set.mul_mem_mul`, e o arquivo do PR depende da versão aditiva GERADA, `Set.add_mem_add`. O teste mede a detecção transitiva através de lemas gerados."
   },
   {
    "id": "B",
@@ -58,6 +62,12 @@
      "status": "Rejeitada",
      "reason": "implemented_by_reaches_native_eval"
     }
+   ],
+   "defect_reasons": [
+    "implemented_by_reaches_native_eval",
+    "implemented_by_candidate",
+    "native_decide_unjustified",
+    "native_auxiliary_axiom"
    ]
   }
  ]

@@ -256,34 +256,63 @@ def test_study_assignment_respects_constraints_and_is_reproducible():
     assert sum(len(v) for v in a1["order"].values()) == 20
 
 
-def test_study_report_separates_known_causes_and_defect_outcomes(tmp_path):
+def _decl(file, name, verified, *reasons):
+    return {"file": file, "declaration": name, "verified": verified,
+            "reasons": [{"file": file, "code": c, "option": None, "known_cause": k} for c, k in reasons]}
+
+
+def test_study_taxonomy_five_categories():
+    alerts = {"1": {"declarations": [
+        _decl("A.lean", "ok", True),
+        _decl("A.lean", "planted", False, ("sorryAx_detected", False)),
+        _decl("A.lean", "known", False, ("target_defines_executable_code", True)),
+        _decl("B.lean", "fc", False, ("stage_a_unrecognized", False), ("target_defines_executable_code", True)),
+        _decl("B.lean", "liar", False, ("orphan_justification", False))]}}
+    defects = {"defects": [{"id": "A", "pr": 1, "files": ["A.lean"], "defect_reasons": ["sorryAx_detected"],
+                            "expect": []}]}
+    c = study_run.classify(alerts, defects)["1"]
+    assert [d["category"] for d in c["declarations"]] == [1, 5, 3, 4, 2]
+    assert {x["cause"]: x["category"] for x in c["causes"]} == {
+        "A.lean:sorryAx_detected": 5, "A.lean:target_defines_executable_code": 3,
+        "B.lean:stage_a_unrecognized": 4, "B.lean:target_defines_executable_code": 3,
+        "B.lean:orphan_justification": 2}
+
+
+def test_study_report_preregistered_metrics(tmp_path):
     prs = [{"pr": 1, "stratum": "success", "author": "x"}, {"pr": 2, "stratum": "fail_closed", "author": "y"}]
     assignment = {"seed": 1, "prs": prs, "order": {"A": [{"order": 1, "pr": 1, "condition": "with"},
                                                          {"order": 2, "pr": 2, "condition": "without"}],
                                                    "B": [{"order": 1, "pr": 2, "condition": "with"},
                                                          {"order": 2, "pr": 1, "condition": "without"}]}}
     study_run.write_forms(assignment, tmp_path)
-    fill = {"A": [("2026-11-01T10:00", "2026-11-01T10:15", "nao_integro", "2", "d1", "3"),
-                  ("2026-11-01T11:00", "2026-11-01T11:20", "integro", "", "", "")],
-            "B": [("2026-11-01T10:00", "2026-11-01T10:10", "integro", "1", "k1;u2", "4"),
-                  ("2026-11-01T11:00", "2026-11-01T11:30", "integro", "", "", "")]}
+    fill = {"A": [("2026-11-01T10:00", "2026-11-01T10:15", "nao_integro", "2", "", "3", "0"),
+                  ("2026-11-01T11:00", "2026-11-01T11:20", "integro", "", "", "", "")],
+            "B": [("2026-11-01T10:00", "2026-11-01T10:10", "integro", "1", "B.lean:stage_a_unrecognized", "4", "2"),
+                  ("2026-11-01T11:00", "2026-11-01T11:30", "integro", "", "", "", "")]}
     import csv as _csv
     for n, vals in fill.items():
         p = tmp_path / f"reviewer-{n}.csv"
         rows = list(_csv.DictReader(p.open(encoding="utf-8")))
-        for r, (s, e, v, rd_, jf, km) in zip(rows, vals):
-            r.update(start=s, end=e, verdict=v, report_reading_min=rd_, alerts_judged_false=jf, known_cause_min=km)
+        for r, (s, e, v, rd_, jf, km, nc) in zip(rows, vals):
+            r.update(start=s, end=e, verdict=v, report_reading_min=rd_, causes_judged_false=jf,
+                     known_cause_min=km, noncoverage_min=nc)
         with p.open("w", newline="", encoding="utf-8") as fh:
             w = _csv.DictWriter(fh, study_run.FORM_COLUMNS); w.writeheader(); w.writerows(rows)
-    alerts = {"1": [{"declaration": "d1", "known_cause": False}],
-              "2": [{"declaration": "k1", "known_cause": True}, {"declaration": "u2", "known_cause": False},
-                    {"declaration": "u3", "known_cause": False}]}
-    defects = {"defects": [{"id": "A", "pr": 1, "expect": [{"declaration": "d1"}]}]}
+    alerts = {"1": {"declarations": [_decl("A.lean", "ok", True), _decl("A.lean", "ok2", True),
+                                     _decl("A.lean", "planted", False, ("sorryAx_detected", False)),
+                                     _decl("A.lean", "liar", False, ("orphan_justification", False))]},
+              "2": {"declarations": [_decl("B.lean", "fc", False, ("stage_a_unrecognized", False)),
+                                     _decl("B.lean", "k", False, ("target_defines_executable_code", True))]}}
+    defects = {"defects": [{"id": "A", "pr": 1, "files": ["A.lean"], "defect_reasons": ["sorryAx_detected"],
+                            "expect": []}]}
     res = study_run.report(assignment, study_run.read_forms(tmp_path), alerts, defects)
     pr1, pr2 = res["per_pr"]
     assert pr1["t_net_with_known"] == 30 - 15 and pr1["t_net"] == 30 - (15 - 3)
-    assert pr1["false_alerts"] == 0                                    # d1 é o defeito: não é falso alerta
-    assert pr2["t_net"] == 20 - (10 - 4) and pr2["known_cause_alerts"] == 1
-    assert pr2["false_alerts"] == 1 and pr2["false_alert_rate"] == 0.5  # k1 (causa conhecida) fica fora
+    assert pr2["t_net"] == 20 - (10 - 4) and pr2["noncoverage_min"] == 2   # não-cobertura fica no T_net
+    assert pr2["perceived_false_by_category"][4] == 1                     # percepção, à parte da taxonomia
+    s = res["summary"]
+    assert s["success"]["false_alert_rate"] == 1 / 3                      # cat. 2 / (cat. 1 + cat. 2)
+    assert s["fail_closed"]["false_alert_rate"] is None and s["all"]["false_alert_rate"] is None
+    assert s["fail_closed"]["noncoverage_rate"] == 0.5
     assert {(o["condition"], o.get("outcome"), o["reviewer_found"]) for o in res["defects"]} == {
         ("with", "a", True), ("without", None, False)}
