@@ -221,3 +221,26 @@ O sorteio é por rejeição: vale a primeira tentativa do gerador que satisfaz a
 - as causas conhecidas e o pedido de registrar o tempo gasto nelas (seção 0, sem dizer "ignore");
 - que o defeito plantado pode estar numa dependência, e não na declaração principal (seção 8);
 - como preencher o formulário.
+
+## 10. Alertas dos 10 PRs e pergunta antes da primeira revisão (2026-10-23)
+
+O auditor rodou nos 10 PRs como os revisores os veem, com os defeitos aplicados (`auditor-study`, modo `study`, run 39977160187, auditor `ae9f791`). Os defeitos foram conferidos na run 39977153820. Os 10 PRs compilam. Os alertas estão em `study/alerts.json`, atribuídos mecanicamente antes de qualquer formulário.
+
+| PR | Estrato | `verified` | Alertas (declarações): conhecidos / outros | Causas distintas (arquivo + razão): conhecidas / outras |
+|---|---|---|---|---|
+| #45102 | sucesso | 82/83 | 1 / 0 | 1 / 0 |
+| #43841 | sucesso | 0/88 | 88 / 0 | 1 / 0 |
+| #44400 (defeito A) | sucesso | 386/441 | 0 / 55 | 0 / 2 (o `sorry`) |
+| #45117 | sucesso | 76/77 | 1 / 0 | 1 / 0 |
+| #44973 | sucesso | 88/117 | 29 / 0 | 2 / 0 |
+| #45105 | fail-closed | 0/248 | 0 / 248 | 2 / 1 |
+| #45097 (defeito B) | fail-closed | 227/434 | 0 / 207 | 0 / 5 (2 do defeito) |
+| #44425 | fail-closed | 0/175 | 132 / 43 | 3 / 1 |
+| #44511 | fail-closed | 222/636 | 2 / 412 | 3 / 3 |
+| #44969 | fail-closed | 90/293 | 186 / 17 | 12 / 1 |
+
+Contando por causa distinta, há 25 alertas de causa conhecida e 13 outros. Dos 13, 4 vêm dos defeitos plantados. Os outros 9 são todos `stage_a_unrecognized`: o fail-closed do estrato fail-closed, sem defeito na prova.
+
+**Duas definições a fixar antes da primeira revisão** (relatório de 23/10 ao revisor). Se fossem decididas depois de ver os formulários, isso seria escolher a métrica pelo resultado.
+1. **Unidade de alerta: declaração ou causa distinta?** Por declaração, uma única causa num arquivo vira dezenas ou centenas de alertas (88 no #43841, 412 no #44511). Nenhum revisor julga 412 declarações uma a uma, e a taxa ficaria pesada nos arquivos grandes. Por causa distinta (arquivo + código da razão + opção, quando houver), a unidade é o que o revisor de fato lê e julga.
+2. **`Não resolvida` por fail-closed conta como falso alerta?** No estrato fail-closed, todo alerta que não é de causa conhecida e não vem de defeito é `stage_a_unrecognized`: a ferramenta diz "não consigo verificar", não "está errado". Se ele contar como falso alerta, a taxa nesse estrato é cerca de 9 em 9, por desenho, e o critério de morte (> 50 %) dispara por construção.
