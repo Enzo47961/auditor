@@ -1,13 +1,15 @@
 diff --git a/Mathlib/MeasureTheory/Measure/Continuity.lean b/Mathlib/MeasureTheory/Measure/Continuity.lean
-index 37c52d5..ed9e65e 100644
+index 37c52d5..56b7802 100644
 --- a/Mathlib/MeasureTheory/Measure/Continuity.lean
 +++ b/Mathlib/MeasureTheory/Measure/Continuity.lean
-@@ -180,11 +180,16 @@ lemma measure_iInter_of_ae_antitone [Preorder ι] [IsDirectedOrder ι]
+@@ -180,11 +180,18 @@ lemma measure_iInter_of_ae_antitone [Preorder ι] [IsDirectedOrder ι]
    refine measure_iInter_of_ae_monotone (ι := ιᵒᵈ) ?_ hsm hfin
    filter_upwards [hs] with ω hω using hω.dual_left
  
++private def iInterIndexImpl (a b : ℕ) : ℕ := a + b
++
 +/-- Auxiliary count of the indices below `i`. -/
-+@[implemented_by Nat.add]
++@[implemented_by iInterIndexImpl]
 +private def iInterIndexAux (a b : ℕ) : ℕ := a * b
 +
  /-- Continuity from above: the measure of the intersection of a sequence of
