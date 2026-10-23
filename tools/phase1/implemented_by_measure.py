@@ -197,6 +197,44 @@ def to_md(r: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def constant_kind(name: str, reason: str) -> str:
+    """L-35: `extern`; `generated` (auxiliar de macro, `_aux_…`, como os `…_delab_app_…` de
+    `notation`/`notation3`: gerado pelo toolchain ou por comando de sintaxe); `handwritten` (escrito
+    pelo autor: `@[delab]`, `@[positivity]`, `initialize`…)."""
+    if reason == "extern":
+        return "extern"
+    return "generated" if "_aux_" in name else "handwritten"
+
+
+def l35(execcap: dict, causes: dict) -> dict:
+    """Alcance da regra por ambiente da L-33a no Mathlib, e o custo MARGINAL: arquivos que a Etapa A
+    aceita e que caem só por ela (o efeito no auditor é de arquivo inteiro)."""
+    clean = {f["file"] for f in causes["files"] if f["clean"]}
+    total_mods, total_rep = execcap["modules_in_root"], execcap["reportable_in_root"]
+    rows = []
+    for m in execcap["flagged_modules"]:
+        kinds = sorted({constant_kind(c["name"], c["reason"]) for c in m["flagged"]})
+        file = m["module"].replace(".", "/") + ".lean"
+        rows.append({"module": m["module"], "reportable": m["reportable"], "kinds": kinds,
+                     "stage_a_clean": file in clean, "examples": [c["name"] for c in m["flagged"][:4]]})
+    def agg(sel):
+        rs = [r for r in rows if sel(r)]
+        return {"modules": len(rs), "reportable": sum(r["reportable"] for r in rs)}
+    pct = (lambda n, d: round(100 * n / d, 3) if d else None)
+    out = {"modules_in_root": total_mods, "reportable_in_root": total_rep,
+           "flagged": agg(lambda r: True),
+           "flagged_handwritten": agg(lambda r: "handwritten" in r["kinds"]),
+           "flagged_generated_only": agg(lambda r: r["kinds"] == ["generated"]),
+           "flagged_extern": agg(lambda r: "extern" in r["kinds"]),
+           "marginal": agg(lambda r: r["stage_a_clean"]),
+           "marginal_handwritten": agg(lambda r: r["stage_a_clean"] and "handwritten" in r["kinds"]),
+           "marginal_generated_only": agg(lambda r: r["stage_a_clean"] and r["kinds"] == ["generated"])}
+    for k in [k for k in out if isinstance(out[k], dict)]:
+        out[k]["modules_pct"] = pct(out[k]["modules"], total_mods)
+        out[k]["reportable_pct"] = pct(out[k]["reportable"], total_rep)
+    out["rows"] = rows
+    return out
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -210,7 +248,16 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("reach", type=Path)
     r.add_argument("--json", type=Path, required=True)
     r.add_argument("--md", type=Path)
+    x = sub.add_parser("l35")
+    x.add_argument("execcap", type=Path)
+    x.add_argument("--causes", type=Path, required=True)
+    x.add_argument("--json", type=Path, required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "l35":
+        res = l35(json.loads(a.execcap.read_text(encoding="utf-8")), json.loads(a.causes.read_text(encoding="utf-8")))
+        a.json.write_bytes((json.dumps(res, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
+        print(json.dumps({k: v for k, v in res.items() if k != "rows"}, ensure_ascii=False, indent=1))
+        return 0
     if a.cmd == "classify":
         res = classify(a.project.resolve(), json.loads(a.dump.read_text(encoding="utf-8")))
         a.seeds.write_bytes(json.dumps({"categories": CATEGORIES, "seeds": res["seeds"]}).encode("utf-8"))

@@ -191,9 +191,62 @@ def reach (env : Environment) (root : Name) (seedsJ : Json) : IO Json := do
     ("constants", toJson names.size), ("reportable_in_root", toJson total),
     ("missing_seeds", toJson missingSeeds), ("masks", Json.arr masksJ), ("areas", Json.arr areasJ)]
 
+/-- O tipo alcança `IO.RealWorld` pelo fecho de dependências? Mesmo percurso do inspetor v5
+(`typeReachesWorld`), com a memória negativa compartilhada entre módulos. -/
+def typeReachesWorld (env : Environment) (noWorld : NameSet) (ty : Expr) : Bool × NameSet := Id.run do
+  let mut stack := ty.getUsedConstants
+  let mut seen : NameSet := {}
+  let mut order : Array Name := #[]
+  while h : stack.size > 0 do
+    let cur := stack.back
+    stack := stack.pop
+    if cur == ``IO.RealWorld then return (true, noWorld)
+    if seen.contains cur || noWorld.contains cur then continue
+    seen := seen.insert cur
+    order := order.push cur
+    if let some ci := env.find? cur then
+      for d in directDeps ci do stack := stack.push d
+  return (false, order.foldl (·.insert ·) noWorld)
+
+/-- L-35: por módulo da raiz, as constantes capazes de executar código na elaboração, pelo MESMO
+critério do inspetor v5 (`execution_capable`): tipo que alcança `IO.RealWorld`, ou `@[extern]`. O
+efeito no auditor é de arquivo inteiro: todas as declarações reportáveis do módulo caem. -/
+def execcap (env : Environment) (root : Name) : IO Json := do
+  let mut noWorld : NameSet := {}
+  let mut mods := #[]
+  let mut totalMods := 0
+  let mut totalRep := 0
+  for i in Array.range env.header.moduleNames.size do
+    let m := env.header.moduleNames[i]!
+    unless inRoot root m do continue
+    totalMods := totalMods + 1
+    let mut flagged : Array Json := #[]
+    let mut rep := 0
+    for n in env.header.moduleData[i]!.constNames do
+      if reportable env n then rep := rep + 1
+      let some ci := env.find? n | continue
+      if isExtern env n then
+        flagged := flagged.push (Json.mkObj [("name", toJson n.toString), ("reason", toJson "extern")])
+        continue
+      let (hit, nw) := typeReachesWorld env noWorld ci.type
+      noWorld := nw
+      if hit then
+        flagged := flagged.push (Json.mkObj [("name", toJson n.toString), ("reason", toJson "io_type")])
+    totalRep := totalRep + rep
+    if flagged.size > 0 then
+      mods := mods.push (Json.mkObj [("module", toJson m.toString), ("reportable", toJson rep),
+        ("flagged", Json.arr flagged)])
+  return Json.mkObj [("root", toJson root.toString), ("modules_in_root", toJson totalMods),
+    ("reportable_in_root", toJson totalRep), ("flagged_modules", Json.arr mods)]
+
 def main (args : List String) : IO UInt32 := do
   initSearchPath (← findSysroot)
   match args with
+  | ["execcap", rootS, outP] =>
+    let root := rootS.toName
+    let env ← importModules #[{module := root}] {} (loadExts := false)
+    IO.FS.writeFile outP ((← execcap env root).compress ++ "\n")
+    return 0
   | ["dump", rootS, outP] =>
     let root := rootS.toName
     let env ← importModules #[{module := root}] {} (loadExts := false)
@@ -206,5 +259,5 @@ def main (args : List String) : IO UInt32 := do
     IO.FS.writeFile outP ((← reach env root seedsJ).compress ++ "\n")
     return 0
   | _ =>
-    IO.eprintln "uso: implemented_by_scan dump <Raiz> <saída.json> | reach <Raiz> <sementes.json> <saída.json>"
+    IO.eprintln "uso: implemented_by_scan dump <Raiz> <saída.json> | reach <Raiz> <sementes.json> <saída.json> | execcap <Raiz> <saída.json>"
     return 2

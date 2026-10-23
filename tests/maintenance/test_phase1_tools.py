@@ -209,3 +209,17 @@ def test_study_exclusion_rule(tmp_path):
     assert study_audit.exclusion(tmp_path, {"C": back})[0] == ["backward.*"]
     causes, counts = study_audit.exclusion(tmp_path, {"D": clean, "A": ctor})
     assert causes == ["ctorIdx"] and counts == {"declarations": 2, "verified": 1}
+
+
+def test_l35_marginal_cost_split_by_kind():
+    execcap = {"modules_in_root": 4, "reportable_in_root": 100, "flagged_modules": [
+        {"module": "Mathlib.A", "reportable": 10, "flagged": [{"name": "A.delabFoo", "reason": "io_type"}]},
+        {"module": "Mathlib.B", "reportable": 20, "flagged": [{"name": "B._aux_Mathlib_B___delab_app_x", "reason": "io_type"}]},
+        {"module": "Mathlib.C", "reportable": 30, "flagged": [{"name": "C.f", "reason": "extern"}]}]}
+    causes = {"files": [{"file": "Mathlib/A.lean", "clean": True}, {"file": "Mathlib/B.lean", "clean": False},
+                        {"file": "Mathlib/C.lean", "clean": True}, {"file": "Mathlib/D.lean", "clean": True}]}
+    r = ibm.l35(execcap, causes)
+    assert r["flagged"] == {"modules": 3, "reportable": 60, "modules_pct": 75.0, "reportable_pct": 60.0}
+    assert r["flagged_handwritten"]["modules"] == 1 and r["flagged_generated_only"]["modules"] == 1
+    assert r["marginal"]["reportable"] == 40 and r["marginal_handwritten"]["reportable"] == 10
+    assert r["marginal_generated_only"]["modules"] == 0
