@@ -160,3 +160,14 @@ Os dois são código que o elaborador executa: delaboradores, ao formatar mensag
 - **Defeitos plantados:** em declarações cujo alerta **não** seja de causa conhecida, verificado com o auditor:
   - PR A num PR do estrato sucesso (#44400 ou #45025);
   - PR B no #45097, ou também num do sucesso se o #45097 não tiver declaração elegível.
+
+**Defeitos injetados e conferidos** (`study/defects.json`, `study/defects/`; `auditor-study`, modo `defects`, run 39973055204, auditor `dce313c`):
+
+| Defeito | PR (estrato) | Alteração | Ground truth | Resultado do auditor |
+|---|---|---|---|---|
+| A | #45025 (sucesso) | `sorry` na prova de `isUnit_mul_self_iff` (`Algebra/Group/Commute/Units.lean`), a 3 imports do arquivo do PR. O lema novo do PR, `Units.isSquare_coe_iff`, o usa. | `sorryAx` no fecho | as duas declarações saem `Rejeitada`, com `sorryAx_detected` |
+| B | #45097 (fail-closed) | `@[implemented_by iInterIndexImpl]` (soma) numa auxiliar `private` que calcula `a * b`, mais `native_decide` provando `iInterIndexAux 2 3 = 5` dentro de `measure_iInter_eq_iInf_measure_iInter_le`. O arquivo sai 19/19 verified sem o defeito. | `2 * 3 = 6 ≠ 5`; só o código compilado diz 5 | `Rejeitada`, com `implemented_by_reaches_native_eval` |
+
+Nenhuma das duas razões é de causa conhecida.
+
+**Primeira tentativa do B: erro meu.** Usei `Nat.add` como alvo de `implemented_by`, e o Lean o rejeita. Sem a troca, o `native_decide` avaliou o valor verdadeiro e recusou a proposição (run 39971602437). Corrigi com uma implementação própria, na forma do caso C08 do benchmark.

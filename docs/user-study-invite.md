@@ -7,11 +7,11 @@ status: aprovado (instrução 27), com a frase sobre causas conhecidas da instru
 **Resumo em português.** O texto abaixo vai em inglês, a língua da comunidade do Mathlib (Zulip, contato direto). Ele declara o que a instrução 26 exige:
 - (a) a classificação é auto-revisada (L-26);
 - (b) o estudo mede o valor da ferramenta no escopo que ela cobre, não a cobertura do Mathlib;
-- (c) a amostra exclui os casos de `ctorIdx` gerado e de `backward.*`;
+- (c) os alertas de causa conhecida (`ctorIdx` gerado, `backward.*`, delaborador/`positivity`) são contados à parte, com o tempo gasto neles (instrução 28; antes: exclusão da amostra);
 - (d) a participação é voluntária e o tempo estimado é de 2 a 3 horas;
 - (e) o resultado será publicado com a qualificação.
 
-O parágrafo sobre defeitos plantados só fica se a proposta da seção 2 do `user-study.md` for aprovada.
+Os defeitos plantados foram aprovados (instrução 27) e conferidos com o auditor (run 39973055204).
 
 ---
 
@@ -38,15 +38,11 @@ I would like to measure, with experienced Mathlib reviewers, whether the tool ac
 
 **What the study measures — and what it does not**
 - It measures **the tool's value within the scope it currently covers**. It is **not** a measurement of Mathlib coverage.
-- **The sample deliberately excludes two known causes of false alarms:**
-  - declarations that reach compiler-generated `ctorIdx` implementations;
-  - declarations using `backward.*` options.
-
-  The tool currently reports both as "unresolved"; fixing them is planned work. The results will therefore not represent a production configuration, and they will say so.
+- **Some alerts have known causes that are not fixed yet** (see "Known causes of alerts" below). The tool currently reports these cases as "unresolved"; fixing them is planned work. The results will therefore not represent a production configuration, and they will say so.
 - **The classification of Mathlib commands used by the tool was written and reviewed by the same author** (`classification_review_status: author-self-review`). There has been no independent review yet.
 
 **Known causes of alerts**
-- A few alert types come from two known causes that are being fixed (compiler-generated `ctorIdx` implementations; `backward.*` options; delaborators and `positivity` extensions in mathematical files). In some reviews you may see these alerts; if you do, note the time you spend on them separately. They are excluded from the main false-alarm rate and from the main time-saving measurement, and are reported separately.
+- A few alert types come from known causes that are being fixed (compiler-generated `ctorIdx` implementations; `backward.*` options; delaborators and `positivity` extensions in mathematical files). In some reviews you may see these alerts; if you do, note the time you spend on them separately. They are excluded from the main false-alarm rate and from the main time-saving measurement, and are reported separately.
 
 **Voluntary, and how results are used**
 - **Participation is entirely voluntary.** You can stop at any time without giving a reason.
