@@ -1,7 +1,7 @@
 # Convite para o estudo de usuário (sub-fase 1c): rascunho para revisão
 
 ```
-status: rascunho; o revisor do projeto revisa antes do envio; o mantenedor envia (instrução 26)
+status: aprovado pelo revisor do projeto (instrução 27); link conferido (HTTP 200); envio quando os defeitos plantados estiverem prontos
 ```
 
 **Resumo em português.** O texto abaixo vai em inglês, a língua da comunidade do Mathlib (Zulip, contato direto). Ele declara o que a instrução 26 exige:
@@ -34,7 +34,7 @@ I would like to measure, with experienced Mathlib reviewers, whether the tool ac
 - About **7 short reviews of real Mathlib pull requests** (replayed on a fixed Mathlib commit), roughly 15–25 minutes each, plus a 15-minute briefing: **about 2–3 hours in total**, at your own pace, over two weeks.
 - In some reviews you see the tool's report, in others you do not. The assignment and order are randomized with a published seed.
 - For each review you note the start and end time, your verdict on proof integrity, and, when the report is shown, whether any alert looked wrong.
-- *[Only if approved:]* A few pull requests may contain a deliberately planted integrity defect (taken from a benchmark with a formal ground truth). You will not be told which ones.
+- A few pull requests may contain a deliberately planted integrity defect (taken from a benchmark with a formal ground truth). You will not be told which ones.
 
 **What the study measures — and what it does not**
 - It measures **the tool's value within the scope it currently covers**. It is **not** a measurement of Mathlib coverage.
@@ -50,7 +50,7 @@ I would like to measure, with experienced Mathlib reviewers, whether the tool ac
 - **Results** will be published in aggregated, anonymized form (reviewer A, B, C) together with the raw anonymized data. Names appear only with explicit consent.
 - **Every publication of the results will carry the qualifications above:** self-reviewed classification, covered-scope-only measurement, and the excluded cases.
 
-**Details:** the methodology is public at `docs/user-study.md` in https://github.com/Enzo47961/auditor.
+**Details:** the methodology is public at https://github.com/Enzo47961/auditor/blob/master/docs/user-study.md
 
 If you are willing to take part, or have questions, please reply to this message. Thank you for considering it.
 

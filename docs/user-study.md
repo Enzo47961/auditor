@@ -1,7 +1,7 @@
 # Estudo de usuário (Fase 1, sub-fase 1c)
 
 ```
-status: metodologia escrita; convite em revisão (docs/user-study-invite.md); recrutamento pendente
+status: metodologia aprovada (instrução 27); convite aprovado; seleção dos PRs e defeitos plantados em preparação; recrutamento pendente
 classificação: author-self-review (L-26)
 ```
 
@@ -34,16 +34,23 @@ classificação: author-self-review (L-26)
   - 5 do **caminho de sucesso** (a Etapa A aceita todos os arquivos alterados);
   - 5 do **caminho fail-closed** (algum arquivo alterado tem item que a Etapa A não reconhece).
 - **Exclusão da opção (B), decidida pelo próprio relatório do auditor:** sai do sorteio o PR em que alguma declaração auditada fica `Não resolvida` por `implemented_by_candidate` de `ctorIdx` gerado, ou por `set_option_unrecognized`/`set_option_unattributed` de opção `backward.*`. A lista de PRs excluídos e o motivo de cada um são publicados com o resultado.
-- **Proposta: defeito plantado, com ground truth.** Em 2 dos 10 PRs (um por estrato), é inserido um defeito tirado do benchmark da 1b:
-  - um `sorry` transitivo (a cadeia `Chain/`);
-  - um `@[implemented_by]` mentiroso com `native_decide` (C08).
-
-  Os dois têm ground truth formal (`docs/benchmark.md`). É a única forma de medir falso negativo percebido contra uma verdade conhecida: se o revisor achou um problema que o auditor não sinalizou, ou o contrário. Os participantes são avisados no convite de que alguns PRs podem conter defeitos plantados, sem saber quais. Se o revisor do projeto vetar, os 10 PRs ficam todos reais e a medida de falso negativo percebido usa só o que aparecer.
+- **Defeito plantado (aprovado na instrução 27).** Mede se a ferramenta ajuda o revisor a achar um defeito que ele perderia, e não só se economiza tempo em PRs corretos.
+  - **Condição 1: injetado em PR real, nunca construído.** O defeito entra, com alteração pontual, num dos PRs reais selecionados (reaplicado sobre `e1b2403b`). O resto do PR fica intacto, e o revisor não pode distinguir o PR por inspeção.
+    - **PR A (estrato sucesso):** um `sorry` numa dependência a 3 imports de distância do arquivo principal do PR. A alteração na dependência faz parte do diff, como em qualquer PR que toca mais de um arquivo.
+    - **PR B (estrato fail-closed):** um `@[implemented_by]` mentiroso com `native_decide` numa declaração do PR.
+    - **Ground truth formal:** prova da negação do que o defeito "prova", ou o `sorry` em si (`sorryAx` no fecho), conferida como no benchmark (`docs/benchmark.md`).
+  - **Condição 2: três desfechos, reportados separadamente, nunca agregados.** Para cada defeito plantado:
+    - **(a)** a ferramenta sinalizou (`Não resolvida`/`Rejeitada`), e o revisor investigou e achou o defeito. Mede o valor da ferramenta;
+    - **(b)** a ferramenta sinalizou, e o revisor ignorou o alerta e aprovou. Mede o ruído do alerta;
+    - **(c)** a ferramenta não sinalizou. Não deveria acontecer, porque o defeito é fail-closed por construção; se acontecer, é **achado crítico** e entra na L-32.
+  - **Aviso aos participantes:** o convite diz que alguns PRs podem conter defeitos plantados, sem dizer quais.
+  - **Se os 3 revisores vetarem o plantio:** o parágrafo sai do convite, os 10 PRs ficam todos reais, e esta limitação é registrada: "o estudo não mediu a capacidade do revisor de encontrar defeitos plantados, porque os revisores optaram por não participar dessa parte". O estudo continua; a Fase 2 pode re-medir com plantio, se houver revisores dispostos.
 
 ## 3. Desenho: cruzado, com ordem aleatória
 
 - Cada PR é revisado por **2 revisores diferentes**: um **com** o auditor (sumário e relatório do PR) e outro **sem** (só o diff).
 - Ninguém revisa o mesmo PR duas vezes. São 20 revisões ao todo, cerca de 7 por revisor, metade com o auditor e metade sem.
+- **Conflito de interesse (instrução 27):** um revisor não é atribuído a revisar o próprio PR. Se um dos 10 PRs tiver um dos revisores como autor, esse revisor não é atribuído a esse PR, e a amostra efetiva para esse revisor é 9, não 10. O sorteio aplica essa restrição antes de distribuir, e a autoria de cada PR é publicada com a atribuição.
 - **A atribuição e a ordem são sorteadas** com uma semente publicada antes do início, para controlar o efeito de aprendizado e a dificuldade do PR.
 - **Condição "sem auditor":** o revisor recebe o diff do PR (link do commit, sem a página do PR no fork, que mostra o sumário).
 - **Condição "com auditor":** o revisor recebe a página do PR no fork, com o Job Summary e o relatório.
@@ -65,7 +72,7 @@ Cada revisor registra num formulário, por revisão:
 | Taxa de falsos alertas | alertas do auditor (declaração não `verified`) que o revisor e o ground truth (ou a aceitação do PR no Mathlib) julgam infundados / alertas totais, por PR |
 | Tempo de interpretação | parte do T_assistido gasta lendo o relatório |
 | Falso negativo percebido | problema de integridade achado pelo revisor e não sinalizado pelo auditor |
-| Defeito plantado | achado com o auditor × sem o auditor |
+| Defeito plantado | desfechos (a), (b) e (c) da seção 2, por defeito e por condição (com/sem auditor), separados |
 
 O custo por revisor é de cerca de 7 revisões de 15 a 25 minutos, mais 15 minutos de instrução: **2 a 3 horas**.
 
