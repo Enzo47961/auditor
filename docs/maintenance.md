@@ -274,3 +274,28 @@ Uma rodada sobre `d5f6264` foi **cancelada**: dois testes já falhavam sem muta�
 **Prática (instrução 25): mutação só roda sobre suíte verde.** Uma rodada sobre suíte vermelha é descartada, não interpretada: com um teste já falhando, toda mutação do grupo parece detectada, e o número vira ruído. Antes de disparar o `auditor-mutation`, conferir que o `ci.yml` do mesmo commit está verde. Exemplo: a rodada sobre `d5f6264` foi cancelada e refeita sobre `a0e3387`.
 
 **L-33 (b), instrução 25.** Os 6 grupos foram re-rodados sobre `a18d131`, com a suíte verde (run 39861318092, 788 passed). Há 5 mutações novas da (b): o hash do pacote do auditor, o hash do inspetor, a parada do inspetor quando há adulteração, o `toolchain_tampered` no relatório e a conferência entre arquivos no `auditor-ci`. Resultado: **174/174 detectadas, 0 sobreviventes, 0 puladas** (`auditor-mutation`, run 39862103829). **Estado em 2026-10-22: 6 grupos, 174/174.**
+
+## Repositório de medições (2026-10-23)
+
+**Mudança.** Em 2026-10-23 o GitHub suspendeu os workflows do fork `Enzo47961/mathlib4` por uso intenso do Actions:
+- dois runs foram cancelados com SIGTERM no meio: o benchmark 39876032952 e a mutação 39876502155;
+- os seguintes ficaram na fila sem runner;
+- o mantenedor reativou os workflows.
+
+**Para não depender da tolerância do GitHub com forks**, os workflows pesados migraram para um repositório próprio, público e **não fork**: [`Enzo47961/auditor-measurements`](https://github.com/Enzo47961/auditor-measurements).
+- **Workflows:** `auditor-mutation`, `auditor-prep`, `auditor-measure` e `auditor-benchmark`.
+- **Mathlib:** cada um baixa o Mathlib oficial (`leanprover-community/mathlib4`) no commit fixado `e1b2403b`, sobrepõe o `.auditor/` do repositório (a mesma allow-list e classificação do fork) e confere o commit antes de rodar.
+- **O que fica no fork:** os PRs de medição da camada 2 (#1 a #9) e os workflows de PR (`auditor-tier1`, `auditor-label`, `auditor-report`, `auditor-warm-cache`). Os runs citados até esta data foram no fork.
+
+**Primeira execução no repositório novo:** `auditor-prep` verde (run 39879622234, auditor `81457ac`):
+- commit do Mathlib `e1b2403b`;
+- allow-list regenerada idêntica byte a byte;
+- `gen_tcb_roots --check` com exit 0;
+- fumaça 20/20.
+
+**Regra de carga (instrução 25, depois da suspensão):**
+- mutação só nos grupos afetados pela mudança; rodada completa só no fechamento de sub-fase;
+- benchmark e medições só quando o benchmark ou o auditor mudarem de forma relevante;
+- nenhuma medição do Mathlib inteiro sem necessidade.
+
+**Etapa A v5 (vínculo de `set_option … in`).** Grupo `stage_a` re-rodado sobre `81457ac`, com a suíte verde (run 39876002319, 800 passed): **30/30** (28 + 2 novas), no `auditor-mutation` do repositório de medições (run 39879882456). Os outros grupos não mudaram desde `a18d131` (174/174). **Estado em 2026-10-23: 6 grupos, 176/176.**
