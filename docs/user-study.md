@@ -203,8 +203,9 @@ O sorteio é por rejeição: vale a primeira tentativa do gerador que satisfaz a
 | `verdict` | `integro`, `nao_integro` ou `nao_sei` |
 | `problems_found` | os problemas de integridade achados, em texto livre |
 | `report_reading_min` | só com auditor: minutos lendo o relatório |
-| `alerts_judged_false` | só com auditor: as declarações cujo alerta pareceu falso, separadas por `;`, com o motivo em `notes` |
+| `causes_judged_false` | só com auditor: as **causas** (arquivo:código[:opção], como no relatório) cujo alerta pareceu falso, separadas por `;`, com o motivo em `notes` (instrução 30) |
 | `known_cause_min` | só com auditor: minutos gastos com alertas de causa conhecida (seção 0) |
+| `noncoverage_min` | só com auditor: minutos gastos com alertas de não-cobertura (`Não resolvida` por fail-closed; instrução 30) |
 | `notes` | livre |
 
 **5. Alertas** (`study_audit.py --prs study/prs.json --defects study/defects.json` e depois `study_run.py alerts`). O auditor roda nos 10 PRs **como os revisores os veem**, isto é, com os defeitos plantados aplicados. Cada alerta (declaração não `verified`) é atribuído a uma causa mecanicamente, **antes** de os formulários serem lidos. Um alerta é de causa conhecida quando todas as razões dele são de causa conhecida.
@@ -244,3 +245,91 @@ Contando por causa distinta, há 25 alertas de causa conhecida e 13 outros. Dos 
 **Duas definições a fixar antes da primeira revisão** (relatório de 23/10 ao revisor). Se fossem decididas depois de ver os formulários, isso seria escolher a métrica pelo resultado.
 1. **Unidade de alerta: declaração ou causa distinta?** Por declaração, uma única causa num arquivo vira dezenas ou centenas de alertas (88 no #43841, 412 no #44511). Nenhum revisor julga 412 declarações uma a uma, e a taxa ficaria pesada nos arquivos grandes. Por causa distinta (arquivo + código da razão + opção, quando houver), a unidade é o que o revisor de fato lê e julga.
 2. **`Não resolvida` por fail-closed conta como falso alerta?** No estrato fail-closed, todo alerta que não é de causa conhecida e não vem de defeito é `stage_a_unrecognized`: a ferramenta diz "não consigo verificar", não "está errado". Se ele contar como falso alerta, a taxa nesse estrato é cerca de 9 em 9, por desenho, e o critério de morte (> 50 %) dispara por construção.
+
+## 11. Pre-registered metrics (instrução 30, 23/10/2026)
+
+**Data do pré-registro:** 23/10/2026. É anterior ao envio do convite, a qualquer resposta e a qualquer formulário. Esta seção substitui as definições de falso alerta das seções 0 e 4 onde elas divergirem. Nada daqui muda depois dos dados; um desvio só pode ser reportado como desvio, com o motivo.
+
+**Artefatos congelados** (commit `4feec56` do auditor; SHA-256 do conteúdo no commit):
+
+| Artefato | Origem | SHA-256 |
+|---|---|---|
+| `study/alerts.json` | relatórios da run 39977160187 (`auditor-study`, modo `study`), auditor `ae9f791`, Mathlib `e1b2403b` | `9d5b8fe308dc31348db45828de43c229c734185932de17bb213146eb91e42761` |
+| `study/categories.json` | `study_run.py classify` sobre os dois de cima | `e4baa167ecba3d8d8dbdf2c7d504dece8ef3eab9bc0157ac2027e091aa984499` |
+| `study/defects.json` | ground truth dos defeitos (conferidos na run 39977153820) | `a194581230cd7b7d756d480f333403810a8aae09266bf746643d495d73c2ce03` |
+| `study/prs.json` | os 10 PRs (regra mecânica da seção 2) | `59a642a6d264180724b979c8518166206bfbbf1ce84deea0a2d34580d945e3ac` |
+| `study/seed.txt` | semente `1818766798`, publicada em 23/10/2026 | `07fafe21461fab9fbfb1d0663936bb56fd9986e4c45de2dba09482abdc689d6d` |
+| `tools/phase1/study_run.py` | o código da análise (sorteio, taxonomia, relatório) | `c4d63260fa6898679b0665000deaae33e31bf5aabf2fe57f9be37cd0703073ff` |
+
+### 11.1 Unidade de alerta
+
+**Causa distinta:** arquivo + código da razão + opção, quando houver (por exemplo, `Mathlib/X.lean:set_option_unrecognized:backward.foo`). É a métrica principal, porque é o que o revisor julga. **Declarações afetadas** são sempre reportadas junto, para transparência: sem elas, o leitor não sabe se uma causa afeta 1 declaração ou 412.
+
+### 11.2 Taxonomia (cinco categorias, atribuídas mecanicamente)
+
+| # | Categoria | Declaração | Causa |
+|---|---|---|---|
+| 1 | Verificação correta | `verified`, sem defeito real | (não há causa) |
+| 2 | **Falso alerta** | alguma razão **afirma** problema, sem defeito real | razão afirmativa, sem defeito real |
+| 3 | Causa conhecida | todas as razões são de causa conhecida (seção 0) | razão de causa conhecida |
+| 4 | Não-cobertura | `Não resolvida`/`Não resolvido` por fail-closed (os demais casos), sem defeito real | razão que não afirma problema |
+| 5 | Detecção correta | alguma razão corresponde ao defeito real | razão de `defect_reasons` nos arquivos do defeito |
+
+As regras:
+- **Razão afirmativa** é a de efeito `rejected`/`nonconforming` no agregador (`src/auditor/aggregator.py`): `*_detected`, `*_reaches_native_eval`, `elaboration_executes_code`, `orphan_justification`, `set_option_violation`, `forbidden_axiom`, `native_decide_unjustified` e `native_decide_justification_malformed`. As outras dizem "não consigo verificar".
+- **Defeito real** é o plantado, pelo `defect_reasons` de `study/defects.json`, ou um defeito achado por revisor e confirmado por ground truth formal. Neste caso, ele é registrado como achado, com a prova, e a declaração passa para a categoria 5.
+- **Precedência na declaração:** 1 se `verified`; senão 5, se houver razão de defeito; senão 2, se houver razão afirmativa; senão 3, se todas as razões forem de causa conhecida; senão 4.
+- O código é `study_run.classify`, com testes em `tests/maintenance/test_phase1_tools.py`.
+
+### 11.3 Fórmulas
+
+- **Taxa de falsos alertas** (critérios das seções 5 e 6) = categoria 2 / (categoria 1 + categoria 2), em **declarações**, **só no estrato sucesso**.
+  - No estrato fail-closed, a categoria 1 é rara, e a taxa não é definida.
+  - A categoria 2 também é reportada em causas.
+  - A unidade é declaração porque a categoria 1 (`verified`) não tem causa. Esta leitura da fórmula da instrução 30 está marcada para confirmação do revisor.
+- **Taxa de não-cobertura** = categoria 4 / todas as declarações, por estrato, com o número de causas e o tempo que o revisor gastou nelas (coluna `noncoverage_min`).
+- **T_net principal** = T_convencional − (T_assistido − tempo em causas conhecidas), por PR.
+  - O resultado é a **mediana** dos 10 PRs, reportada também por estrato.
+  - O tempo em não-cobertura **fica** no T_net: é custo real.
+- **T_net secundário** = T_convencional − T_assistido, com as causas conhecidas incluídas, para transparência.
+- **Falso alerta percebido:** as causas que o revisor marcou como falsas (`causes_judged_false`), reportadas por categoria e separadas da taxonomia mecânica. Medem a leitura do revisor, não a ferramenta.
+
+### 11.4 Defeitos plantados: os três desfechos
+
+Os desfechos valem para a revisão **com** auditor do PR do defeito:
+- **(a)** o auditor marcou o defeito (alguma declaração na categoria 5), e o revisor deu o veredito `nao_integro` e achou o defeito;
+- **(b)** o auditor marcou, e o revisor aprovou (`integro` ou `nao_sei`). Mede o ruído do alerta;
+- **(c)** o auditor não marcou. É achado crítico e entra na L-32.
+
+Na revisão **sem** auditor, registra-se só se o revisor achou o defeito. Os desfechos são reportados por defeito e por condição, nunca somados.
+
+### 11.5 Critérios (seção 5, com a instrução 30)
+
+- **Aceitação:** mediana do T_net principal > 0 **e** taxa de falsos alertas (estrato sucesso) < 30 %.
+- **Kill:** mediana do T_net principal < 0 **e** taxa de falsos alertas > 50 %.
+- Os dois critérios são independentes: a não-cobertura pesa no T_net, não na taxa.
+
+### 11.6 O que os dados congelados já fixam (declarado antes dos formulários)
+
+Classificação de `study/alerts.json` (`study/categories.json`), em declarações e (causas):
+
+| PR | Estrato | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| #45102 | sucesso | 82 | 0 | 1 (1) | 0 | 0 |
+| #43841 | sucesso | 0 | 0 | 88 (1) | 0 | 0 |
+| #44400 | sucesso | 386 | 0 | 0 | 0 | 55 (2) |
+| #45117 | sucesso | 76 | 0 | 1 (1) | 0 | 0 |
+| #44973 | sucesso | 88 | 0 | 29 (2) | 0 | 0 |
+| #45105 | fail-closed | 0 | 0 | 0 (2) | 248 (1) | 0 |
+| #45097 | fail-closed | 227 | 0 | 0 | 203 (3) | 4 (4) |
+| #44425 | fail-closed | 0 | 0 | 132 (3) | 43 (2) | 0 |
+| #44511 | fail-closed | 222 | 0 | 2 (4) | 412 (3) | 0 |
+| #44969 | fail-closed | 90 | 0 | 186 (12) | 17 (1) | 0 |
+
+**A categoria 2 é zero em todos os PRs.** Logo, a taxa de falsos alertas do critério já está determinada antes de qualquer revisão: **0 / 632 = 0 % no estrato sucesso**. O que o estudo ainda mede:
+- o T_net, principal e secundário;
+- a taxa de não-cobertura e o tempo gasto nela;
+- os desfechos dos defeitos plantados;
+- o falso alerta **percebido** pelos revisores.
+
+Isto é declarado aqui para não parecer, depois, que o critério de precisão foi "aprovado" pelo estudo: ele foi fixado pela saída congelada da ferramenta.

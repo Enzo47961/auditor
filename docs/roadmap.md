@@ -65,6 +65,7 @@ A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualque
    - **A defesa é o inspetor:** no ambiente de B, ele vê as constantes de A e as entradas de extensão que A registrou. A detecção é pelo ambiente, não pelo texto.
    - **Relação com a (b):** a mitigação (b) continua como defesa em profundidade contra adulteração; ela não fecha esta lacuna.
 3. **`notation` na Etapa A reconhecida como TCB** (gerada pelo toolchain; mesma lógica do `ctorIdx`). É o maior ganho único de cobertura.
+   - **Aparece × recupera** (instrução 30): "aparece" conta os arquivos que têm `notation`; "recupera" conta os que deixariam de cair se `notation` fosse TCB. Só o segundo número mede o ganho.
    - **Medição** (Etapa A v5, Mathlib `e1b2403b`, dados da run 39970204221):
      - `notation` aparece em 553 arquivos; 444 caem só por ela;
      - desses 444, 17 ainda cairiam pela L-33a;

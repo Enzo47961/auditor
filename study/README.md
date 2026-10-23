@@ -7,6 +7,10 @@ Metodologia: `docs/user-study.md`. Convite: `docs/user-study-invite.md`.
 | `selection.json` | os 31 PRs integrados depois de `e1b2403b`, critérios aplicados, os 13 elegíveis e os estratos | `tools/phase1/study_select.py` |
 | `patches/` | os diffs dos PRs, aplicáveis sobre `e1b2403b` | `tools/phase1/study_select.py` |
 | `audit.json` | a auditoria de cada PR elegível e a exclusão (B) por PR (run 39936018705); substituída pela exclusão por declaração (instrução 28) | `tools/phase1/study_audit.py` |
+| `prs.json` | os 10 PRs do estudo (regra mecânica: 5 por estrato, na ordem de integração) | `tools/phase1/study_run.py prs` |
+| `seed.txt` | semente do sorteio, `1818766798`, **publicada em 23/10/2026**, antes de qualquer resposta ao convite | `secrets.randbelow(2**31)` |
+| `alerts.json` | alertas dos 10 PRs como os revisores os veem (com os defeitos), **congelados antes de qualquer formulário**: relatórios da **run 39977160187** (auditor `ae9f791`) | `study_audit.py --prs`, `study_run.py alerts` |
+| `categories.json` | taxonomia de 5 categorias (instrução 30) sobre `alerts.json` | `study_run.py classify` |
 | `defects.json`, `defects/` | os defeitos plantados (instruções 27 e 28): diff só do defeito, ground truth, resultado esperado | conferidos por `tools/phase1/study_audit.py --defects` (`auditor-study`, modo `defects`) |
 
 ## Defeitos plantados: como conferir
