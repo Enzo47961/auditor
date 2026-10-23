@@ -1,7 +1,7 @@
 # Benchmark de enunciados trocados (Fase 1, sub-fase 1b)
 
 ```
-status: construído (benchmark_version 1); execução no fork (auditor-benchmark) pendente
+status: medido (benchmark_version 1); meta de falsos positivos não atingida → L-31
 classificação: author-self-review (L-26)
 ```
 
@@ -80,4 +80,55 @@ Se não forem atingidas, o resultado vira a **L-31**, com a taxa real e as causa
 
 ## 7. Resultados
 
-Pendente: primeira execução no fork.
+### 7.1 Execuções
+
+| Execução | Onde | Auditor | Situação |
+|---|---|---|---|
+| 1ª (run 39865083826) | fork | `5562afd` | 7 casos inválidos: ground truth ou controle não compilou (imports estreitos; lemas de nome errado); P32 não encontrado (privado pelo sistema de módulos) |
+| 2ª (run 39868546708) | fork | `c2d64de`… | com logs de build: confirmou as causas; os enunciados trocados falham por incompatibilidade de tipo (22/24), projeção inválida (S22) e instância (S17, inválido) |
+| 3ª (run 39872741098) | fork | `c2d64de` | **100 casos válidos**: medição de referência, Etapa A v4 |
+| 4ª (run 39876032952) | fork | `81457ac` | cancelada pelo GitHub (SIGTERM): workflows do fork suspensos por uso intenso |
+| 5ª (run 39879879325) | `auditor-measurements` | `81457ac` | **100 casos válidos**: Etapa A v5, Mathlib oficial no commit `e1b2403b` |
+
+Os erros da 1ª e da 2ª execução foram do construtor do benchmark, não do auditor:
+- imports estreitos demais no sistema de módulos;
+- `native_decide` exige `public meta import` (caso C09);
+- casamento do nome privado.
+
+Os casos inválidos foram excluídos, não contados como detecção.
+
+### 7.2 Métricas por categoria
+
+| Categoria | Válidos | 3ª: Etapa A v4 | 5ª: Etapa A v5 |
+|---|---|---|---|
+| Provas corretas difíceis: falso positivo | 35 | 12 (**34,3 %**) | 10 (**28,6 %**) |
+| Controles (enunciado original): falso positivo | 24 | 0 | 0 |
+| Enunciados trocados: sensibilidade / falso negativo | 24 | 100 % / 0 | 100 % / 0 |
+| Trapaças que compilam: sensibilidade / razão certa / FN | 11 | 100 % / 11 / 0 | 100 % / 11 / 0 |
+| Inconclusivos: `Não resolvida` com a razão esperada | 6 | 6 | 6 |
+| Precisão dos alertas (negativos / total) | — | 0,745 | 0,778 |
+
+**Entre a 3ª e a 5ª execução, a Etapa A v5 passou a vincular `set_option … in` através de `open … in` e a `instance` com nome.** A política não mudou.
+- O achado veio do próprio benchmark: a opção sem vínculo virava efeito do arquivo inteiro e derrubava teoremas que não tinham nada a ver com ela.
+- Os dois números ficam registrados.
+
+### 7.3 Falsos positivos restantes (5ª execução)
+
+| Causa | Casos | Pendência |
+|---|---|---|
+| Só `ctorIdx` gerado (`implemented_by_candidate`, L-34) | P03, P05 | P0 da Fase 2 (reconhecimento estrutural) |
+| Só `set_option` fora da política | P12, P14, P26, P29 | opções `backward.isDefEq.respectTransparency`, `…types` e `backward.defeqAttrib.useBackward` aplicadas ao **próprio** teorema; P29 é instância anônima, sem vínculo de propósito. Relaxamento das `backward.*` está no roadmap, com teste de ausência de efeito |
+| As duas causas | P02, P08, P25, P28 | as duas acima |
+
+**Leitura:**
+- **Nenhum enunciado falso saiu `verified`** em 35 casos negativos válidos. As 11 trapaças que compilam foram detectadas, todas com a razão certa.
+- **Os falsos positivos são todos fail-closed**, com causa conhecida e registrada (L-34; política de `set_option`). Nenhum vem de erro de detecção.
+- **As provas simples dos controles saem 24/24 `verified`.**
+- **O custo de cobertura está nas provas reais do Mathlib,** em áreas pesadas: geometria algébrica, teoria de categorias, topologia algébrica.
+
+### 7.4 Contra as metas da instrução 24
+
+- **Detecção ≥ 50 % dos enunciados trocados:** 100 %, mas **por construção** (seção 5). O número que mede o auditor é o das trapaças: 11/11, com razão certa 11/11.
+- **≤ 10 % de falsos positivos nas provas corretas: não atingida, 28,6 %.** Registrado como **L-31**.
+- **Kill criterion** (detecção < 20 % e FP > 30 %): não atingido. A detecção é total e o FP fica abaixo de 30 %.
+- **Critério de avanço** (detecção ≥ 50 % com FP ≤ 10 %): também não atingido, por causa do FP.

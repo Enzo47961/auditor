@@ -6,6 +6,15 @@ sem período de transição.
 
 ## Não lançado
 
+### Fase 1b: benchmark de enunciados trocados (instrução 24/25)
+- `benchmark/` (manifesto + 92 arquivos Lean), `tools/phase1/benchmark_*.py` e o workflow `auditor-benchmark`.
+- **Resultado** (`docs/benchmark.md`):
+  - nenhum enunciado falso `verified`;
+  - trapaças que compilam 11/11, com razão certa;
+  - falsos positivos nas provas corretas difíceis 28,6 % (meta ≤ 10 %), registrado como L-31.
+- **Etapa A v5:** `set_option … in` se vincula através de `open … in` e a `instance` com nome. Antes, a opção sem vínculo virava efeito do arquivo inteiro. A política não muda.
+- **Medições** passam ao repositório próprio `Enzo47961/auditor-measurements`, porque o fork foi suspenso pelo GitHub por uso intenso (`maintenance.md`).
+
 ### L-33 (b): adulteração detectada (Fase 1, instrução 25)
 - A Etapa B garante o inspetor **antes** do `lake build` do alvo e confere, depois do build, o hash do binário do inspetor e do pacote do auditor instalado. Se algo mudou, o inspetor não roda: `Não resolvida` (`toolchain_tampered`), exit 1, não infraestrutura.
 - O `auditor-ci` confere de novo entre arquivos. Depois de uma adulteração, os seguintes ficam `not_audited_after_tampering`, o `outcome.json` traz `toolchain_tampered: true` e o sumário avisa.

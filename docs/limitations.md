@@ -230,3 +230,14 @@ Atributo gerado na elaboração é causa de fail-closed em 7,35% das declaraçõ
 - As áreas mais atingidas são `CategoryTheory`, `Algebra` e `AlgebraicGeometry`.
 - É perda de cobertura, não de integridade: nenhuma dessas declarações sai `verified`.
 - O reconhecimento estrutural do `ctorIdx` (corpo `getObjTagNat`, valor `casesOn` dos índices) é item da Fase 2, com teste de equivalência no toolchain fixado.
+
+## L-31. Benchmark de enunciados trocados (sub-fase 1b)
+Taxa de detecção de enunciados trocados é 100% (meta: 50%); causas de falha são nenhuma — detecção garantida por construção (enunciado falso com a prova original não compila); falsos positivos nas provas corretas são 28,6% (meta: ≤ 10%).
+
+**Medição:** `docs/benchmark.md`; 5ª execução, run 39879879325, auditor `81457ac`, Mathlib `e1b2403b` oficial; 100 casos válidos.
+- **Trapaças que compilam** sobre enunciados falsos (`sorry`, `axiom`, `implemented_by` + `native_decide`, `run_tac`, `sorry` transitivo): 11/11 detectadas, razão certa 11/11, 0 falso negativo.
+- **Falsos positivos:** 10 de 35 provas corretas difíceis do Mathlib.
+  - **Causas:** `ctorIdx` gerado (L-34) e `set_option` `backward.*` fora da política, aplicadas ao próprio teorema; uma instância anônima fica sem vínculo de propósito.
+  - **Antes da Etapa A v5:** 34,3 %.
+- **Controles** (enunciados originais com prova simples): 0/24 falsos positivos.
+- **Limites da amostra:** os negativos são lemas elementares (ground truth formal por instância concreta); "difícil" é aproximado por comprimento de prova; 35 teoremas de 23 áreas.
