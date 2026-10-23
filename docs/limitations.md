@@ -222,6 +222,29 @@ Taxa de fail-closed da Etapa A no top-60 é 65,0% após (a); teto de 53,3% mesmo
 - **Medida adicional, que não substitui o gate:** na biblioteca `Mathlib` inteira, a taxa é 14,4 % (1244 de 8651). A causa dominante é `notation` (553 arquivos), uma macro gerada pelo toolchain. Se `notation` gerada pelo toolchain puder ser reconhecida como TCB (a mesma lógica do `ctorIdx` do P0-1), a taxa cai muito. Pergunta para a Fase 2 (`roadmap.md`).
 - Remedição oficial com a Etapa A v4 (L-33a), run 39849624202: top-60 inalterado (65,0 %); Mathlib inteiro 14,8 % (`unsafe` léxico em 74 arquivos). A detecção por ambiente da L-33a não está nesses números (`docs/p0-2-fail-closed.md`, seção 8).
 
+## L-35. Custo de cobertura da L-33a: delaboradores e extensões de tática em arquivos matemáticos
+A regra por ambiente da L-33a (`target_defines_executable_code`) deixa `Não resolvida` o arquivo inteiro quando o módulo-alvo define código capaz de rodar na elaboração. Em arquivos matemáticos, isso atinge delaboradores e extensões do `positivity`. **O fail-closed está correto:** esse código roda durante a elaboração. Mas tem um custo de cobertura, que a 1b não pegou (nenhum dos 35 arquivos sorteados tinha delaborador). Achado na seleção da 1c (`docs/user-study.md`, seção 8).
+
+**Medição** (`auditor-measure`, opção `l35`, run 39970204221; Mathlib `e1b2403b`, mesmo critério do inspetor v5; dados por módulo em `docs/l35-measure.json`):
+
+| Recorte | Módulos | Declarações reportáveis |
+|---|---|---|
+| Marcados pela regra (bruto) | 686 (7,93 %) | 30 252 (9,14 %) |
+| … com constante escrita à mão (`@[delab]`, `@[positivity]`, `elab`…) | 550 | 21 337 |
+| … só com delaborador gerado (`_aux_…_delab_app_…` de `notation`) | 136 | 8 915 |
+| **Custo marginal** (a Etapa A aceita o arquivo; cai só pela L-33a) | **242 (2,80 %)** | **11 269 (3,41 %)** |
+| … dos quais em arquivos matemáticos (fora de `Tactic`/`Util`/`Lean`/`Linter`) | 122 | 9 037 (2,73 %) |
+| …… delaborador | 74 | 4 691 |
+| …… extensão do `positivity` | 35 | 3 618 |
+| …… outros (`norm_num`, elaboradores, `evalX` de `match`) | 13 | 728 |
+
+Três leituras:
+- **O custo que a L-33a acrescenta é o marginal, 3,41 %** das declarações; o bruto (9,14 %) inclui arquivos que a Etapa A já deixa `Não resolvida`. É menos da metade do `ctorIdx` (L-34, 7,35 %).
+- **Delaborador gerado: custo marginal zero.** Os 136 módulos que só têm delaborador gerado já caem na Etapa A pelo próprio comando `notation` (`syntax_extension_declared`). Reconhecer o delaborador gerado como TCB, sozinho, não recupera nenhuma declaração. Só recupera junto com o tratamento de `notation` na Etapa A.
+- **Todo o custo marginal vem de código escrito à mão** (delaborador, extensão do `positivity`, elaborador). Pela nuance (iii) da instrução 28, o delaborador escrito à mão é código de usuário, e o fail-closed está correto. Recuperar essa cobertura exigiria outra política, que o projeto ainda não decidiu.
+
+**Na 1c:** é causa conhecida (instrução 28, Q2 (ii)), com tempo medido à parte. **Classificação P0 × roadmap:** pendente de decisão do revisor (instrução 28, Q2 (i)), com os números acima.
+
 ## L-34. Atributo gerado na elaboração derruba 7,35 % das declarações do Mathlib (P0-1)
 Atributo gerado na elaboração é causa de fail-closed em 7,35% das declarações; a política de TCB para gerado precisa de revisão na Fase 2.
 
