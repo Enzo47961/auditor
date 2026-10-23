@@ -223,3 +223,67 @@ def test_l35_marginal_cost_split_by_kind():
     assert r["flagged_handwritten"]["modules"] == 1 and r["flagged_generated_only"]["modules"] == 1
     assert r["marginal"]["reportable"] == 40 and r["marginal_handwritten"]["reportable"] == 10
     assert r["marginal_generated_only"]["modules"] == 0
+
+
+import study_run  # noqa: E402
+
+
+def _study_prs():
+    sel = json.loads((ROOT / "study" / "selection.json").read_text(encoding="utf-8"))
+    return study_run.select_prs(sel)
+
+
+def test_study_prs_are_the_first_five_per_stratum_in_merge_order():
+    prs = _study_prs()
+    assert [p["pr"] for p in prs if p["stratum"] == "success"] == [45102, 43841, 44400, 45117, 44973]
+    assert [p["pr"] for p in prs if p["stratum"] == "fail_closed"] == [45105, 45097, 44425, 44511, 44969]
+    defects = json.loads((ROOT / "study" / "defects.json").read_text(encoding="utf-8"))
+    assert {d["pr"] for d in defects["defects"]} <= {p["pr"] for p in prs}   # defeitos só em PRs do estudo
+
+
+def test_study_assignment_respects_constraints_and_is_reproducible():
+    prs = _study_prs()
+    reviewers = [{"id": "A", "github": ["sgouezel"]}, {"id": "B", "github": []}, {"id": "C", "github": ["tb65536"]}]
+    a1, a2 = study_run.assign(prs, reviewers, 7), study_run.assign(prs, reviewers, 7)
+    assert a1 == a2
+    authors = {p["pr"]: p["author"] for p in prs}
+    for r in a1["pairs"]:
+        assert r["with"] != r["without"]
+        assert not (authors[r["pr"]] == "sgouezel" and "A" in (r["with"], r["without"]))
+        assert not (authors[r["pr"]] == "tb65536" and "C" in (r["with"], r["without"]))
+    assert sorted(a1["load"].values()) == [6, 7, 7]
+    assert all(abs(c["with"] - c["without"]) <= 1 for c in a1["conditions"].values())
+    assert sum(len(v) for v in a1["order"].values()) == 20
+
+
+def test_study_report_separates_known_causes_and_defect_outcomes(tmp_path):
+    prs = [{"pr": 1, "stratum": "success", "author": "x"}, {"pr": 2, "stratum": "fail_closed", "author": "y"}]
+    assignment = {"seed": 1, "prs": prs, "order": {"A": [{"order": 1, "pr": 1, "condition": "with"},
+                                                         {"order": 2, "pr": 2, "condition": "without"}],
+                                                   "B": [{"order": 1, "pr": 2, "condition": "with"},
+                                                         {"order": 2, "pr": 1, "condition": "without"}]}}
+    study_run.write_forms(assignment, tmp_path)
+    fill = {"A": [("2026-11-01T10:00", "2026-11-01T10:15", "nao_integro", "2", "d1", "3"),
+                  ("2026-11-01T11:00", "2026-11-01T11:20", "integro", "", "", "")],
+            "B": [("2026-11-01T10:00", "2026-11-01T10:10", "integro", "1", "k1;u2", "4"),
+                  ("2026-11-01T11:00", "2026-11-01T11:30", "integro", "", "", "")]}
+    import csv as _csv
+    for n, vals in fill.items():
+        p = tmp_path / f"reviewer-{n}.csv"
+        rows = list(_csv.DictReader(p.open(encoding="utf-8")))
+        for r, (s, e, v, rd_, jf, km) in zip(rows, vals):
+            r.update(start=s, end=e, verdict=v, report_reading_min=rd_, alerts_judged_false=jf, known_cause_min=km)
+        with p.open("w", newline="", encoding="utf-8") as fh:
+            w = _csv.DictWriter(fh, study_run.FORM_COLUMNS); w.writeheader(); w.writerows(rows)
+    alerts = {"1": [{"declaration": "d1", "known_cause": False}],
+              "2": [{"declaration": "k1", "known_cause": True}, {"declaration": "u2", "known_cause": False},
+                    {"declaration": "u3", "known_cause": False}]}
+    defects = {"defects": [{"id": "A", "pr": 1, "expect": [{"declaration": "d1"}]}]}
+    res = study_run.report(assignment, study_run.read_forms(tmp_path), alerts, defects)
+    pr1, pr2 = res["per_pr"]
+    assert pr1["t_net_with_known"] == 30 - 15 and pr1["t_net"] == 30 - (15 - 3)
+    assert pr1["false_alerts"] == 0                                    # d1 é o defeito: não é falso alerta
+    assert pr2["t_net"] == 20 - (10 - 4) and pr2["known_cause_alerts"] == 1
+    assert pr2["false_alerts"] == 1 and pr2["false_alert_rate"] == 0.5  # k1 (causa conhecida) fica fora
+    assert {(o["condition"], o.get("outcome"), o["reviewer_found"]) for o in res["defects"]} == {
+        ("with", "a", True), ("without", None, False)}

@@ -127,6 +127,32 @@ def check_defects(project: Path, defects: dict, patches: Path, defdir: Path, pol
     return results
 
 
+def audit_study(project: Path, prs: list[dict], defects: dict, patches: Path, defdir: Path, policy: Path,
+                out: Path) -> list[dict]:
+    """Os PRs do estudo, como os revisores os veem: PR + defeito plantado (se houver) aplicados."""
+    by_pr = {d["pr"]: d for d in defects["defects"]}
+    sel = {r["pr"]: r for r in json.loads((patches.parent / "selection.json").read_text(encoding="utf-8"))["commits"]}
+    rows = []
+    for p in prs:
+        pp = (patches / sel[p["pr"]]["patch"]).resolve()
+        d = by_pr.get(p["pr"])
+        files = list(dict.fromkeys(p["files"] + (d["files"] if d else [])))
+        subprocess.run(["git", "-C", str(project), "apply", str(pp)], check=True)
+        try:
+            if d:
+                subprocess.run(["git", "-C", str(project), "apply", str((defdir / d["defect_patch"]).resolve())], check=True)
+            try:
+                reports = audit_pr(project, {"pr": p["pr"], "files": files, "patch": None}, patches, policy, out, apply=False)
+            finally:
+                if d:
+                    subprocess.run(["git", "-C", str(project), "apply", "-R", str((defdir / d["defect_patch"]).resolve())], check=True)
+        finally:
+            subprocess.run(["git", "-C", str(project), "apply", "-R", str(pp)], check=True)
+        rows.append({"pr": p["pr"], "defect": d["id"] if d else None, "reports": reports})
+        print(f"#{p['pr']} {'defeito ' + d['id'] if d else ''} {reports}", flush=True)
+    return rows
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("project", type=Path)
@@ -135,10 +161,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--policy", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--defects", type=Path, help="study/defects.json: verifica os defeitos plantados")
+    ap.add_argument("--prs", type=Path, help="study/prs.json: audita os PRs do estudo com os defeitos aplicados (exige --defects)")
     a = ap.parse_args(argv)
     sel = json.loads(a.selection.read_text(encoding="utf-8"))
     out = a.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if a.prs:
+        res = audit_study(a.project.resolve(), json.loads(a.prs.read_text(encoding="utf-8")),
+                          json.loads(a.defects.read_text(encoding="utf-8")), a.patches.resolve(),
+                          a.defects.resolve().parent / "defects", a.policy.resolve(), out)
+        (out / "study-prs.json").write_bytes((json.dumps(res, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
+        return 0
     if a.defects:
         res = check_defects(a.project.resolve(), json.loads(a.defects.read_text(encoding="utf-8")),
                             a.patches.resolve(), a.defects.resolve().parent / "defects", a.policy.resolve(), out)

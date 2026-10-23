@@ -173,3 +173,51 @@ Nenhuma das duas razões é de causa conhecida.
 **Briefing: onde está o defeito** (instrução 29). O briefing diz explicitamente que um defeito plantado **não está necessariamente na declaração que o revisor está olhando**: pode estar numa dependência. Este é o caso do defeito A, cujo `sorry` está a 3 imports do arquivo do PR. Quando o alerta aponta para uma origem em outro arquivo (as `origins` do `sorryAx_detected`), o revisor deve seguir até lá. O convite não traz essa nuance; ela é do briefing.
 
 **Primeira tentativa do B: erro meu.** Usei `Nat.add` como alvo de `implemented_by`, e o Lean o rejeita. Sem a troca, o `native_decide` avaliou o valor verdadeiro e recusou a proposição (run 39971602437). Corrigi com uma implementação própria, na forma do caso C08 do benchmark.
+
+## 9. Coleta dos dados (instrução 29, item 5)
+
+Preparada antes das respostas dos revisores, para a 1c começar sem atraso. Ferramenta: `tools/phase1/study_run.py`, com testes em `tests/maintenance/test_phase1_tools.py`.
+
+**1. Os 10 PRs** (`study/prs.json`, `study_run.py prs`). A regra mecânica da seção 2 escolhe 5 PRs por estrato, na ordem de integração no Mathlib, entre os 13 elegíveis:
+- **sucesso:** #45102, #43841, #44400, #45117, #44973;
+- **fail-closed:** #45105, #45097, #44425, #44511, #44969.
+
+Por essa regra, o #45025 é o 6º do estrato sucesso e fica de fora. Por isso o **defeito A foi movido para o #44400**, a outra opção que a instrução 28 autorizou. O novo defeito é um `sorry` em `Set.mul_mem_mul` (`Algebra/Group/Pointwise/Set/Basic.lean`), a 3 imports de `RingTheory/MvPowerSeries/Restricted.lean`. Pelo `to_additive`, o `sorry` chega a `Set.add_mem_add` e daí a `tendsto_sup'_antidiagonal_cofinite`. Dela dependem `MvPowerSeries.tendsto_antidiagonal`, `IsRestricted.mul`, `IsRestricted.subring` e as instâncias que o PR altera. A versão no #45025 está registrada em `study/defects.json` (`history`).
+
+**2. Semente publicada:** `1818766798` (`study/seed.txt`). Foi gerada e publicada em 23/10/2026, antes de qualquer resposta ao convite. O sorteio depende só da semente, de `study/prs.json` e da lista de revisores, então qualquer um pode reproduzi-lo.
+
+**3. Sorteio** (`study_run.py assign`). Cada PR vai para 2 revisores diferentes, um **com** e outro **sem** o auditor. As restrições:
+- ninguém revisa PR de que é autor (conflito de interesse, instrução 27);
+- a carga é equilibrada (7, 7, 6 com 3 revisores);
+- em cada revisor, a diferença entre revisões com e sem o auditor é de no máximo 1;
+- a ordem das revisões de cada revisor é aleatória.
+
+O sorteio é por rejeição: vale a primeira tentativa do gerador que satisfaz as restrições, e o número da tentativa é publicado. A identidade dos revisores (`study/reviewers.json`, com o usuário do GitHub para o conflito de interesse) **não** é versionada. A atribuição publicada usa só A, B e C, e lista os pares (PR, revisor) excluídos por conflito.
+
+**4. Formulário** (`study_run.py forms`): um CSV por revisor, com as revisões na ordem sorteada.
+
+| Coluna | Conteúdo |
+|---|---|
+| `order`, `pr`, `condition` | preenchidas pelo sorteio (`with` = com auditor, `without` = sem) |
+| `start`, `end` | início e fim da revisão (ISO 8601, por exemplo `2026-11-03T14:05`) |
+| `verdict` | `integro`, `nao_integro` ou `nao_sei` |
+| `problems_found` | os problemas de integridade achados, em texto livre |
+| `report_reading_min` | só com auditor: minutos lendo o relatório |
+| `alerts_judged_false` | só com auditor: as declarações cujo alerta pareceu falso, separadas por `;`, com o motivo em `notes` |
+| `known_cause_min` | só com auditor: minutos gastos com alertas de causa conhecida (seção 0) |
+| `notes` | livre |
+
+**5. Alertas** (`study_audit.py --prs study/prs.json --defects study/defects.json` e depois `study_run.py alerts`). O auditor roda nos 10 PRs **como os revisores os veem**, isto é, com os defeitos plantados aplicados. Cada alerta (declaração não `verified`) é atribuído a uma causa mecanicamente, **antes** de os formulários serem lidos. Um alerta é de causa conhecida quando todas as razões dele são de causa conhecida.
+
+**6. Relatório final** (`study_run.py report`, em `study/result.json`). Traz:
+- por PR e por estrato (nunca só o agregado): T_convencional, T_assistido, **T_net principal** (sem o tempo das causas conhecidas), T_net com as causas conhecidas, tempo de leitura e alertas (de causa conhecida e outros);
+- a **taxa de falsos alertas**, só sobre os alertas que não são de causa conhecida. O alerta numa declaração com defeito plantado nunca conta como falso;
+- a mediana por estrato e no total;
+- os **defeitos plantados**: por defeito e por condição, se o revisor achou o defeito, e, na condição com auditor, o desfecho (a), (b) ou (c) da seção 2;
+- os critérios da seção 5, escritos no próprio resultado.
+
+**Briefing (15 minutos), conteúdo fixo:**
+- o que o auditor verifica e o que não verifica;
+- as causas conhecidas e o pedido de registrar o tempo gasto nelas (seção 0, sem dizer "ignore");
+- que o defeito plantado pode estar numa dependência, e não na declaração principal (seção 8);
+- como preencher o formulário.

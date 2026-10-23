@@ -1,3 +1,7 @@
 .lake/
 __pycache__/
 *.pyc
+
+# identidades dos revisores do estudo: nunca publicadas (docs/user-study.md, seção 7)
+study/reviewers.json
+study/forms/

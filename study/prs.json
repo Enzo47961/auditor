@@ -1,0 +1,105 @@
+[
+ {
+  "pr": 45102,
+  "stratum": "success",
+  "author": "wwylele",
+  "sha": "88ae51157d07d52ce2075da8039ba0b3f4355730",
+  "files": [
+   "Mathlib/Analysis/Calculus/FDeriv/Analytic.lean"
+  ]
+ },
+ {
+  "pr": 43841,
+  "stratum": "success",
+  "author": "tb65536",
+  "sha": "573535abb37a6d98df5f7ad70993a75724d14cb7",
+  "files": [
+   "Mathlib/Analysis/Normed/Ring/WithAbs.lean"
+  ]
+ },
+ {
+  "pr": 44400,
+  "stratum": "success",
+  "author": "sgouezel",
+  "sha": "7f647dda2a986b7b020eff340382f564796ad59a",
+  "files": [
+   "Mathlib/RingTheory/MvPowerSeries/Restricted.lean"
+  ]
+ },
+ {
+  "pr": 45117,
+  "stratum": "success",
+  "author": "SnirBroshi",
+  "sha": "94d4e1d4cc69cbd57e34133f2d5c9d8c48c00f9c",
+  "files": [
+   "Mathlib/LinearAlgebra/Matrix/Rank.lean"
+  ]
+ },
+ {
+  "pr": 44973,
+  "stratum": "success",
+  "author": "tb65536",
+  "sha": "6fcf84ef4d59992492e50df6ea5135af79118a96",
+  "files": [
+   "Mathlib/Analysis/Matrix/GelfandRadius.lean",
+   "Mathlib/Analysis/Matrix/Normed.lean",
+   "Mathlib/Analysis/Normed/Algebra/GelfandRadius.lean"
+  ]
+ },
+ {
+  "pr": 45105,
+  "stratum": "fail_closed",
+  "author": "vihdzp",
+  "sha": "7e47a8809dbc44c9b493fe3779e42207b22e56c1",
+  "files": [
+   "Mathlib/SetTheory/Ordinal/Basic.lean"
+  ]
+ },
+ {
+  "pr": 45097,
+  "stratum": "fail_closed",
+  "author": "sgouezel",
+  "sha": "b575e0bbdec41cf856f3f53ee0d30f83820c645b",
+  "files": [
+   "Mathlib/MeasureTheory/MeasurableSpace/Defs.lean",
+   "Mathlib/MeasureTheory/Measure/Continuity.lean",
+   "Mathlib/MeasureTheory/Measure/NullMeasurable.lean",
+   "Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean",
+   "Mathlib/Probability/Process/Stopping.lean"
+  ]
+ },
+ {
+  "pr": 44425,
+  "stratum": "fail_closed",
+  "author": "JovanGerb",
+  "sha": "91cc66b80f73d67fa20730e411b99826bde933f0",
+  "files": [
+   "Mathlib/Algebra/Order/Interval/Basic.lean",
+   "Mathlib/Data/FP/Basic.lean"
+  ]
+ },
+ {
+  "pr": 44511,
+  "stratum": "fail_closed",
+  "author": "eric-wieser",
+  "sha": "cfc1b3da268fe6af6c74ccb4a91fe52de42a34c0",
+  "files": [
+   "Mathlib/MeasureTheory/Function/SimpleFunc.lean",
+   "Mathlib/MeasureTheory/Integral/Lebesgue/Basic.lean",
+   "Mathlib/MeasureTheory/Integral/Lebesgue/Countable.lean",
+   "Mathlib/Topology/Algebra/InfiniteSum/Basic.lean"
+  ]
+ },
+ {
+  "pr": 44969,
+  "stratum": "fail_closed",
+  "author": "tb65536",
+  "sha": "4e006b96901cfe4f8e7261376d330974dff1e02f",
+  "files": [
+   "Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean",
+   "Mathlib/Analysis/Matrix/Normed.lean",
+   "Mathlib/NumberTheory/NumberField/House.lean",
+   "Mathlib/NumberTheory/SiegelsLemma.lean"
+  ]
+ }
+]
