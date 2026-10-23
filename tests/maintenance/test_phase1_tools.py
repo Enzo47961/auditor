@@ -165,3 +165,47 @@ def test_benchmark_manifest_is_consistent():
         if c["module"].startswith("Mathlib.AuditorBenchmark."):
             rel = c["module"][len("Mathlib.AuditorBenchmark."):].replace(".", "/") + ".lean"
             assert (ROOT / "benchmark" / "lean" / rel).is_file(), rel
+
+
+# ------------------------------------------------------------------ 1c: seleção e exclusão (B)
+
+import study_audit  # noqa: E402
+import study_select  # noqa: E402
+
+
+def _f(name, add=1, rem=0, status="modified"):
+    return {"filename": name, "additions": add, "deletions": rem, "status": status}
+
+
+@pytest.mark.parametrize("files,ok", [
+    ([_f("Mathlib/Algebra/X.lean", 10)], True),
+    ([_f("Mathlib/Algebra/X.lean"), _f("docs/100.yaml")], True),                  # docs/ é documentação
+    ([_f("Mathlib/Algebra/X.lean"), _f(".github/workflows/ci.yml")], False),
+    ([_f("Mathlib/Algebra/X.lean"), _f("docs/notes.md")], True),
+    ([_f("Mathlib/Tactic/X.lean")], False),
+    ([_f(f"Mathlib/A/X{i}.lean") for i in range(6)], False),
+    ([_f("Mathlib/Algebra/X.lean", 200, 101)], False),
+    ([_f("Mathlib/Algebra/X.lean", status="removed")], False),
+    ([_f("lake-manifest.json")], False),
+])
+def test_study_selection_criteria(files, ok):
+    assert study_select.criteria(files)[0] is ok
+
+
+def test_study_exclusion_rule(tmp_path):
+    def rep(name, reasons, cands=()):
+        p = tmp_path / name
+        p.write_text(json.dumps({"file_findings": {"stage_a_candidates": list(cands)},
+                                 "declarations": [{"overall_status": "unresolved" if reasons else "verified",
+                                                   "proof_status": {"reasons": reasons}}]}))
+        return {"report": name}
+    ctor = rep("a.json", [{"code": "implemented_by_candidate", "detail": {"constants": ["Foo.ctorIdx"]}}])
+    other_ib = rep("b.json", [{"code": "implemented_by_candidate", "detail": {"constants": ["Foo.impl"]}}])
+    back = rep("c.json", [{"code": "set_option_unattributed", "detail": {"line": 7}}],
+               [{"code": "set_option", "line": 7, "option": "backward.isDefEq.respectTransparency"}])
+    clean = rep("d.json", [])
+    assert study_audit.exclusion(tmp_path, {"A": ctor})[0] == ["ctorIdx"]
+    assert study_audit.exclusion(tmp_path, {"B": other_ib})[0] == []
+    assert study_audit.exclusion(tmp_path, {"C": back})[0] == ["backward.*"]
+    causes, counts = study_audit.exclusion(tmp_path, {"D": clean, "A": ctor})
+    assert causes == ["ctorIdx"] and counts == {"declarations": 2, "verified": 1}

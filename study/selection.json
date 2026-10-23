@@ -1,0 +1,598 @@
+{
+ "repo": "leanprover-community/mathlib4",
+ "base": "e1b2403bdd31a2756e30282d62b3fa54cc95c869",
+ "criteria": {
+  "max_files": 5,
+  "max_lines": 300,
+  "excluded_dirs": [
+   "Mathlib/Tactic/",
+   "Mathlib/Lean/",
+   "Mathlib/Util/"
+  ]
+ },
+ "commits": [
+  {
+   "sha": "10156080d0e7997b71f3ef86bd6f0211b42ab90d",
+   "pr": 45061,
+   "title": "feat(Tactic/Linter/Header): access library root without cwd (#45061)",
+   "author": "thorimur",
+   "merged_at": "2026-10-21T00:36:40Z",
+   "eligible": false,
+   "reason": "fora de Mathlib/ ou em infraestrutura: Mathlib/Tactic/Linter/DirectoryDependency.lean, Mathlib/Tactic/Linter/Header.lean"
+  },
+  {
+   "sha": "eb6d361fd932140a10cc8d9f4be0db7f73b9bedf",
+   "pr": 45107,
+   "title": "chore: modulize `docs` (#45107)",
+   "author": "thorimur",
+   "merged_at": "2026-10-21T08:37:51Z",
+   "eligible": false,
+   "reason": "fora de Mathlib/ ou em infraestrutura: docs.lean, docs/Conv/Guide.lean, docs/Conv/Introduction.lean"
+  },
+  {
+   "sha": "7e47a8809dbc44c9b493fe3779e42207b22e56c1",
+   "pr": 45105,
+   "title": "refactor: `Cardinal.card_le_iff` → `Ordinal.card_le_iff` (#45105)",
+   "author": "vihdzp",
+   "merged_at": "2026-10-21T08:47:19Z",
+   "eligible": true,
+   "reason": "1 arquivos, 12 linhas",
+   "stratum": "fail_closed",
+   "stage_a": {
+    "Mathlib/SetTheory/Ordinal/Basic.lean": [
+     {
+      "code": "syntax_extension_declared",
+      "line": 116,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 763,
+      "command": "notation"
+     }
+    ]
+   },
+   "files": [
+    "Mathlib/SetTheory/Ordinal/Basic.lean"
+   ],
+   "patch": "7e47a8809dbc.diff"
+  },
+  {
+   "sha": "b575e0bbdec41cf856f3f53ee0d30f83820c645b",
+   "pr": 45097,
+   "title": "chore: generalize lemmas about measurability of biUnion (#45097)",
+   "author": "sgouezel",
+   "merged_at": "2026-10-21T09:23:15Z",
+   "eligible": true,
+   "reason": "5 arquivos, 58 linhas",
+   "stratum": "fail_closed",
+   "stage_a": {
+    "Mathlib/MeasureTheory/MeasurableSpace/Defs.lean": [
+     {
+      "code": "syntax_extension_declared",
+      "line": 67,
+      "command": "notation"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 504,
+      "command": "notation"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 507,
+      "command": "notation"
+     }
+    ],
+    "Mathlib/MeasureTheory/Measure/Continuity.lean": [],
+    "Mathlib/MeasureTheory/Measure/NullMeasurable.lean": [
+     {
+      "code": "unsafe_code",
+      "line": 95
+     }
+    ],
+    "Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean": [],
+    "Mathlib/Probability/Process/Stopping.lean": []
+   },
+   "files": [
+    "Mathlib/MeasureTheory/MeasurableSpace/Defs.lean",
+    "Mathlib/MeasureTheory/Measure/Continuity.lean",
+    "Mathlib/MeasureTheory/Measure/NullMeasurable.lean",
+    "Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean",
+    "Mathlib/Probability/Process/Stopping.lean"
+   ],
+   "patch": "b575e0bbdec4.diff"
+  },
+  {
+   "sha": "c31114ff810d2ce158c0f822f0cdad76771a5a6a",
+   "pr": 45077,
+   "title": "feat: use `IsApply` for `SimpleFunc` (#45077)",
+   "author": "EtienneC30",
+   "merged_at": "2026-10-21T09:51:07Z",
+   "eligible": false,
+   "reason": "19 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "903930a24c18fe1fcb0cc50caf5f65fd04e4003a",
+   "pr": 45087,
+   "title": "feat: use `IsApply` for `BoundedContinuousFunction` (#45087)",
+   "author": "EtienneC30",
+   "merged_at": "2026-10-21T11:53:41Z",
+   "eligible": false,
+   "reason": "11 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "e83c9eaaf43b752c4fb0de45d4fed1cf97262b5b",
+   "pr": 45123,
+   "title": "feat: use `IsApply` for `FiniteMeasure` (#45123)",
+   "author": "EtienneC30",
+   "merged_at": "2026-10-21T12:46:02Z",
+   "eligible": false,
+   "reason": "não aplica sobre a base: error: patch failed: Mathlib/MeasureTheory/Measure/FiniteMeasure.lean:275\nerror: Mathlib/MeasureTheory/Measure/FiniteMeasure.lean: patch does not apply\nerror: patch failed: Mathlib/MeasureTheory/Measu"
+  },
+  {
+   "sha": "a2f40e9ce2b3d1ebc9a5e057463f56fb87f119a8",
+   "pr": 45113,
+   "title": "chore: bump ProofWidgets to v0.0.118 (#45113)",
+   "author": "Vtec234",
+   "merged_at": "2026-10-21T14:10:38Z",
+   "eligible": false,
+   "reason": "altera arquivo que não é .lean nem documentação: lake-manifest.json"
+  },
+  {
+   "sha": "88ae51157d07d52ce2075da8039ba0b3f4355730",
+   "pr": 45102,
+   "title": "chore(Analysis/Calculus/FDeriv/Analytic): tag more @[fun_prop] (#45102)",
+   "author": "wwylele",
+   "merged_at": "2026-10-21T15:52:15Z",
+   "eligible": true,
+   "reason": "1 arquivos, 9 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/Analysis/Calculus/FDeriv/Analytic.lean": []
+   },
+   "files": [
+    "Mathlib/Analysis/Calculus/FDeriv/Analytic.lean"
+   ],
+   "patch": "88ae51157d07.diff"
+  },
+  {
+   "sha": "80dabc7f40135b656099529c4faedab84ada86db",
+   "pr": 45125,
+   "title": "chore: whitespace fixes (#45125)",
+   "author": "TwoFX",
+   "merged_at": "2026-10-21T15:52:19Z",
+   "eligible": false,
+   "reason": "7 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "573535abb37a6d98df5f7ad70993a75724d14cb7",
+   "pr": 43841,
+   "title": "feat(Analysis/Normed/Ring/WithAbs): more API for `AbsoluteValue.under` (#43841)",
+   "author": "tb65536",
+   "merged_at": "2026-10-21T16:48:46Z",
+   "eligible": true,
+   "reason": "1 arquivos, 32 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/Analysis/Normed/Ring/WithAbs.lean": []
+   },
+   "files": [
+    "Mathlib/Analysis/Normed/Ring/WithAbs.lean"
+   ],
+   "patch": "573535abb37a.diff"
+  },
+  {
+   "sha": "7f647dda2a986b7b020eff340382f564796ad59a",
+   "pr": 44400,
+   "title": "chore: fix a non-reducible diamond in `MvPowerSeries` (#44400)",
+   "author": "sgouezel",
+   "merged_at": "2026-10-21T16:48:49Z",
+   "eligible": true,
+   "reason": "1 arquivos, 9 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/RingTheory/MvPowerSeries/Restricted.lean": []
+   },
+   "files": [
+    "Mathlib/RingTheory/MvPowerSeries/Restricted.lean"
+   ],
+   "patch": "7f647dda2a98.diff"
+  },
+  {
+   "sha": "91cc66b80f73d67fa20730e411b99826bde933f0",
+   "pr": 44425,
+   "title": "chore: deprecate `FP.Float` (#44425)",
+   "author": "JovanGerb",
+   "merged_at": "2026-10-21T16:48:52Z",
+   "eligible": true,
+   "reason": "2 arquivos, 68 linhas",
+   "stratum": "fail_closed",
+   "stage_a": {
+    "Mathlib/Algebra/Order/Interval/Basic.lean": [],
+    "Mathlib/Data/FP/Basic.lean": [
+     {
+      "code": "unsafe_code",
+      "line": 137
+     },
+     {
+      "code": "unsafe_code",
+      "line": 149
+     },
+     {
+      "code": "unsafe_code",
+      "line": 156
+     },
+     {
+      "code": "unsafe_code",
+      "line": 167
+     },
+     {
+      "code": "unsafe_code",
+      "line": 173
+     },
+     {
+      "code": "unsafe_code",
+      "line": 179
+     },
+     {
+      "code": "unsafe_code",
+      "line": 187
+     },
+     {
+      "code": "unsafe_code",
+      "line": 191
+     },
+     {
+      "code": "unsafe_code",
+      "line": 215
+     },
+     {
+      "code": "unsafe_code",
+      "line": 228
+     },
+     {
+      "code": "unsafe_code",
+      "line": 232
+     },
+     {
+      "code": "unsafe_code",
+      "line": 236
+     },
+     {
+      "code": "unsafe_code",
+      "line": 240
+     },
+     {
+      "code": "unsafe_code",
+      "line": 251
+     }
+    ]
+   },
+   "files": [
+    "Mathlib/Algebra/Order/Interval/Basic.lean",
+    "Mathlib/Data/FP/Basic.lean"
+   ],
+   "patch": "91cc66b80f73.diff"
+  },
+  {
+   "sha": "cfc1b3da268fe6af6c74ccb4a91fe52de42a34c0",
+   "pr": 44511,
+   "title": "chore: more filter generalizations in tsum/tprod lemmas (#44511)",
+   "author": "eric-wieser",
+   "merged_at": "2026-10-21T16:48:56Z",
+   "eligible": true,
+   "reason": "4 arquivos, 48 linhas",
+   "stratum": "fail_closed",
+   "stage_a": {
+    "Mathlib/MeasureTheory/Function/SimpleFunc.lean": [
+     {
+      "code": "syntax_extension_declared",
+      "line": 53,
+      "command": "infixr"
+     }
+    ],
+    "Mathlib/MeasureTheory/Integral/Lebesgue/Basic.lean": [
+     {
+      "code": "syntax_extension_declared",
+      "line": 39,
+      "command": "infixr"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 56,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 59,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 62,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 65,
+      "command": "notation3"
+     }
+    ],
+    "Mathlib/MeasureTheory/Integral/Lebesgue/Countable.lean": [
+     {
+      "code": "syntax_extension_declared",
+      "line": 249,
+      "command": "infixr"
+     }
+    ],
+    "Mathlib/Topology/Algebra/InfiniteSum/Basic.lean": []
+   },
+   "files": [
+    "Mathlib/MeasureTheory/Function/SimpleFunc.lean",
+    "Mathlib/MeasureTheory/Integral/Lebesgue/Basic.lean",
+    "Mathlib/MeasureTheory/Integral/Lebesgue/Countable.lean",
+    "Mathlib/Topology/Algebra/InfiniteSum/Basic.lean"
+   ],
+   "patch": "cfc1b3da268f.diff"
+  },
+  {
+   "sha": "4e006b96901cfe4f8e7261376d330974dff1e02f",
+   "pr": 44969,
+   "title": "feat(Analysis/Matrix/Normed): prove `‖A i j‖ ≤ ‖A‖` for the operator norm (#44969)",
+   "author": "tb65536",
+   "merged_at": "2026-10-21T16:48:59Z",
+   "eligible": true,
+   "reason": "4 arquivos, 30 linhas",
+   "stratum": "fail_closed",
+   "stage_a": {
+    "Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean": [],
+    "Mathlib/Analysis/Matrix/Normed.lean": [],
+    "Mathlib/NumberTheory/NumberField/House.lean": [],
+    "Mathlib/NumberTheory/SiegelsLemma.lean": [
+     {
+      "code": "syntax_extension_declared",
+      "line": 48,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 49,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 50,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 51,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 53,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 55,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 56,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 57,
+      "command": "notation3"
+     },
+     {
+      "code": "syntax_extension_declared",
+      "line": 59,
+      "command": "notation3"
+     }
+    ]
+   },
+   "files": [
+    "Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean",
+    "Mathlib/Analysis/Matrix/Normed.lean",
+    "Mathlib/NumberTheory/NumberField/House.lean",
+    "Mathlib/NumberTheory/SiegelsLemma.lean"
+   ],
+   "patch": "4e006b96901c.diff"
+  },
+  {
+   "sha": "94d4e1d4cc69cbd57e34133f2d5c9d8c48c00f9c",
+   "pr": 45117,
+   "title": "chore(LinearAlgebra/Matrix/Rank): remove unnecessary `nontriviality`s (#45117)",
+   "author": "SnirBroshi",
+   "merged_at": "2026-10-21T16:49:02Z",
+   "eligible": true,
+   "reason": "1 arquivos, 4 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/LinearAlgebra/Matrix/Rank.lean": []
+   },
+   "files": [
+    "Mathlib/LinearAlgebra/Matrix/Rank.lean"
+   ],
+   "patch": "94d4e1d4cc69.diff"
+  },
+  {
+   "sha": "5f7b4198d22a9c82e1c698a379334fe128095c82",
+   "pr": 42393,
+   "title": "feat(Algebra/QuadraticAlgebra): classify quadratic algebras over ℚ (#42393)",
+   "author": "xroblot",
+   "merged_at": "2026-10-21T19:58:14Z",
+   "eligible": false,
+   "reason": "6 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "cc1ab32a3c126075a90cf55b1383dacd51cc59e0",
+   "pr": 45143,
+   "title": "ci: pin ensure-sha-pinned-actions to the leanprover-community fork (#45143)",
+   "author": "bryangingechen",
+   "merged_at": "2026-10-21T21:54:06Z",
+   "eligible": false,
+   "reason": "altera arquivo que não é .lean nem documentação: .github/workflows/actionlint.yml"
+  },
+  {
+   "sha": "9aeb63fe902365a0867a73624edf3fff955f8cd1",
+   "pr": 44489,
+   "title": "doc: add external proofs to the 100 theorems list (#44489)",
+   "author": "brackxm",
+   "merged_at": "2026-10-21T22:40:54Z",
+   "eligible": false,
+   "reason": "0 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "6ea173996caaa665b0a3c4f81ce472e04e4f7754",
+   "pr": 44940,
+   "title": "fix(Cache): retry uploads and report missing transfers (#44940)",
+   "author": "marcelolynch",
+   "merged_at": "2026-10-21T23:30:03Z",
+   "eligible": false,
+   "reason": "altera arquivo que não é .lean nem documentação: .github/actionlint.yml, .github/workflows/build_template.yml, .github/workflows/cache_test.yml"
+  },
+  {
+   "sha": "d88814353fcbcc0461c55b2a4585d3f44d903df1",
+   "pr": 45153,
+   "title": "chore(deps): bump the actions-version-updates group across 1 directory with 11 updates (#45153)",
+   "author": "dependabot[bot]",
+   "merged_at": "2026-10-22T02:32:44Z",
+   "eligible": false,
+   "reason": "altera arquivo que não é .lean nem documentação: .github/workflows/actionlint.yml, .github/workflows/add_label_from_diff.yaml, .github/workflows/build_template.yml"
+  },
+  {
+   "sha": "6fcf84ef4d59992492e50df6ea5135af79118a96",
+   "pr": 44973,
+   "title": "feat(Analysis/Matrix/GelfandRadius): the Gelfand radius of a block diagonal matrix (#44973)",
+   "author": "tb65536",
+   "merged_at": "2026-10-22T08:51:29Z",
+   "eligible": true,
+   "reason": "3 arquivos, 63 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/Analysis/Matrix/GelfandRadius.lean": [],
+    "Mathlib/Analysis/Matrix/Normed.lean": [],
+    "Mathlib/Analysis/Normed/Algebra/GelfandRadius.lean": []
+   },
+   "files": [
+    "Mathlib/Analysis/Matrix/GelfandRadius.lean",
+    "Mathlib/Analysis/Matrix/Normed.lean",
+    "Mathlib/Analysis/Normed/Algebra/GelfandRadius.lean"
+   ],
+   "patch": "6fcf84ef4d59.diff"
+  },
+  {
+   "sha": "5287c96ab0023a821dda3f293a38be0665bebeb7",
+   "pr": 39075,
+   "title": "feat(Algebra/CommRingCat): colimit of local ring via local hom (#39075)",
+   "author": "Thmoas-Guan",
+   "merged_at": "2026-10-22T10:42:31Z",
+   "eligible": false,
+   "reason": "fora de Mathlib/ ou em infraestrutura: Mathlib.lean"
+  },
+  {
+   "sha": "4530ed722ec48c2187d74c3edb41345b86b93aea",
+   "pr": 45151,
+   "title": "doc: add remaining external proofs to the 100 theorems list (#45151)",
+   "author": "kim-em",
+   "merged_at": "2026-10-22T11:10:00Z",
+   "eligible": false,
+   "reason": "0 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "ba5499e069f24171b4be2229dea365c897205f5e",
+   "pr": 45025,
+   "title": "feat(Algebra/Group/Even): a unit is a square iff its underlying element is a square (#45025)",
+   "author": "NirvanaC93",
+   "merged_at": "2026-10-22T13:29:36Z",
+   "eligible": true,
+   "reason": "1 arquivos, 13 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/Algebra/Ring/Parity.lean": []
+   },
+   "files": [
+    "Mathlib/Algebra/Ring/Parity.lean"
+   ],
+   "patch": "ba5499e069f2.diff"
+  },
+  {
+   "sha": "cedbee5094a0ffaab835008ebb49fa6023f88606",
+   "pr": 44379,
+   "title": "fix(tactic): skip implementation-detail declarations in `specialize_all` (#44379)",
+   "author": "JokerXin2025",
+   "merged_at": "2026-10-22T14:38:24Z",
+   "eligible": false,
+   "reason": "fora de Mathlib/ ou em infraestrutura: Mathlib/Tactic/TautoSet.lean, MathlibTest/Tactic/TautoSet.lean"
+  },
+  {
+   "sha": "0db93bb44438a03c84317df5f033136cdd14c91f",
+   "pr": 45127,
+   "title": "refactor(Tactic/Matrix): add shared Cert and Swaps modules for matrix tactics (#45127)",
+   "author": "paulcadman",
+   "merged_at": "2026-10-22T14:38:27Z",
+   "eligible": false,
+   "reason": "9 arquivos .lean (critério: 1 a 5)"
+  },
+  {
+   "sha": "ce51fd207e855003b3d8fecfaf4e21c5580f2892",
+   "pr": 45188,
+   "title": "ci: run the PR summary on the latest Python 3 (#45188)",
+   "author": "marcelolynch",
+   "merged_at": "2026-10-22T19:46:43Z",
+   "eligible": false,
+   "reason": "altera arquivo que não é .lean nem documentação: .github/workflows/PR_summary.yml"
+  },
+  {
+   "sha": "d414f239922da523b382f46e3100b3f34f23f564",
+   "pr": 45180,
+   "title": "feat(Algebra/Module/Submodule/Range): add `restrictScalars_comap` (#45180)",
+   "author": "tb65536",
+   "merged_at": "2026-10-22T21:38:44Z",
+   "eligible": true,
+   "reason": "1 arquivos, 4 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/Algebra/Module/Submodule/Range.lean": []
+   },
+   "files": [
+    "Mathlib/Algebra/Module/Submodule/Range.lean"
+   ],
+   "patch": "d414f239922d.diff"
+  },
+  {
+   "sha": "d79fa7b650321259f6f7257eec20974e91979f8d",
+   "pr": 45114,
+   "title": "chore(Algebra/FreeMonoid): deprecate `freeMonoidCongr_symm_of` (#45114)",
+   "author": "YaelDillies",
+   "merged_at": "2026-10-22T22:25:50Z",
+   "eligible": true,
+   "reason": "1 arquivos, 5 linhas",
+   "stratum": "success",
+   "stage_a": {
+    "Mathlib/Algebra/FreeMonoid/Basic.lean": []
+   },
+   "files": [
+    "Mathlib/Algebra/FreeMonoid/Basic.lean"
+   ],
+   "patch": "d79fa7b65032.diff"
+  },
+  {
+   "sha": "3d14fd9a313ac35ed4b5c653ed5d99157c9e29f6",
+   "pr": 45179,
+   "title": "ci: retry an empty issue list in the new contributor check (#45179)",
+   "author": "marcelolynch",
+   "merged_at": "2026-10-23T00:56:26Z",
+   "eligible": false,
+   "reason": "altera arquivo que não é .lean nem documentação: .github/workflows/label_new_contributor.yml"
+  }
+ ],
+ "eligible": 13
+}

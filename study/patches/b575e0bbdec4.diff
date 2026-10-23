@@ -1,0 +1,144 @@
+diff --git a/Mathlib/MeasureTheory/MeasurableSpace/Defs.lean b/Mathlib/MeasureTheory/MeasurableSpace/Defs.lean
+index a23af480797a5e..90ddc339d0c180 100644
+--- a/Mathlib/MeasureTheory/MeasurableSpace/Defs.lean
++++ b/Mathlib/MeasureTheory/MeasurableSpace/Defs.lean
+@@ -109,15 +109,15 @@ protected theorem MeasurableSet.iUnion [Countable ι] ⦃f : ι → Set α⦄
+     rw [← iUnion_congr_of_surjective _ he (fun _ => rfl)]
+     exact m.measurableSet_iUnion _ fun _ => h _
+ 
+-protected theorem MeasurableSet.biUnion {f : β → Set α} {s : Set β} (hs : s.Countable)
+-    (h : ∀ b ∈ s, MeasurableSet (f b)) : MeasurableSet (⋃ b ∈ s, f b) := by
+-  rw [biUnion_eq_iUnion]
+-  have := hs.to_subtype
++protected theorem MeasurableSet.biUnion {f : β → Set α} {p : β → Prop} (hp : {b | p b}.Countable)
++    (h : ∀ b, p b → MeasurableSet (f b)) : MeasurableSet (⋃ (b : β) (_ : p b), f b) := by
++  rw [← iUnion_subtype (p := p) (s := fun b ↦ f b)]
++  have := hp.to_subtype
+   exact MeasurableSet.iUnion (by simpa using h)
+ 
+-theorem Set.Finite.measurableSet_biUnion {f : β → Set α} {s : Set β} (hs : s.Finite)
+-    (h : ∀ b ∈ s, MeasurableSet (f b)) : MeasurableSet (⋃ b ∈ s, f b) :=
+-  .biUnion hs.countable h
++theorem Set.Finite.measurableSet_biUnion {f : β → Set α} {p : β → Prop} (hp : {b | p b}.Finite)
++    (h : ∀ b, p b → MeasurableSet (f b)) : MeasurableSet (⋃ (b : β) (_ : p b), f b) :=
++  .biUnion hp.countable h
+ 
+ theorem Finset.measurableSet_biUnion {f : β → Set α} (s : Finset β)
+     (h : ∀ b ∈ s, MeasurableSet (f b)) : MeasurableSet (⋃ b ∈ s, f b) :=
+@@ -137,13 +137,13 @@ theorem MeasurableSet.iInter [Countable ι] {f : ι → Set α} (h : ∀ b, Meas
+     MeasurableSet (⋂ b, f b) :=
+   .of_compl <| by rw [compl_iInter]; exact .iUnion fun b => (h b).compl
+ 
+-theorem MeasurableSet.biInter {f : β → Set α} {s : Set β} (hs : s.Countable)
+-    (h : ∀ b ∈ s, MeasurableSet (f b)) : MeasurableSet (⋂ b ∈ s, f b) :=
+-  .of_compl <| by rw [compl_iInter₂]; exact .biUnion hs fun b hb => (h b hb).compl
++theorem MeasurableSet.biInter {f : β → Set α} {p : β → Prop} (hp : {b | p b}.Countable)
++    (h : ∀ b, p b → MeasurableSet (f b)) : MeasurableSet (⋂ (b : β) (_ : p b), f b) :=
++  .of_compl <| by rw [compl_iInter₂]; exact .biUnion hp fun b hb => (h b hb).compl
+ 
+-theorem Set.Finite.measurableSet_biInter {f : β → Set α} {s : Set β} (hs : s.Finite)
+-    (h : ∀ b ∈ s, MeasurableSet (f b)) : MeasurableSet (⋂ b ∈ s, f b) :=
+-  .biInter hs.countable h
++theorem Set.Finite.measurableSet_biInter {f : β → Set α} {p : β → Prop} (hp : {b | p b}.Finite)
++    (h : ∀ b, p b → MeasurableSet (f b)) : MeasurableSet (⋂ (b : β) (_ : p b), f b) :=
++  .biInter hp.countable h
+ 
+ theorem Finset.measurableSet_biInter {f : β → Set α} (s : Finset β)
+     (h : ∀ b ∈ s, MeasurableSet (f b)) : MeasurableSet (⋂ b ∈ s, f b) :=
+diff --git a/Mathlib/MeasureTheory/Measure/Continuity.lean b/Mathlib/MeasureTheory/Measure/Continuity.lean
+index d094f9de4dc6c7..37c52d5c855143 100644
+--- a/Mathlib/MeasureTheory/Measure/Continuity.lean
++++ b/Mathlib/MeasureTheory/Measure/Continuity.lean
+@@ -189,7 +189,7 @@ theorem measure_iInter_eq_iInf_measure_iInter_le [Countable ι] [Preorder ι] [I
+   · rw [iInter_comm]
+     exact congrArg μ <| iInter_congr fun i ↦ (biInf_const nonempty_Ici).symm
+   · exact fun i j h ↦ biInter_mono (Iic_subset_Iic.2 h) fun _ _ ↦ Set.Subset.rfl
+-  · exact fun i ↦ .biInter (s := {j | j ≤ i}) (to_countable _) fun _ _ ↦ h _
++  · exact fun i ↦ .biInter (to_countable _) fun _ _ ↦ h _
+   · refine hfin.imp fun k hk ↦ ne_top_of_le_ne_top hk <| measure_mono <| iInter₂_subset k ?_
+     rfl
+ 
+diff --git a/Mathlib/MeasureTheory/Measure/NullMeasurable.lean b/Mathlib/MeasureTheory/Measure/NullMeasurable.lean
+index a3d16ba504756b..e06eab7cd106b8 100644
+--- a/Mathlib/MeasureTheory/Measure/NullMeasurable.lean
++++ b/Mathlib/MeasureTheory/Measure/NullMeasurable.lean
+@@ -134,9 +134,9 @@ protected theorem iUnion {ι : Sort*} [Countable ι] {s : ι → Set α}
+     (h : ∀ i, NullMeasurableSet (s i) μ) : NullMeasurableSet (⋃ i, s i) μ :=
+   MeasurableSet.iUnion h
+ 
+-protected theorem biUnion {f : ι → Set α} {s : Set ι} (hs : s.Countable)
+-    (h : ∀ b ∈ s, NullMeasurableSet (f b) μ) : NullMeasurableSet (⋃ b ∈ s, f b) μ :=
+-  MeasurableSet.biUnion hs h
++protected theorem biUnion {f : ι → Set α} {p : ι → Prop} (hp : {b | p b}.Countable)
++    (h : ∀ b, p b → NullMeasurableSet (f b) μ) : NullMeasurableSet (⋃ (b : ι) (_ : p b), f b) μ :=
++  MeasurableSet.biUnion hp h
+ 
+ protected theorem sUnion {s : Set (Set α)} (hs : s.Countable) (h : ∀ t ∈ s, NullMeasurableSet t μ) :
+     NullMeasurableSet (⋃₀ s) μ := by
+@@ -148,9 +148,9 @@ protected theorem iInter {ι : Sort*} [Countable ι] {f : ι → Set α}
+     (h : ∀ i, NullMeasurableSet (f i) μ) : NullMeasurableSet (⋂ i, f i) μ :=
+   MeasurableSet.iInter h
+ 
+-protected theorem biInter {f : β → Set α} {s : Set β} (hs : s.Countable)
+-    (h : ∀ b ∈ s, NullMeasurableSet (f b) μ) : NullMeasurableSet (⋂ b ∈ s, f b) μ :=
+-  MeasurableSet.biInter hs h
++protected theorem biInter {f : β → Set α} {p : β → Prop} (hp : {b | p b}.Countable)
++    (h : ∀ b, p b → NullMeasurableSet (f b) μ) : NullMeasurableSet (⋂ (b : β) (_ : p b), f b) μ :=
++  MeasurableSet.biInter hp h
+ 
+ protected theorem sInter {s : Set (Set α)} (hs : s.Countable) (h : ∀ t ∈ s, NullMeasurableSet t μ) :
+     NullMeasurableSet (⋂₀ s) μ :=
+@@ -331,9 +331,10 @@ protected theorem _root_.Finset.nullMeasurableSet (s : Finset α) : NullMeasurab
+ 
+ end MeasurableSingletonClass
+ 
+-theorem _root_.Set.Finite.nullMeasurableSet_biUnion {f : ι → Set α} {s : Set ι} (hs : s.Finite)
+-    (h : ∀ b ∈ s, NullMeasurableSet (f b) μ) : NullMeasurableSet (⋃ b ∈ s, f b) μ :=
+-  Finite.measurableSet_biUnion hs h
++theorem _root_.Set.Finite.nullMeasurableSet_biUnion
++    {f : ι → Set α} {p : ι → Prop} (hp : {b | p b}.Finite)
++    (h : ∀ b, p b → NullMeasurableSet (f b) μ) : NullMeasurableSet (⋃ (b : ι) (_ : p b), f b) μ :=
++  Finite.measurableSet_biUnion hp h
+ 
+ theorem _root_.Finset.nullMeasurableSet_biUnion {f : ι → Set α} (s : Finset ι)
+     (h : ∀ b ∈ s, NullMeasurableSet (f b) μ) : NullMeasurableSet (⋃ b ∈ s, f b) μ :=
+@@ -343,9 +344,10 @@ theorem _root_.Set.Finite.nullMeasurableSet_sUnion {s : Set (Set α)} (hs : s.Fi
+     (h : ∀ t ∈ s, NullMeasurableSet t μ) : NullMeasurableSet (⋃₀ s) μ :=
+   Finite.measurableSet_sUnion hs h
+ 
+-theorem _root_.Set.Finite.nullMeasurableSet_biInter {f : ι → Set α} {s : Set ι} (hs : s.Finite)
+-    (h : ∀ b ∈ s, NullMeasurableSet (f b) μ) : NullMeasurableSet (⋂ b ∈ s, f b) μ :=
+-  Finite.measurableSet_biInter hs h
++theorem _root_.Set.Finite.nullMeasurableSet_biInter
++    {f : ι → Set α} {p : ι → Prop} (hp : {b | p b}.Finite)
++    (h : ∀ b, p b → NullMeasurableSet (f b) μ) : NullMeasurableSet (⋂ (b : ι) (_ : p b), f b) μ :=
++  Finite.measurableSet_biInter hp h
+ 
+ theorem _root_.Finset.nullMeasurableSet_biInter {f : ι → Set α} (s : Finset ι)
+     (h : ∀ b ∈ s, NullMeasurableSet (f b) μ) : NullMeasurableSet (⋂ b ∈ s, f b) μ :=
+diff --git a/Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean b/Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean
+index ab2f933048145f..05d374bb37ce32 100644
+--- a/Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean
++++ b/Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean
+@@ -501,7 +501,7 @@ private theorem hasSum_setIntegral_iUnion_nat {s : ℕ → Set X}
+   · simp only [Finset.mem_range, disjoint_iUnion_right, disjoint_iUnion_left]
+     intro i j hi
+     apply hd (by grind)
+-  · apply MeasurableSet.biUnion (Finset.countable_toSet _) (fun i hi ↦ hm i)
++  · exact Finset.measurableSet_biUnion _ (fun i hi ↦ hm i)
+   · apply MeasurableSet.iUnion (fun i ↦ hm _)
+   · apply hfi.mono (MeasurableSet.iUnion hm) (by simp [subset_iUnion s])
+   · apply hfi.mono (MeasurableSet.iUnion hm) (by simp [subset_iUnion s])
+diff --git a/Mathlib/Probability/Process/Stopping.lean b/Mathlib/Probability/Process/Stopping.lean
+index 54e8ea7eb75c37..bed86359b68817 100644
+--- a/Mathlib/Probability/Process/Stopping.lean
++++ b/Mathlib/Probability/Process/Stopping.lean
+@@ -266,7 +266,7 @@ theorem isStoppingTime_of_measurableSet_eq [Preorder ι] [Countable ι] {f : Fil
+     | top => simp
+     | coe a => norm_cast; simp
+   rw [h_eq_iUnion]
+-  refine MeasurableSet.biUnion (s := {k | k ≤ i}) (Set.to_countable _) fun k hk => ?_
++  refine MeasurableSet.biUnion (Set.to_countable _) fun k hk => ?_
+   exact f.mono hk _ (hτ k)
+ 
+ end Countable

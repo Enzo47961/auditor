@@ -1,0 +1,99 @@
+diff --git a/Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean b/Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean
+index 37fddb12347bec..1d0891da48f190 100644
+--- a/Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean
++++ b/Mathlib/Analysis/CStarAlgebra/CStarMatrix.lean
+@@ -684,7 +684,7 @@ private lemma antilipschitzWith_toMatrixAux :
+       exact norm_apply_le_norm v j
+     _ ≤ ∑ _ : n, ∑ _ : m, ‖ofMatrixₗ.symm (R := ℂ) M‖ := by
+       gcongr with j _ i _
+-      exact ofMatrixₗ.symm (R := ℂ) M |>.norm_entry_le_entrywise_sup_norm
++      exact ofMatrixₗ.symm (R := ℂ) M |>.norm_apply_le_norm
+     _ = _ := by simp [mul_assoc]
+ 
+ private lemma uniformInducing_toMatrixAux :
+diff --git a/Mathlib/Analysis/Matrix/Normed.lean b/Mathlib/Analysis/Matrix/Normed.lean
+index 8c650b1f1df281..584bff98d59f47 100644
+--- a/Mathlib/Analysis/Matrix/Normed.lean
++++ b/Mathlib/Analysis/Matrix/Normed.lean
+@@ -103,12 +103,17 @@ theorem nnnorm_lt_iff {r : ℝ≥0} (hr : 0 < r) {A : Matrix m n α} :
+     ‖A‖₊ < r ↔ ∀ i j, ‖A i j‖₊ < r := by
+   simp_rw [nnnorm_def, pi_nnnorm_lt_iff hr]
+ 
+-theorem norm_entry_le_entrywise_sup_norm (A : Matrix m n α) {i : m} {j : n} : ‖A i j‖ ≤ ‖A‖ :=
++theorem norm_apply_le_norm (A : Matrix m n α) {i : m} {j : n} : ‖A i j‖ ≤ ‖A‖ :=
+   (norm_le_pi_norm (A i) j).trans (norm_le_pi_norm A i)
+ 
+-theorem nnnorm_entry_le_entrywise_sup_nnnorm (A : Matrix m n α) {i : m} {j : n} : ‖A i j‖₊ ≤ ‖A‖₊ :=
++@[deprecated (since := "2026-10-19")] alias norm_entry_le_entrywise_sup_norm := norm_apply_le_norm
++
++theorem nnnorm_apply_le_nnnorm (A : Matrix m n α) {i : m} {j : n} : ‖A i j‖₊ ≤ ‖A‖₊ :=
+   (nnnorm_le_pi_nnnorm (A i) j).trans (nnnorm_le_pi_nnnorm A i)
+ 
++@[deprecated (since := "2026-10-19")]
++alias nnnorm_entry_le_entrywise_sup_nnnorm := nnnorm_apply_le_nnnorm
++
+ @[simp]
+ theorem nnnorm_map_eq (A : Matrix m n α) (f : α → β) (hf : ∀ a, ‖f a‖₊ = ‖a‖₊) :
+     ‖A.map f‖₊ = ‖A‖₊ := by
+@@ -290,6 +295,12 @@ theorem linfty_opNNNorm_def (A : Matrix m n α) :
+     ‖A‖₊ = (Finset.univ : Finset m).sup fun i : m => ∑ j : n, ‖A i j‖₊ :=
+   Subtype.ext <| linfty_opNorm_def A
+ 
++theorem nnnorm_apply_le_linfty_opNNNorm (A : Matrix m n α) (i : m) (j : n) : ‖A i j‖₊ ≤ ‖A‖₊ :=
++  (PiLp.nnnorm_apply_le (toLp 1 (A i)) j).trans (nnnorm_le_pi_nnnorm (fun i ↦ toLp 1 (A i)) i)
++
++theorem norm_apply_le_linfty_opNorm (A : Matrix m n α) (i : m) (j : n) : ‖A i j‖ ≤ ‖A‖ :=
++  nnnorm_apply_le_linfty_opNNNorm A i j
++
+ @[simp]
+ theorem linfty_opNNNorm_replicateCol (v : m → α) : ‖replicateCol ι v‖₊ = ‖v‖₊ := by
+   rw [linfty_opNNNorm_def, Pi.nnnorm_def]
+@@ -562,6 +573,13 @@ theorem frobenius_norm_def (A : Matrix m n α) :
+     ‖A‖ = (∑ i, ∑ j, ‖A i j‖ ^ (2 : ℝ)) ^ (1 / 2 : ℝ) :=
+   congr(($(frobenius_nnnorm_def A) : ℝ)).trans <| by simp [NNReal.coe_sum]
+ 
++theorem nnnorm_apply_le_frobenius_nnnorm (A : Matrix m n α) (i : m) (j : n) : ‖A i j‖₊ ≤ ‖A‖₊ := by
++  grw [frobenius_nnnorm_def, ← NNReal.sqrt_eq_rpow, NNReal.le_sqrt_iff_sq_le, ← NNReal.rpow_ofNat,
++    ← Finset.single_le_sum, ← Finset.single_le_sum] <;> simp
++
++theorem norm_apply_le_frobenius_norm (A : Matrix m n α) (i : m) (j : n) : ‖A i j‖ ≤ ‖A‖ :=
++  nnnorm_apply_le_frobenius_nnnorm A i j
++
+ @[simp]
+ theorem frobenius_nnnorm_map_eq (A : Matrix m n α) (f : α → β) (hf : ∀ a, ‖f a‖₊ = ‖a‖₊) :
+     ‖A.map f‖₊ = ‖A‖₊ := by simp_rw [frobenius_nnnorm_def, Matrix.map_apply, hf]
+diff --git a/Mathlib/NumberTheory/NumberField/House.lean b/Mathlib/NumberTheory/NumberField/House.lean
+index 4c5ba70ed32cae..c7fc2f0c495ad5 100644
+--- a/Mathlib/NumberTheory/NumberField/House.lean
++++ b/Mathlib/NumberTheory/NumberField/House.lean
+@@ -152,7 +152,7 @@ theorem basis_repr_norm_le_const_mul_house (α : 𝓞 K) (i : K →+* ℂ) :
+       exact norm_sum_le_of_le _ fun _ _ ↦ (norm_mul _ _).le
+     _ ≤ ∑ j, ‖((basisMatrix K).transpose)⁻¹‖ * ‖σ (algebraMap (𝓞 K) K α) j‖ := by
+       gcongr
+-      exact norm_entry_le_entrywise_sup_norm ((basisMatrix K).transpose)⁻¹
++      exact norm_apply_le_norm ((basisMatrix K).transpose)⁻¹
+     _ ≤ ∑ _ : K →+* ℂ, ‖fun i j => ((basisMatrix K).transpose)⁻¹ i j‖
+         * house (algebraMap (𝓞 K) K α) := by
+       gcongr with j
+diff --git a/Mathlib/NumberTheory/SiegelsLemma.lean b/Mathlib/NumberTheory/SiegelsLemma.lean
+index fd2eb048de4951..0d745cc7f01748 100644
+--- a/Mathlib/NumberTheory/SiegelsLemma.lean
++++ b/Mathlib/NumberTheory/SiegelsLemma.lean
+@@ -108,7 +108,7 @@ lemma one_le_norm_A_of_ne_zero (hA : A ≠ 0) : 1 ≤ ‖A‖ := by
+     1 ≤ ‖A i j‖ := by
+       rw [Int.norm_eq_abs, ← Int.cast_abs, ← Int.cast_one, Int.cast_le]
+       exact Int.one_le_abs hij
+-    _ ≤ ‖A‖ := norm_entry_le_entrywise_sup_norm A
++    _ ≤ ‖A‖ := norm_apply_le_norm A
+ 
+ -- # Step 2: #S < #T
+ 
+@@ -133,7 +133,7 @@ private lemma card_S_lt_card_T [DecidableEq α] [DecidableEq β]
+         simp_rw [h1, ← Finset.sum_add_distrib, ← mul_add, mul_comm (max 1 ‖A‖), ← Int.cast_add]
+         gcongr with j _
+         rw [posPart_add_negPart (A i j), Int.cast_abs]
+-        exact le_trans (norm_entry_le_entrywise_sup_norm A) (le_max_right ..)
++        exact le_trans (norm_apply_le_norm A) (le_max_right ..)
+   _ = (n * max 1 ‖A‖ * B + 1) ^ m := by simp
+   _ ≤ (n * max 1 ‖A‖) ^ m * (B + 1) ^ m := by
+         rw [← mul_pow, mul_add, mul_one]
