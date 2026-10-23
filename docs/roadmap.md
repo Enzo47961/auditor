@@ -51,11 +51,12 @@ Item 1 feito (2026-10-22):
 - re-aquecimento com o inspetor v5, run 39858729968;
 - `auditor-prep` verde, run 39858970932: allow-list regenerada idêntica byte a byte à commitada, `gen_tcb_roots --check` exit 0, fumaça 20/20.
 4. **1c** (estudo de usuário) só depois da (b): o estudo usa PRs reais, e a (b) faz parte da configuração de produção.
+   **Opção (B), instrução 26:** a amostra exclui os casos de `ctorIdx` gerado e de `backward.*`. O resultado mede o valor da ferramenta no escopo que ela cobre, não na configuração de produção; a Fase 2 re-mede com a amostra completa (`docs/user-study.md`). O convite vai em `docs/user-study-invite.md`: o mantenedor envia depois da revisão.
 5. **1d** só depois da 1c.
 
-## Fase 2 — P0 (instrução 25)
+## Fase 2 — P0 (instruções 25 e 26)
 
-Antes de qualquer expansão de cobertura:
+A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualquer expansão de cobertura:
 
 1. **`ctorIdx` reconhecido pela forma** (`getObjTagNat` + `casesOn` dos índices), com teste de equivalência no toolchain fixado. 7,35 % das declarações do Mathlib caem só por isso (L-34), em áreas matemáticas (`CategoryTheory`, `Algebra`, `AlgebraicGeometry`). A Fase 2 começa por aí.
 2. **`dependency_registers_code`: lacuna de integridade da L-33a.**
@@ -63,6 +64,7 @@ Antes de qualquer expansão de cobertura:
    - **Por que é lacuna:** hoje B sai `verified` embora o `initialize` de A tenha executado durante o build de B (cenário 10). É o mesmo padrão do `sorry` transitivo.
    - **A defesa é o inspetor:** no ambiente de B, ele vê as constantes de A e as entradas de extensão que A registrou. A detecção é pelo ambiente, não pelo texto.
    - **Relação com a (b):** a mitigação (b) continua como defesa em profundidade contra adulteração; ela não fecha esta lacuna.
+3. **Relaxamento das opções `backward.*`**, com teste de ausência de efeito. É a segunda causa dos falsos positivos da 1b (L-31), junto com o `ctorIdx`. As duas correções devem ser medidas, com a amostra completa do benchmark e do estudo de usuário, antes de qualquer alegação de cobertura do Mathlib a terceiros.
 
 ## Fase 2 — pergunta de produto (instrução 25)
 

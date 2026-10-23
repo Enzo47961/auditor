@@ -282,7 +282,7 @@ Uma rodada sobre `d5f6264` foi **cancelada**: dois testes já falhavam sem muta�
 - os seguintes ficaram na fila sem runner;
 - o mantenedor reativou os workflows.
 
-**Para não depender da tolerância do GitHub com forks**, os workflows pesados migraram para um repositório próprio, público e **não fork**: [`Enzo47961/auditor-measurements`](https://github.com/Enzo47961/auditor-measurements).
+**Medições pesadas rodam em repositório próprio; fork fica com PRs de medição e workflows de PR** (aprovado na instrução 26). **Para não depender da tolerância do GitHub com forks**, os workflows pesados migraram para um repositório próprio, público e **não fork**: [`Enzo47961/auditor-measurements`](https://github.com/Enzo47961/auditor-measurements).
 - **Workflows:** `auditor-mutation`, `auditor-prep`, `auditor-measure` e `auditor-benchmark`.
 - **Mathlib:** cada um baixa o Mathlib oficial (`leanprover-community/mathlib4`) no commit fixado `e1b2403b`, sobrepõe o `.auditor/` do repositório (a mesma allow-list e classificação do fork) e confere o commit antes de rodar.
 - **O que fica no fork:** os PRs de medição da camada 2 (#1 a #9) e os workflows de PR (`auditor-tier1`, `auditor-label`, `auditor-report`, `auditor-warm-cache`). Os runs citados até esta data foram no fork.

@@ -132,3 +132,12 @@ Os casos inválidos foram excluídos, não contados como detecção.
 - **≤ 10 % de falsos positivos nas provas corretas: não atingida, 28,6 %.** Registrado como **L-31**.
 - **Kill criterion** (detecção < 20 % e FP > 30 %): não atingido. A detecção é total e o FP fica abaixo de 30 %.
 - **Critério de avanço** (detecção ≥ 50 % com FP ≤ 10 %): também não atingido, por causa do FP.
+
+### 7.5 Registro do fechamento (instrução 26)
+
+**1b fechada com a L-31 registrada.** Os três pontos do registro:
+1. **O número que mede o auditor é 11/11 nas trapaças que compilam**, com a razão certa e zero falso negativo. Os 100 % de detecção dos enunciados trocados são **por construção**: enunciado falso não compila.
+2. **Os 28,6 % de falso positivo se decompõem assim:** 2 por `ctorIdx` (L-34, P0 da Fase 2), 4 por `backward.*` (roadmap) e 4 pelas duas causas. 8 dos 10 vêm de duas causas conhecidas e corrigíveis. As duas são fail-closed: o erro é de cobertura, não de integridade.
+3. **O benchmark achou um bug real da Etapa A.** `set_option X in` seguido de `open … in` (ou de `instance` com nome) ficava vinculado ao arquivo inteiro.
+   - Corrigido na Etapa A v5.
+   - Teste de regressão permanente: `tests/stage_a/test_stage_a.py::test_set_option_in_binds_through_open_in_and_named_instance`, com 7 casos e 2 mutações no grupo `stage_a`.

@@ -12,7 +12,9 @@ sem período de transição.
   - nenhum enunciado falso `verified`;
   - trapaças que compilam 11/11, com razão certa;
   - falsos positivos nas provas corretas difíceis 28,6 % (meta ≤ 10 %), registrado como L-31.
-- **Etapa A v5:** `set_option … in` se vincula através de `open … in` e a `instance` com nome. Antes, a opção sem vínculo virava efeito do arquivo inteiro. A política não muda.
+- **Achado do benchmark, bug da Etapa A, corrigido na v5:** `set_option X in` seguido de `open … in`, ou de `instance` com nome, ficava vinculado ao arquivo inteiro e derrubava teoremas sem relação com a opção. Agora a opção se vincula à declaração certa; instância anônima continua sem vínculo (fail-closed). A política não muda.
+  - Teste de regressão permanente: `test_set_option_in_binds_through_open_in_and_named_instance`.
+  - Falso positivo das provas corretas: 34,3 % → 28,6 %.
 - **Medições** passam ao repositório próprio `Enzo47961/auditor-measurements`, porque o fork foi suspenso pelo GitHub por uso intenso (`maintenance.md`).
 
 ### L-33 (b): adulteração detectada (Fase 1, instrução 25)

@@ -209,7 +209,7 @@ Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` 
 - **Dependências externas do Mathlib** (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph) não foram inventariadas. A defesa por ambiente vale para o código do alvo, onde quer que o atributo tenha sido definido.
 - **`lakefile.lean` alterado no PR** executa código no `lake build`: fora do alcance da Etapa A.
 - Para todos esses casos, e para qualquer mecanismo fora do inventário, a defesa é a **mitigação estrutural (b)**: hash do inspetor e do auditor antes e depois do `lake build`, `toolchain_tampered`. Ela detecta adulteração, não execução: (a) e (b) são defesas diferentes, e as duas são necessárias.
-- **(b) implementada** (instrução 25, cenário 11). O que ela **não** cobre:
+- **(b) implementada** (instrução 25, cenário 11) e **aprovada** (instrução 26). A primeira versão tinha 3 erros, pegos pela suíte antes de qualquer mutação (orçamento consumido pelo hash, teste da ordem antiga, variável vazia no controle): evidência de que a suíte funciona (`maintenance.md`). O que ela **não** cobre:
   - adulteração do toolchain Lean (`~/.elan`), do Python ou de outras dependências do runner;
   - adulteração que se desfaz antes da conferência;
   - leitura ou exfiltração (o hash detecta escrita, não leitura).
@@ -232,7 +232,11 @@ Atributo gerado na elaboração é causa de fail-closed em 7,35% das declaraçõ
 - O reconhecimento estrutural do `ctorIdx` (corpo `getObjTagNat`, valor `casesOn` dos índices) é item da Fase 2, com teste de equivalência no toolchain fixado.
 
 ## L-31. Benchmark de enunciados trocados (sub-fase 1b)
-Taxa de detecção de enunciados trocados é 100% (meta: 50%); causas de falha são nenhuma — detecção garantida por construção (enunciado falso com a prova original não compila); falsos positivos nas provas corretas são 28,6% (meta: ≤ 10%).
+Falso positivo nas provas corretas difíceis é 28,6% (meta: 10%). Causas: ctorIdx gerado (L-34, P0 da Fase 2) e opções backward.* (roadmap, com teste de ausência de efeito). Ambas são fail-closed — o erro é de cobertura, não de integridade. A correção dessas duas causas é P0 da Fase 2 e deve ser medida antes de qualquer alegação de cobertura do Mathlib a terceiros.
+
+**Decomposição dos 10 casos** (instrução 26): 2 só por `ctorIdx` gerado; 4 só por `backward.*` (uma delas é instância anônima, sem vínculo de propósito); 4 pelas duas causas. Ou seja, 8 dos 10 vêm de duas causas conhecidas e corrigíveis.
+
+**Detecção.** 100 % dos enunciados trocados, por construção: enunciado falso com a prova original não compila. O número que mede o auditor é **11/11 nas trapaças que compilam**, com a razão certa e zero falso negativo.
 
 **Medição:** `docs/benchmark.md`; 5ª execução, run 39879879325, auditor `81457ac`, Mathlib `e1b2403b` oficial; 100 casos válidos.
 - **Trapaças que compilam** sobre enunciados falsos (`sorry`, `axiom`, `implemented_by` + `native_decide`, `run_tac`, `sorry` transitivo): 11/11 detectadas, razão certa 11/11, 0 falso negativo.
