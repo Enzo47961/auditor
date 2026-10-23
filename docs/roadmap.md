@@ -54,9 +54,9 @@ Item 1 feito (2026-10-22):
    **Opção (B), instrução 26:** a amostra exclui os casos de `ctorIdx` gerado e de `backward.*`. O resultado mede o valor da ferramenta no escopo que ela cobre, não na configuração de produção; a Fase 2 re-mede com a amostra completa (`docs/user-study.md`). O convite vai em `docs/user-study-invite.md`: o mantenedor envia depois da revisão.
 5. **1d** só depois da 1c.
 
-## Fase 2 — P0 (instruções 25 e 26)
+## Fase 2 — P0 (instruções 25, 26 e 29)
 
-A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualquer expansão de cobertura:
+A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualquer expansão de cobertura, há três P0 (priorização corrigida na instrução 29):
 
 1. **`ctorIdx` reconhecido pela forma** (`getObjTagNat` + `casesOn` dos índices), com teste de equivalência no toolchain fixado. 7,35 % das declarações do Mathlib caem só por isso (L-34), em áreas matemáticas (`CategoryTheory`, `Algebra`, `AlgebraicGeometry`). A Fase 2 começa por aí.
 2. **`dependency_registers_code`: lacuna de integridade da L-33a.**
@@ -64,18 +64,28 @@ A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualque
    - **Por que é lacuna:** hoje B sai `verified` embora o `initialize` de A tenha executado durante o build de B (cenário 10). É o mesmo padrão do `sorry` transitivo.
    - **A defesa é o inspetor:** no ambiente de B, ele vê as constantes de A e as entradas de extensão que A registrou. A detecção é pelo ambiente, não pelo texto.
    - **Relação com a (b):** a mitigação (b) continua como defesa em profundidade contra adulteração; ela não fecha esta lacuna.
-3. **Delaborador gerado pelo toolchain × escrito à mão** (instrução 28). A regra por ambiente da L-33a marca os dois (L-35). A Fase 2 precisa distingui-los:
-   - o `@[delab …]` escrito pelo usuário é código de usuário, e o fail-closed está correto;
-   - o `…_delab_app_…` gerado por `notation`/`notation3` vem do toolchain, com a mesma lógica do `ctorIdx` e da `notation`.
+3. **`notation` na Etapa A reconhecida como TCB** (gerada pelo toolchain; mesma lógica do `ctorIdx`). É o maior ganho único de cobertura.
+   - **Medição** (Etapa A v5, Mathlib `e1b2403b`, dados da run 39970204221):
+     - `notation` aparece em 553 arquivos; 444 caem só por ela;
+     - desses 444, 17 ainda cairiam pela L-33a;
+     - **recupera 427 arquivos (4,94 % dos 8 651)**, todos matemáticos.
+   - **Família de notação** (`notation`, `notation3`, `infix`/`infixl`/`infixr`, `prefix`, `postfix`): 762 arquivos caem só por ela. Desses, 108 ainda cairiam pela L-33a, e todo `notation3` cai junto, pelo delaborador gerado. Ficam **654 recuperados (7,56 %)**.
+   - A contagem em declarações ainda não foi medida: é uma execução, a fazer no início da Fase 2.
+   - **Consequência: delaborador gerado e L-35.** O delaborador gerado (`…_delab_app_…` de `notation`/`notation3`) entra como consequência deste item, não como item separado. **O item de delaborador gerado só rende junto com notation** (instrução 29): sozinho, o custo marginal recuperado é zero (L-35). Junto com `notation3`, ele recupera os arquivos que caem pelos dois.
+   - **A distinção continua obrigatória** (instrução 28):
+     - o `@[delab …]` escrito pelo usuário é código de usuário, e o fail-closed está correto;
+     - só o gerado pelo toolchain é candidato a TCB. Tratar todos como "causa conhecida" relaxaria a política sem teste.
 
-   Tratar todos como "causa conhecida" relaxaria a política sem teste.
-4. **Relaxamento das opções `backward.*`**, com teste de ausência de efeito. É a segunda causa dos falsos positivos da 1b (L-31), junto com o `ctorIdx`. As duas correções devem ser medidas, com a amostra completa do benchmark e do estudo de usuário, antes de qualquer alegação de cobertura do Mathlib a terceiros.
+## Fase 2 — roadmap (não P0)
+
+- **L-35** (delaboradores e extensões do `positivity` escritos à mão em arquivos matemáticos, 3,41 % das declarações): roadmap (instrução 29). Pela política atual, o fail-closed está correto. Recuperar exigiria outra política.
+- **Relaxamento das opções `backward.*`**, com teste de ausência de efeito. É a segunda causa dos falsos positivos da 1b (L-31), junto com o `ctorIdx`. As duas correções devem ser medidas, com a amostra completa do benchmark e do estudo de usuário, antes de qualquer alegação de cobertura do Mathlib a terceiros.
 
 ## Fase 2 — pergunta de produto (instrução 25)
 
 - **Política de sintaxe e cobertura de fanout.** O top-60 por fanout é estruturalmente inauditável na configuração atual. 32 dos 60 declaram sintaxe por função, e o teto é 53,3 % de fail-closed relaxando todo o resto (L-30). A Fase 2 não pode prometer cobertura de fanout sem antes mudar a política de sintaxe.
 - **A decisão é de produto, não de engenharia:**
-  - ou relaxar `notation`/`macro` gerados pelo toolchain (553 arquivos na biblioteca inteira, com a mesma lógica do `ctorIdx`);
+  - ou relaxar `notation`/`macro` gerados pelo toolchain (553 arquivos com `notation`; 427 recuperáveis só por ela, ver P0 3 acima; com a mesma lógica do `ctorIdx`);
   - ou aceitar que o fanout não é coberto.
 
 ## Fase 1 — revisão independente da classificação (regras aprovadas, instrução 23)

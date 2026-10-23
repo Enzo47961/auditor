@@ -243,7 +243,7 @@ Três leituras:
 - **Delaborador gerado: custo marginal zero.** Os 136 módulos que só têm delaborador gerado já caem na Etapa A pelo próprio comando `notation` (`syntax_extension_declared`). Reconhecer o delaborador gerado como TCB, sozinho, não recupera nenhuma declaração. Só recupera junto com o tratamento de `notation` na Etapa A.
 - **Todo o custo marginal vem de código escrito à mão** (delaborador, extensão do `positivity`, elaborador). Pela nuance (iii) da instrução 28, o delaborador escrito à mão é código de usuário, e o fail-closed está correto. Recuperar essa cobertura exigiria outra política, que o projeto ainda não decidiu.
 
-**Na 1c:** é causa conhecida (instrução 28, Q2 (ii)), com tempo medido à parte. **Classificação P0 × roadmap:** pendente de decisão do revisor (instrução 28, Q2 (i)), com os números acima.
+**Na 1c:** é causa conhecida (instrução 28, Q2 (ii)), com tempo medido à parte. **Classificação:** roadmap (instrução 29). O delaborador gerado entra como consequência do P0 "`notation` na Etapa A" (`roadmap.md`).
 
 ## L-34. Atributo gerado na elaboração derruba 7,35 % das declarações do Mathlib (P0-1)
 Atributo gerado na elaboração é causa de fail-closed em 7,35% das declarações; a política de TCB para gerado precisa de revisão na Fase 2.

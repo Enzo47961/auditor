@@ -170,4 +170,6 @@ Os dois são código que o elaborador executa: delaboradores, ao formatar mensag
 
 Nenhuma das duas razões é de causa conhecida.
 
+**Briefing: onde está o defeito** (instrução 29). O briefing diz explicitamente que um defeito plantado **não está necessariamente na declaração que o revisor está olhando**: pode estar numa dependência. Este é o caso do defeito A, cujo `sorry` está a 3 imports do arquivo do PR. Quando o alerta aponta para uma origem em outro arquivo (as `origins` do `sorryAx_detected`), o revisor deve seguir até lá. O convite não traz essa nuance; ela é do briefing.
+
 **Primeira tentativa do B: erro meu.** Usei `Nat.add` como alvo de `implemented_by`, e o Lean o rejeita. Sem a troca, o `native_decide` avaliou o valor verdadeiro e recusou a proposição (run 39971602437). Corrigi com uma implementação própria, na forma do caso C08 do benchmark.
