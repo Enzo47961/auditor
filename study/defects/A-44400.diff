@@ -1,0 +1,13 @@
+diff --git a/Mathlib/Algebra/Group/Pointwise/Set/Basic.lean b/Mathlib/Algebra/Group/Pointwise/Set/Basic.lean
+index e146baf..9764b2e 100644
+--- a/Mathlib/Algebra/Group/Pointwise/Set/Basic.lean
++++ b/Mathlib/Algebra/Group/Pointwise/Set/Basic.lean
+@@ -312,7 +312,7 @@ theorem mem_mul : a ∈ s * t ↔ ∃ x ∈ s, ∃ y ∈ t, x * y = a :=
+ 
+ @[to_additive]
+ theorem mul_mem_mul : a ∈ s → b ∈ t → a * b ∈ s * t :=
+-  mem_image2_of_mem
++  sorry
+ 
+ @[to_additive add_image_prod]
+ theorem image_mul_prod : (fun x : α × α => x.fst * x.snd) '' s ×ˢ t = s * t :=
