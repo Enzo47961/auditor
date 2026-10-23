@@ -47,7 +47,7 @@ I would like to measure, with experienced Mathlib reviewers, whether the tool ac
 **Voluntary, and how results are used**
 - **Participation is entirely voluntary.** You can stop at any time without giving a reason.
 - **Results** will be published in aggregated, anonymized form (reviewer A, B, C) together with the raw anonymized data. Names appear only with explicit consent.
-- **Every publication of the results will carry the qualifications above:** self-reviewed classification, covered-scope-only measurement, and the excluded cases.
+- **Every publication of the results will carry the qualifications above:** self-reviewed classification, covered-scope-only measurement, and the separately reported known-cause alerts.
 
 **Details:** the methodology is public at https://github.com/Enzo47961/auditor/blob/master/docs/user-study.md
 
