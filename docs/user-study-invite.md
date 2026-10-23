@@ -1,7 +1,7 @@
 # Convite para o estudo de usuário (sub-fase 1c)
 
 ```
-status: aprovado pelo revisor do projeto (instrução 27); link conferido (HTTP 200); envio quando os defeitos plantados estiverem prontos
+status: aprovado (instrução 27), com a frase sobre causas conhecidas da instrução 28; o texto final volta para revisão antes do envio
 ```
 
 **Resumo em português.** O texto abaixo vai em inglês, a língua da comunidade do Mathlib (Zulip, contato direto). Ele declara o que a instrução 26 exige:
@@ -44,6 +44,9 @@ I would like to measure, with experienced Mathlib reviewers, whether the tool ac
 
   The tool currently reports both as "unresolved"; fixing them is planned work. The results will therefore not represent a production configuration, and they will say so.
 - **The classification of Mathlib commands used by the tool was written and reviewed by the same author** (`classification_review_status: author-self-review`). There has been no independent review yet.
+
+**Known causes of alerts**
+- A few alert types come from two known causes that are being fixed (compiler-generated `ctorIdx` implementations; `backward.*` options; delaborators and `positivity` extensions in mathematical files). In some reviews you may see these alerts; if you do, note the time you spend on them separately. They are excluded from the main false-alarm rate and from the main time-saving measurement, and are reported separately.
 
 **Voluntary, and how results are used**
 - **Participation is entirely voluntary.** You can stop at any time without giving a reason.

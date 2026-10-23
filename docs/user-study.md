@@ -7,7 +7,23 @@ classificação: author-self-review (L-26)
 
 **Pergunta (instrução 24).** A ferramenta reduz o tempo humano líquido de revisão? Ou seja, T_net = T_convencional − T_assistido > 0, com taxa de falsos alertas abaixo de 30 %.
 
-## 0. Escopo: opção (B) da instrução 26
+## 0. Escopo: opção (B) da instrução 26, por declaração (instrução 28)
+
+**Granularidade (instrução 28, Q1 (a)).** A exclusão é **por declaração**, não por PR. Por PR, ela eliminava 9 de 13 PRs (seção 8): `backward.*` aparece em quase todo arquivo, muitas vezes numa declaração entre 80. O PR fica no estudo, e o alerta das causas conhecidas é tratado assim:
+- **Causas conhecidas** (instruções 26 e 28):
+  - `implemented_by_candidate` de `ctorIdx` gerado (L-34);
+  - `set_option_unrecognized`/`set_option_unattributed` de opção `backward.*`;
+  - `target_defines_executable_code` de delaborador ou de extensão do `positivity` em arquivo matemático (L-35).
+- **Briefing:** avisa das causas conhecidas, mas **não diz "ignore"**. Diz: "estes tipos de alerta têm causa conhecida e estão sendo corrigidos; se você os encontrar, registre o tempo gasto neles separadamente". O revisor é instruído a reportar o tempo, não a ignorar.
+- **Taxa de falsos alertas do critério (< 30 %):** medida **só sobre os alertas que não são de causa conhecida**.
+- **T_net:**
+  - o tempo gasto com alertas de causa conhecida é medido à parte e **excluído do T_net principal**;
+  - o relatório traz os dois números: **T_net sem causas conhecidas** (o principal) e **T_net com** (para transparência).
+- **Classificação dos alertas:** cada alerta é atribuído a uma causa pelo próprio relatório do auditor (código e detalhe da razão), mecanicamente, antes de os formulários serem lidos.
+
+O texto original da opção (B), a seguir, continua valendo para o objetivo e para o registro do escopo.
+
+### Opção (B), texto de 2026-10-23
 
 **A amostra exclui os casos de `ctorIdx` gerado e de opções `backward.*`.**
 - **Por quê:** com a ferramenta atual, 28,6 % das provas corretas difíceis saem `Não resolvida` por essas duas causas conhecidas (L-31, L-34). Ambas são fail-closed e as duas são P0 da Fase 2. Medir agora a configuração completa daria um T_net negativo pelo motivo errado: não porque a ferramenta não ajude, mas por duas causas de falso positivo que já se sabe que vão mudar.
@@ -69,7 +85,9 @@ Cada revisor registra num formulário, por revisão:
 |---|---|
 | T_convencional, T_assistido | tempo da revisão sem e com o auditor, para o mesmo PR |
 | **T_net** | T_convencional − T_assistido, por PR; resultado = **mediana** dos 10 PRs |
-| Taxa de falsos alertas | alertas do auditor (declaração não `verified`) que o revisor e o ground truth (ou a aceitação do PR no Mathlib) julgam infundados / alertas totais, por PR |
+| Taxa de falsos alertas | alertas **que não são de causa conhecida** (seção 0) que o revisor e o ground truth (ou a aceitação do PR no Mathlib) julgam infundados / alertas que não são de causa conhecida, por PR |
+| Alertas de causa conhecida | contagem e tempo, por causa (`ctorIdx`, `backward.*`, delaborador/`positivity`), reportados à parte |
+| T_net principal × T_net com causas conhecidas | o principal exclui o tempo gasto com alertas de causa conhecida; o segundo inclui, para transparência |
 | Tempo de interpretação | parte do T_assistido gasta lendo o relatório |
 | Falso negativo percebido | problema de integridade achado pelo revisor e não sinalizado pelo auditor |
 | Defeito plantado | desfechos (a), (b) e (c) da seção 2, por defeito e por condição (com/sem auditor), separados |
@@ -132,3 +150,13 @@ O custo por revisor é de cerca de 7 revisões de 15 a 25 minutos, mais 15 minut
 Os dois são código que o elaborador executa: delaboradores, ao formatar mensagens durante a elaboração; `positivity`, quando a tática é usada. Pela L-33a, `Não resolvida` é o resultado correto (fail-closed). Mas é um **custo de cobertura não medido até aqui**: no #43841, um único delaborador derruba as 88 declarações do arquivo. Esse custo apareceu em 5 dos 13 PRs. Nos arquivos com `notation`, ele se soma ao fail-closed da Etapa A.
 
 **Decisão pedida ao revisor** antes de o convite ser enviado e de os defeitos serem injetados: relatório de 23/10, perguntas 1 e 2.
+
+**Decisão (instrução 28):**
+- **Q1:** opção (a), exclusão por declaração, com a especificação da seção 0. Os 13 PRs elegíveis ficam no estudo.
+- **Q2:**
+  - L-35, com o alcance medido no Mathlib inteiro;
+  - delaboradores e `positivity` como causa conhecida na 1c;
+  - a Fase 2 distingue o delaborador escrito à mão (fail-closed correto) do gerado pelo toolchain (candidato a TCB).
+- **Defeitos plantados:** em declarações cujo alerta **não** seja de causa conhecida, verificado com o auditor:
+  - PR A num PR do estrato sucesso (#44400 ou #45025);
+  - PR B no #45097, ou também num do sucesso se o #45097 não tiver declaração elegível.

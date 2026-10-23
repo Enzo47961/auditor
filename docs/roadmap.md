@@ -64,7 +64,12 @@ A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualque
    - **Por que é lacuna:** hoje B sai `verified` embora o `initialize` de A tenha executado durante o build de B (cenário 10). É o mesmo padrão do `sorry` transitivo.
    - **A defesa é o inspetor:** no ambiente de B, ele vê as constantes de A e as entradas de extensão que A registrou. A detecção é pelo ambiente, não pelo texto.
    - **Relação com a (b):** a mitigação (b) continua como defesa em profundidade contra adulteração; ela não fecha esta lacuna.
-3. **Relaxamento das opções `backward.*`**, com teste de ausência de efeito. É a segunda causa dos falsos positivos da 1b (L-31), junto com o `ctorIdx`. As duas correções devem ser medidas, com a amostra completa do benchmark e do estudo de usuário, antes de qualquer alegação de cobertura do Mathlib a terceiros.
+3. **Delaborador gerado pelo toolchain × escrito à mão** (instrução 28). A regra por ambiente da L-33a marca os dois (L-35). A Fase 2 precisa distingui-los:
+   - o `@[delab …]` escrito pelo usuário é código de usuário, e o fail-closed está correto;
+   - o `…_delab_app_…` gerado por `notation`/`notation3` vem do toolchain, com a mesma lógica do `ctorIdx` e da `notation`.
+
+   Tratar todos como "causa conhecida" relaxaria a política sem teste.
+4. **Relaxamento das opções `backward.*`**, com teste de ausência de efeito. É a segunda causa dos falsos positivos da 1b (L-31), junto com o `ctorIdx`. As duas correções devem ser medidas, com a amostra completa do benchmark e do estudo de usuário, antes de qualquer alegação de cobertura do Mathlib a terceiros.
 
 ## Fase 2 — pergunta de produto (instrução 25)
 
