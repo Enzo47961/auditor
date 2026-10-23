@@ -21,9 +21,10 @@ import sys
 from pathlib import Path
 
 
-def audit_pr(project: Path, row: dict, patches: Path, policy: Path, out: Path) -> dict:
-    patch = patches / row["patch"]
-    subprocess.run(["git", "-C", str(project), "apply", str(patch)], check=True)
+def audit_pr(project: Path, row: dict, patches: Path, policy: Path, out: Path, apply: bool = True) -> dict:
+    patch = patches / row["patch"] if apply else None
+    if apply:
+        subprocess.run(["git", "-C", str(project), "apply", str(patch)], check=True)
     reports = {}
     try:
         for f in row["files"]:
@@ -35,7 +36,8 @@ def audit_pr(project: Path, row: dict, patches: Path, policy: Path, out: Path) -
                                cwd=project, capture_output=True, text=True, encoding="utf-8", errors="replace")
             reports[f] = {"exit_code": p.returncode, "report": str(rep.relative_to(out)) if rep.is_file() else None}
     finally:
-        subprocess.run(["git", "-C", str(project), "apply", "-R", str(patch)], check=True)
+        if apply:
+            subprocess.run(["git", "-C", str(project), "apply", "-R", str(patch)], check=True)
     return reports
 
 
@@ -63,6 +65,58 @@ def exclusion(out: Path, reports: dict) -> tuple[list[str], dict]:
     return sorted(causes), counts
 
 
+STATUS_CODE = {"Rejeitada": "rejected", "Não resolvida": "unresolved"}
+
+
+def known_cause(code: str, detail: dict, opt_by_line: dict) -> bool:
+    """Causas conhecidas da 1c (instruções 26 e 28)."""
+    if code == "implemented_by_candidate":
+        return any(str(c).endswith(".ctorIdx") for c in detail.get("constants", []))
+    if code in ("set_option_unrecognized", "set_option_unattributed"):
+        return str(detail.get("option") or opt_by_line.get(detail.get("line"), "")).startswith("backward.")
+    return code == "target_defines_executable_code"
+
+
+def check_defects(project: Path, defects: dict, patches: Path, defdir: Path, policy: Path, out: Path) -> list[dict]:
+    """Aplica PR + defeito, audita os arquivos e confere: a declaração esperada sai com o estado e a
+    razão esperados, e essa razão não é de causa conhecida."""
+    results = []
+    for d in defects["defects"]:
+        pp, dp = (patches / d["pr_patch"]).resolve(), (defdir / d["defect_patch"]).resolve()
+        subprocess.run(["git", "-C", str(project), "apply", str(pp)], check=True)
+        try:
+            subprocess.run(["git", "-C", str(project), "apply", str(dp)], check=True)
+            try:
+                row = {"pr": d["pr"], "files": d["files"]}
+                reports = audit_pr(project, row | {"patch": None}, patches, policy, out, apply=False)
+            finally:
+                subprocess.run(["git", "-C", str(project), "apply", "-R", str(dp)], check=True)
+        finally:
+            subprocess.run(["git", "-C", str(project), "apply", "-R", str(pp)], check=True)
+        decls, opts = {}, {}
+        for f, r in reports.items():
+            if not r["report"]:
+                continue
+            rep = json.loads((out / r["report"]).read_text(encoding="utf-8"))
+            opts = {x["line"]: x.get("option") or "" for x in rep["file_findings"]["stage_a_candidates"]
+                    if x["code"] == "set_option"}
+            for dd in rep["declarations"]:
+                decls[dd["declaration_name"].split(".0.", 1)[-1]] = (dd, opts)
+        checks = []
+        for e in d["expect"]:
+            dd, o = decls.get(e["declaration"], (None, {}))
+            reasons = [(x["code"], x.get("detail") or {}) for x in (dd or {}).get("proof_status", {}).get("reasons", [])]
+            hit = [det for c, det in reasons if c == e["reason"] and not known_cause(c, det, o)]
+            status = dd["proof_status"]["value"] if dd else None
+            checks.append({"declaration": e["declaration"], "found": dd is not None, "status": status,
+                           "reasons": [c for c, _ in reasons],
+                           "ok": status in (e["status"], STATUS_CODE.get(e["status"])) and bool(hit)})
+        results.append({"id": d["id"], "pr": d["pr"], "checks": checks, "ok": all(c["ok"] for c in checks),
+                        "reports": reports})
+        print(f"defeito {d['id']} (#{d['pr']}): {'OK' if results[-1]['ok'] else 'FALHOU'} {checks}", flush=True)
+    return results
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("project", type=Path)
@@ -70,10 +124,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--patches", type=Path, required=True)
     ap.add_argument("--policy", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--defects", type=Path, help="study/defects.json: verifica os defeitos plantados")
     a = ap.parse_args(argv)
     sel = json.loads(a.selection.read_text(encoding="utf-8"))
     out = a.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if a.defects:
+        res = check_defects(a.project.resolve(), json.loads(a.defects.read_text(encoding="utf-8")),
+                            a.patches.resolve(), a.defects.resolve().parent / "defects", a.policy.resolve(), out)
+        (out / "study-defects.json").write_bytes((json.dumps(res, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
+        return 0 if all(r["ok"] for r in res) else 1
     rows = []
     for row in sel["commits"]:
         if not row["eligible"]:

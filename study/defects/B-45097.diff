@@ -1,0 +1,21 @@
+diff --git a/Mathlib/MeasureTheory/Measure/Continuity.lean b/Mathlib/MeasureTheory/Measure/Continuity.lean
+index 37c52d5..ed9e65e 100644
+--- a/Mathlib/MeasureTheory/Measure/Continuity.lean
++++ b/Mathlib/MeasureTheory/Measure/Continuity.lean
+@@ -180,11 +180,16 @@ lemma measure_iInter_of_ae_antitone [Preorder ι] [IsDirectedOrder ι]
+   refine measure_iInter_of_ae_monotone (ι := ιᵒᵈ) ?_ hsm hfin
+   filter_upwards [hs] with ω hω using hω.dual_left
+ 
++/-- Auxiliary count of the indices below `i`. -/
++@[implemented_by Nat.add]
++private def iInterIndexAux (a b : ℕ) : ℕ := a * b
++
+ /-- Continuity from above: the measure of the intersection of a sequence of
+ measurable sets is the infimum of the measures of the partial intersections. -/
+ theorem measure_iInter_eq_iInf_measure_iInter_le [Countable ι] [Preorder ι] [IsDirectedOrder ι]
+     (h : ∀ i, NullMeasurableSet (s i) μ) (hfin : ∃ i, μ (s i) ≠ ∞) :
+     μ (⋂ i, s i) = ⨅ i, μ (⋂ j ≤ i, s j) := by
++  have _hidx : iInterIndexAux 2 3 = 5 := by native_decide
+   rw [← Antitone.measure_iInter]
+   · rw [iInter_comm]
+     exact congrArg μ <| iInter_congr fun i ↦ (biInf_const nonempty_Ici).symm

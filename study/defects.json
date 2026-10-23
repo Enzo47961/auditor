@@ -1,0 +1,20 @@
+{
+ "rule": "instruções 27 e 28: defeito injetado em PR real, alteração pontual; a razão do alerta não pode ser de causa conhecida (ctorIdx, backward.*, delaborador/positivity)",
+ "known_causes": ["implemented_by_candidate:ctorIdx", "set_option:backward.*", "target_defines_executable_code"],
+ "defects": [
+  {"id": "A", "pr": 45025, "stratum": "success", "pr_patch": "ba5499e069f2.diff", "defect_patch": "A-45025.diff",
+   "files": ["Mathlib/Algebra/Ring/Parity.lean", "Mathlib/Algebra/Group/Commute/Units.lean"],
+   "description": "`sorry` na prova de `isUnit_mul_self_iff` (Mathlib/Algebra/Group/Commute/Units.lean), a 3 imports de Mathlib/Algebra/Ring/Parity.lean (Units ← GroupWithZero.Commute ← Nat.Cast.Commute ← Ring.Parity); o lema novo do PR, `Units.isSquare_coe_iff`, o usa",
+   "ground_truth": "o próprio `sorry`: `sorryAx` no fecho, conferido pelo inspetor",
+   "expect": [{"declaration": "Units.isSquare_coe_iff", "status": "Rejeitada", "reason": "sorryAx_detected"},
+              {"declaration": "isUnit_mul_self_iff", "status": "Rejeitada", "reason": "sorryAx_detected"}]},
+  {"id": "B", "pr": 45097, "stratum": "fail_closed", "pr_patch": "b575e0bbdec4.diff", "defect_patch": "B-45097.diff",
+   "files": ["Mathlib/MeasureTheory/MeasurableSpace/Defs.lean", "Mathlib/MeasureTheory/Measure/Continuity.lean",
+             "Mathlib/MeasureTheory/Measure/NullMeasurable.lean", "Mathlib/MeasureTheory/VectorMeasure/SetIntegral.lean",
+             "Mathlib/Probability/Process/Stopping.lean"],
+   "description": "`@[implemented_by Nat.add]` numa definição auxiliar que calcula `a * b`, e `native_decide` provando `iInterIndexAux 2 3 = 5` dentro da prova de `MeasureTheory.measure_iInter_eq_iInf_measure_iInter_le` (arquivo limpo na Etapa A, 19/19 verified sem o defeito)",
+   "ground_truth": "`iInterIndexAux 2 3` reduz a `2 * 3 = 6 ≠ 5` (`decide`); a implementação nativa mente (`2 + 3 = 5`)",
+   "expect": [{"declaration": "MeasureTheory.measure_iInter_eq_iInf_measure_iInter_le", "status": "Rejeitada",
+               "reason": "implemented_by_reaches_native_eval"}]}
+ ]
+}
