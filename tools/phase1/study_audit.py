@@ -89,6 +89,16 @@ def check_defects(project: Path, defects: dict, patches: Path, defdir: Path, pol
             try:
                 row = {"pr": d["pr"], "files": d["files"]}
                 reports = audit_pr(project, row | {"patch": None}, patches, policy, out, apply=False)
+                for f, r in reports.items():   # o relatório não traz a mensagem do Lean: guardar o log
+                    rep = json.loads((out / r["report"]).read_text(encoding="utf-8")) if r["report"] else {}
+                    if rep.get("compilation", {}).get("status") != "success":
+                        log = out / "reports" / str(d["pr"]) / (f.replace("/", ".") + ".build.log")
+                        p = subprocess.run(["lake", "env", "lean", f], cwd=project, capture_output=True,
+                                           text=True, encoding="utf-8", errors="replace")
+                        log.write_text(p.stdout + p.stderr, encoding="utf-8")
+                        r["build_log"] = str(log.relative_to(out))
+                        print(f"  {f}: compilação falhou; log em {r['build_log']}\n{(p.stdout + p.stderr)[-3000:]}",
+                              flush=True)
             finally:
                 subprocess.run(["git", "-C", str(project), "apply", "-R", str(dp)], check=True)
         finally:
