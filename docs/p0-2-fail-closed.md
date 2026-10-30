@@ -1,158 +1,158 @@
-# P0-2 — Taxa de fail-closed da Etapa A (Fase 1, sub-fase 1a.2)
+# P0-2 — Stage A fail-closed rate (Phase 1, sub-phase 1a.2)
 
 ```
-status: em andamento — (a) feito; kill criterion atingido (L-30); (b) aguarda a L-33a (feita) e a remedição oficial; (c) remedido depois de (a)
+status: in progress — (a) done; kill criterion met (L-30); (b) awaits L-33a (done) and the official re-measurement; (c) re-measured after (a)
 ```
 
-Classificação: `author-self-review` (L-26). Nenhum número deste documento é alegação de cobertura do Mathlib a terceiros.
+Classification: `author-self-review` (L-26). No number in this document is a claim of Mathlib coverage to third parties. "Instruction N" refers to the numbered decisions of the project's external reviewer.
 
-## 1. Método
+## 1. Method
 
-- **Ferramenta:** `tools/phase1/stage_a_causes.py`. Roda a mesma `stage_a.analyze` do CI, com a allow-list de projeto do fork, nos `--top` primeiros arquivos do ranking de `tools/layer2/fanout.py`, e classifica cada item não reconhecido em uma de quatro causas:
-  - **(a)** falso positivo: `unknown_command`;
-  - **(b)** comando não sintático: `metaprogramming_command` ou `unclassified_command`;
-  - **(c)** sintaxe: `syntax_extension_declared`;
-  - **(d)** outra causa.
-- **Entrada:** fork `auditor-base` `018d7db`, que é o Mathlib `e1b2403b` mais `.github/` e `.auditor/` (allow-list com 259 comandos, `author-self-review`). Ranking de fanout com procedência `e1b2403b`, SHA-256 do manifesto `f77f47db…`, `leanprover/lean4:v4.36.0-rc1`.
-- **Populações:**
-  - os 60 arquivos de maior fanout (o gate do revisor);
-  - **adicionalmente**, os 8651 arquivos da biblioteca `Mathlib`. A medição extra não substitui o gate; a seção 4 explica por que ela importa.
-- Execução local (Windows), determinística para o mesmo checkout e a mesma allow-list. Dados brutos em `trabalho/p0/` (`causes60*.json`, `causes_all*.json`).
+- **Tool:** `tools/phase1/stage_a_causes.py`. It runs the same `stage_a.analyze` as CI, with the fork's project allow-list, on the first `--top` files of the `tools/layer2/fanout.py` ranking, and classifies each unrecognized item into one of four causes:
+  - **(a)** false positive: `unknown_command`;
+  - **(b)** non-syntactic command: `metaprogramming_command` or `unclassified_command`;
+  - **(c)** syntax: `syntax_extension_declared`;
+  - **(d)** other cause.
+- **Input:** fork `auditor-base` `018d7db`, which is Mathlib `e1b2403b` plus `.github/` and `.auditor/` (allow-list with 259 commands, `author-self-review`). Fanout ranking with provenance `e1b2403b`, manifest SHA-256 `f77f47db…`, `leanprover/lean4:v4.36.0-rc1`.
+- **Populations:**
+  - the 60 files with the highest fanout (the reviewer's gate);
+  - **additionally**, the 8651 files of the `Mathlib` library. The extra measurement does not replace the gate; section 4 explains why it matters.
+- Local run (Windows), deterministic for the same checkout and the same allow-list. Raw data kept in the maintainer's working directory (`p0/`: `causes60*.json`, `causes_all*.json`).
 
-## 2. Resultados
+## 2. Results
 
-| População | Antes (Etapa A v2) | Depois de (a) (Etapa A v3) |
+| Population | Before (Stage A v2) | After (a) (Stage A v3) |
 |---|---|---|
-| Top-60 por fanout | 41/60 fail-closed (**68,3 %**) | 39/60 (**65,0 %**) |
-| Biblioteca `Mathlib` inteira | 1333/8651 (**15,4 %**) | 1244/8651 (**14,4 %**) |
+| Top-60 by fanout | 41/60 fail-closed (**68.3 %**) | 39/60 (**65.0 %**) |
+| Whole `Mathlib` library | 1333/8651 (**15.4 %**) | 1244/8651 (**14.4 %**) |
 
-Distribuição de causas no top-60. Um arquivo pode ter mais de uma causa; a coluna "só esta" conta os arquivos que a correção daquela causa resgataria sozinha.
+Distribution of causes in the top-60. A file may have more than one cause; the "only this" column counts the files that fixing that cause alone would recover.
 
-| Causa | Antes: arquivos | Antes: só esta | Depois de (a): arquivos | Depois de (a): só esta |
+| Cause | Before: files | Before: only this | After (a): files | After (a): only this |
 |---|---|---|---|---|
-| (a) falso positivo | 3 | 1 | 0 | 0 |
-| (b) não sintático | 21 | 7 | 21 | 7 |
-| (c) sintaxe | 32 | 17 | 32 | 18 |
-| (d) outra | 2 | 1 | 0 | 0 |
+| (a) false positive | 3 | 1 | 0 | 0 |
+| (b) non-syntactic | 21 | 7 | 21 | 7 |
+| (c) syntax | 32 | 17 | 32 | 18 |
+| (d) other | 2 | 1 | 0 | 0 |
 
-Depois de (a), os 39 arquivos do top-60 que falham se dividem assim: 18 só por sintaxe, 7 só por comando não sintático e 14 pelas duas causas.
+After (a), the 39 top-60 files that fail split as follows: 18 only because of syntax, 7 only because of a non-syntactic command, and 14 for both reasons.
 
-- **Comandos não sintáticos no top-60** (arquivos): `initialize` 15, `register_option` 5, `run_cmd` 3, `with_weak_namespace` 2, `register_linter_set` 1, `register_simp_attr` 1, `register_label_attr` 1, `declare_core_config_elab` 1, `simproc_decl` 1.
-- **Sintaxe no top-60** (arquivos): `syntax` 21, `elab` 7, `macro` 6, `prefix`, `elab_rules`, `infixl`, `infixr`, `notation`, `macro_rules` 4 cada, `declare_syntax_cat` e `notation3` 2 cada, `binder_predicate`, `infix` e `postfix` 1 cada.
-- **Mathlib inteiro, depois de (a)** (arquivos com a causa / só com ela):
-  - (a) falso positivo: 44 / 29;
-  - (b) não sintático: 230 / 120;
-  - (c) sintaxe: 1090 / 969;
-  - (d) outra: 8 / 2.
+- **Non-syntactic commands in the top-60** (files): `initialize` 15, `register_option` 5, `run_cmd` 3, `with_weak_namespace` 2, `register_linter_set` 1, `register_simp_attr` 1, `register_label_attr` 1, `declare_core_config_elab` 1, `simproc_decl` 1.
+- **Syntax in the top-60** (files): `syntax` 21, `elab` 7, `macro` 6, `prefix`, `elab_rules`, `infixl`, `infixr`, `notation`, `macro_rules` 4 each, `declare_syntax_cat` and `notation3` 2 each, `binder_predicate`, `infix` and `postfix` 1 each.
+- **Whole of Mathlib, after (a)** (files with the cause / only with it):
+  - (a) false positive: 44 / 29;
+  - (b) non-syntactic: 230 / 120;
+  - (c) syntax: 1090 / 969;
+  - (d) other: 8 / 2.
 
-  A sintaxe dominante é `notation` (553 arquivos), seguida de `syntax` (163), `infixl` (123), `notation3` (111) e `elab` (102).
+  The dominant syntax is `notation` (553 files), followed by `syntax` (163), `infixl` (123), `notation3` (111) and `elab` (102).
 
-## 3. (a) Falsos positivos: o que mudou (Etapa A versão 3)
+## 3. (a) False positives: what changed (Stage A version 3)
 
-A Etapa A tratava como início de comando todo token na coluna 0. Medido no Mathlib inteiro antes da correção: 167 arquivos com `unknown_command`, 112 deles só por isso. As causas eram quatro:
+Stage A treated every token at column 0 as the start of a command. Measured over the whole of Mathlib before the fix: 167 files with `unknown_command`, 112 of them only because of it. There were four causes:
 
-1. **Termo continuado na coluna 0.** Exemplos: `{ … with }`, `(…)`, `⟨…⟩`, `match`, `let`, `fun`, `f!"…"`, `do`, `for`.
-   - Esses tokens entraram em `continuation` (`tools/gen_allowlist/classification.toml`).
-   - Também entraram as palavras de termo da lista do revisor que **não** são comandos: `have`, `show`, `from`, `by`, `if`, `then`, `else`, `calc`, `s!`, `m!`.
-   - Da lista do revisor, `end`, `section`, `namespace`, `open`, `variable` e `universe` **não** entraram: são comandos de verdade e já são aceitos como comandos. Pô-los em `continuation` seria errado, e a guarda abaixo recusaria.
-2. **`add_decl_doc` depois de docstring.** A sintaxe é `docComment >> "add_decl_doc " >> ident` (`Lean/Parser/Command.lean:939`). O token inicial é a docstring, então `add_decl_doc` na coluna 0 é o segundo token do comando. A nova lista `doc_continuation` o aceita **só** logo depois de uma docstring `/--`. Esse caso explicava 82 arquivos.
-3. **`cmd%` na coluna 0** (por exemplo, `compile_inductive%`). A checagem da coluna 0 usava a chave sem o `%`. O arquivo continua fail-closed, mas agora pela classificação certa (`metaprogramming_command`), não como `unknown_command`.
-4. **Palavra de declaração fora de posição de declaração.** Produzia `declaration_name_unresolved` em quatro padrões, nenhum dos quais começa uma declaração:
-   - `.abbrev`, `.opaque` e `.structure`: construtor ou campo;
-   - `` `lemma ``: literal de nome;
-   - `(lemma := …)`: argumento nomeado;
-   - `[class]` e `@[class, …]`: o atributo `class`.
+1. **A term continued at column 0.** Examples: `{ … with }`, `(…)`, `⟨…⟩`, `match`, `let`, `fun`, `f!"…"`, `do`, `for`.
+   - These tokens were added to `continuation` (`tools/gen_allowlist/classification.toml`).
+   - The term words from the reviewer's list that are **not** commands were also added: `have`, `show`, `from`, `by`, `if`, `then`, `else`, `calc`, `s!`, `m!`.
+   - From the reviewer's list, `end`, `section`, `namespace`, `open`, `variable` and `universe` were **not** added: they are real commands and are already accepted as commands. Putting them in `continuation` would be wrong, and the guard below would refuse it.
+2. **`add_decl_doc` after a docstring.** The syntax is `docComment >> "add_decl_doc " >> ident` (`Lean/Parser/Command.lean:939`). The initial token is the docstring, so `add_decl_doc` at column 0 is the command's second token. The new `doc_continuation` list accepts it **only** right after a `/--` docstring. This case explained 82 files.
+3. **`cmd%` at column 0** (for example, `compile_inductive%`). The column-0 check used the key without the `%`. The file remains fail-closed, but now through the right classification (`metaprogramming_command`), not as `unknown_command`.
+4. **A declaration keyword outside a declaration position.** It produced `declaration_name_unresolved` in four patterns, none of which starts a declaration:
+   - `.abbrev`, `.opaque` and `.structure`: a constructor or field;
+   - `` `lemma ``: a name literal;
+   - `(lemma := …)`: a named argument;
+   - `[class]` and `@[class, …]`: the `class` attribute.
 
-**Guardas.** Uma continuação nunca pode ser token inicial de comando:
-- `check_continuations` (`src/auditor/allowlist.py`) faz o gerador do core e o de projeto recusarem (exit 2) uma continuação que seja comando no ambiente;
-- em tempo de execução, a Etapa A descarta qualquer continuação que o projeto tenha como comando.
+**Guards.** A continuation can never be a command's initial token:
+- `check_continuations` (`src/auditor/allowlist.py`) makes the core and project generators refuse (exit 2) a continuation that is a command in the environment;
+- at run time, Stage A drops any continuation that the project has as a command.
 
-Conferido no toolchain fixado e na allow-list do Mathlib: nenhuma colisão.
+Checked on the pinned toolchain and on the Mathlib allow-list: no collision.
 
-Detecção de risco não muda: comando de risco continua detectado em qualquer posição, inclusive depois de uma continuação (teste `test_continuation_does_not_hide_risky_commands`).
+Risk detection does not change: a risky command is still detected in any position, including after a continuation (test `test_continuation_does_not_hide_risky_commands`).
 
-**Resíduo de (a), mantido fail-closed de propósito:**
-- identificadores soltos na coluna 0 (`Eq.symm`, `rfl`, `X`…): não há regra léxica segura que os diferencie de um comando desconhecido;
-- itens de `@[…]` que quebram linha (`deprecated`, `+typeChanged`);
-- palavras de declaração dentro de quotations (`def $id …`), em arquivos que já declaram sintaxe;
-- JSX do ProofWidgets (`<span class=…>`).
+**Residue of (a), kept fail-closed on purpose:**
+- bare identifiers at column 0 (`Eq.symm`, `rfl`, `X`…): there is no safe lexical rule that tells them apart from an unknown command;
+- `@[…]` items that break the line (`deprecated`, `+typeChanged`);
+- declaration keywords inside quotations (`def $id …`), in files that already declare syntax;
+- ProofWidgets JSX (`<span class=…>`).
 
-No Mathlib inteiro sobram 44 arquivos com falso positivo, 29 só com ele.
+Over the whole of Mathlib, 44 files with a false positive remain, 29 only with it.
 
-**Testes:** 9 testes novos (22 casos) em `tests/stage_a`. **Mutações:** 10 novas no grupo `stage_a`, 23/23 detectadas localmente (a oficial é o `auditor-mutation` do fork, depois do envio).
+**Tests:** 9 new tests (22 cases) in `tests/stage_a`. **Mutations:** 10 new ones in the `stage_a` group, 23/23 detected locally (the official run is the fork's `auditor-mutation`, after the push).
 
-## 4. Teto do que (b) pode resgatar, e o kill criterion
+## 4. The ceiling of what (b) can recover, and the kill criterion
 
-No top-60, 32 arquivos declaram sintaxe. A instrução 24 mantém sintaxe genuína fail-closed. Logo:
-- relaxando **todos** os comandos não sintáticos, inclusive `run_cmd`, o melhor caso é 28 limpos e 32/60 = **53,3 %** de fail-closed;
-- sem relaxar `run_cmd` (2 arquivos dos 7 que falham só por não sintáticos: `Mathlib/Init.lean` e `Mathlib/Basic/FunLike/Basic.lean`), o melhor caso é 34/60 = **56,7 %**.
+In the top-60, 32 files declare syntax. Instruction 24 keeps genuine syntax fail-closed. Therefore:
+- relaxing **all** non-syntactic commands, including `run_cmd`, the best case is 28 clean files and 32/60 = **53.3 %** fail-closed;
+- without relaxing `run_cmd` (2 of the 7 files that fail only because of non-syntactic commands: `Mathlib/Init.lean` and `Mathlib/Basic/FunLike/Basic.lean`), the best case is 34/60 = **56.7 %**.
 
-**Portanto, o kill criterion de P0-2 (> 50 % depois de (a) e (b)) já está atingido**, seja qual for a leitura de (b). Pela instrução 24: a Fase 1 continua, mas a alegação de "cobertura do Mathlib" fica bloqueada até a Fase 2. A meta de < 30 % é inalcançável nessa população sem relaxar sintaxe.
+**So the P0-2 kill criterion (> 50 % after (a) and (b)) is already met**, whatever the reading of (b). Under instruction 24: Phase 1 continues, but the claim of "Mathlib coverage" is blocked until Phase 2. The < 30 % target is unreachable in this population without relaxing syntax.
 
-**Observação sobre a população (não muda o gate).**
-- O top-60 por fanout é, em grande parte, infraestrutura: 36 dos 60 estão em `Tactic/`, `Lean/` ou `Util/`, e 25 desses 36 falham. Esses arquivos declaram sintaxe por função.
-- Fora dessas pastas, 14 dos 24 falham. São arquivos `Defs`/`Notation`/`Logic`, quase todos por `notation`/`infix`.
-- No Mathlib inteiro, a taxa é 14,4 %. A causa dominante é `notation` (553 arquivos).
-- `notation`/`infix` geram macros que rodam na elaboração. Pela L-17 elas são fail-closed, mas o código é **gerado pelo toolchain**, como o `ctorIdx` do P0-1.
-- Relaxá-las mudaria a política de sintaxe: é decisão do revisor, não desta sub-fase.
+**Note on the population (it does not change the gate).**
+- The top-60 by fanout is largely infrastructure: 36 of the 60 are in `Tactic/`, `Lean/` or `Util/`, and 25 of those 36 fail. These files declare syntax by design.
+- Outside those folders, 14 of 24 fail. They are `Defs`/`Notation`/`Logic` files, almost all because of `notation`/`infix`.
+- Over the whole of Mathlib, the rate is 14.4 %. The dominant cause is `notation` (553 files).
+- `notation`/`infix` generate macros that run during elaboration. Under L-17 they are fail-closed, but the code is **generated by the toolchain**, like P0-1's `ctorIdx`.
+- Relaxing them would change the syntax policy: that is the reviewer's decision, not this sub-phase's.
 
-## 5. (b) Comandos não sintáticos: leitura iniciada e PARADA
+## 5. (b) Non-syntactic commands: reading started and STOPPED
 
-Leitura no commit fixado, até aqui:
+Reading at the pinned commit, so far:
 
-| Comando | Leitura | Situação |
+| Command | Reading | Situation |
 |---|---|---|
-| `run_cmd` | executa código | **mantido fail-closed** (instrução 24) |
-| `initialize` | `Lean/Compiler/InitAttr.lean`: procedimentos `[init]` "são rodados nos arquivos que IMPORTAM o arquivo onde estão definidos"; `runInitAttrForMod` percorre só os módulos importados. Não executa na elaboração do próprio arquivo | candidato a `allowed` pelo critério da L-17; **não aplicado** (ver abaixo) |
-| `register_option`, `register_simp_attr`, `register_label_attr`, `register_linter_set` | expandem para `initialize` (a confirmar caso a caso no fonte) | pendente |
-| `simproc_decl` | declara um simproc que um `simp` posterior do MESMO arquivo executa | provavelmente fica fail-closed; pendente |
-| `with_weak_namespace`, `declare_core_config_elab` | pendente | pendente |
+| `run_cmd` | executes code | **kept fail-closed** (instruction 24) |
+| `initialize` | `Lean/Compiler/InitAttr.lean`: `[init]` procedures "are run in the files that IMPORT the file where they are defined"; `runInitAttrForMod` walks only the imported modules. It does not execute during the elaboration of its own file | candidate for `allowed` under the L-17 criterion; **not applied** (see below) |
+| `register_option`, `register_simp_attr`, `register_label_attr`, `register_linter_set` | expand to `initialize` (to be confirmed case by case in the source) | pending |
+| `simproc_decl` | declares a simproc that a later `simp` in the SAME file executes | probably stays fail-closed; pending |
+| `with_weak_namespace`, `declare_core_config_elab` | pending | pending |
 
-**Por que parei.** A leitura de (b) depende do critério da L-17: um comando é fail-closed se pode executar código na elaboração, antes da Etapa B. Ao testar esse critério, encontrei uma contradição na arquitetura da Fase 0 (`limitations.md`, L-33). A Etapa A **não detecta** `run_tac` (tática) nem `by_elab` (termo), e os dois executam código do usuário na elaboração do próprio arquivo, inclusive IO.
-- Demonstrado num projeto descartável: os dois gravaram um arquivo-marcador durante o `lake build`.
-- O auditor completo deu `verified` e exit 0 nos dois arquivos.
+**Why we stopped.** The reading of (b) depends on the L-17 criterion: a command is fail-closed if it can execute code during elaboration, before Stage B. Testing that criterion exposed a contradiction in the Phase 0 architecture (`limitations.md`, L-33). Stage A **does not detect** `run_tac` (a tactic) or `by_elab` (a term), and both execute user code during the elaboration of their own file, including IO.
+- Demonstrated in a throwaway project: both wrote a marker file during `lake build`.
+- The complete auditor gave `verified` and exit 0 on both files.
 
-A L-17 cobre só comandos. A defesa contra execução pré-auditoria, que é o que justifica tratar `initialize` e os demais com cuidado, tem um caminho aberto por tática e termo. Relaxar comandos com base nessa defesa antes de decidir o que fazer com o caminho aberto seria a ordem errada. A decisão é do revisor (instrução 24, "quando parar e perguntar": contradição da Fase 0 exposta pela Fase 1).
+L-17 covers only commands. The defence against pre-audit execution, which is what justifies treating `initialize` and the others with care, has an open path through tactics and terms. Relaxing commands on the basis of that defence before deciding what to do about the open path would be the wrong order. The decision is the reviewer's (instruction 24, "when to stop and ask": a Phase 0 contradiction exposed by Phase 1).
 
-## 6. Pendências
+## 6. Pending
 
-- Decisão do revisor sobre o achado da seção 5 (L-33).
-- Retomar (b) caso a caso, com teste de ausência de efeito para cada relaxamento.
-- Remedir (c) no fork, com a medição oficial no GitHub Actions.
-- ~~L-30~~ registrada (instrução 24): 65,0 % depois de (a); teto 53,3 %; cobertura do Mathlib bloqueada até a Fase 2.
+- The reviewer's decision on the finding of section 5 (L-33).
+- Resume (b) case by case, with a no-effect test for each relaxation.
+- Re-measure (c) in the fork, with the official measurement on GitHub Actions.
+- ~~L-30~~ recorded (instruction 24): 65.0 % after (a); ceiling 53.3 %; Mathlib coverage blocked until Phase 2.
 
-## 7. Resposta do revisor (instrução 24) e sequência confirmada
+## 7. The reviewer's answer (instruction 24) and the confirmed sequence
 
-- **Kill criterion atingido é resultado correto.** Registrado como L-30, sem maquiar o número. A taxa de 14,4 % da biblioteca inteira fica registrada à parte. A causa dominante (`notation` gerada pelo toolchain) vira pergunta para a Fase 2.
-- **L-33 (pergunta 1), opção (c) aprovada:**
-  - o (a) foi aplicado (L-33a, `docs/l33-inventory.md`);
-  - o (b), hash do inspetor e do auditor, é item da Fase 1.
-- **Sequência de (b) do P0-2 (pergunta 2), confirmada:**
-  - retomar só depois da L-33a;
-  - `register_option`, `register_*_attr` e `register_linter_set` pela mesma leitura de `initialize`;
-  - `run_cmd` e `simproc_decl` mantidos fail-closed.
-- **Exigência do revisor sobre `initialize`, confirmada por execução (cenário 10):**
-  - (1) não executa na elaboração do próprio arquivo;
-  - (2) executa quando o arquivo é importado.
+- **A met kill criterion is a correct result.** Recorded as L-30, without dressing up the number. The 14.4 % rate of the whole library is recorded separately. The dominant cause (toolchain-generated `notation`) becomes a question for Phase 2.
+- **L-33 (question 1), option (c) approved:**
+  - (a) was applied (L-33a, `docs/l33-inventory.md`);
+  - (b), hashing the inspector and the auditor, is a Phase 1 item.
+- **The sequence for P0-2's (b) (question 2), confirmed:**
+  - resume only after L-33a;
+  - `register_option`, `register_*_attr` and `register_linter_set` by the same reading as `initialize`;
+  - `run_cmd` and `simproc_decl` kept fail-closed.
+- **The reviewer's requirement on `initialize`, confirmed by execution (scenario 10):**
+  - (1) it does not execute during the elaboration of its own file;
+  - (2) it executes when the file is imported.
 
-  Logo, `initialize` em dependência é vetor de execução. A Etapa A não vê a dependência, e o cruzamento léxico da L-33a só cobre `run_tac`/`by_elab`.
-  - **Decisão:** `initialize` **não** é reclassificado como `allowed`, nem no alvo. No alvo, a L-33a por ambiente já o marca (o procedimento é uma constante `IO …`).
-  - Relaxá-lo só faz sentido depois da mitigação (b) ou de uma extensão do cruzamento de dependências para código registrado.
-  - O mesmo vale para `register_option`, `register_*_attr` e `register_linter_set`, que expandem para `initialize`.
-  - O teto de (b) no top-60 cai, portanto, para os arquivos que falham só por `simproc_decl`/`run_cmd`/`with_weak_namespace`/`declare_core_config_elab`, todos mantidos fail-closed ou ainda por ler. Resultado: **(b) não resgata nenhum arquivo do top-60 nesta fase.**
+  So `initialize` in a dependency is an execution vector. Stage A does not see the dependency, and L-33a's lexical crossing only covers `run_tac`/`by_elab`.
+  - **Decision:** `initialize` is **not** reclassified as `allowed`, not even in the target. In the target, L-33a's environment rule already flags it (the procedure is an `IO …` constant).
+  - Relaxing it only makes sense after mitigation (b) or after extending the dependency crossing to registered code.
+  - The same holds for `register_option`, `register_*_attr` and `register_linter_set`, which expand to `initialize`.
+  - The ceiling of (b) in the top-60 therefore drops to the files that fail only because of `simproc_decl`/`run_cmd`/`with_weak_namespace`/`declare_core_config_elab`, all kept fail-closed or still unread. Result: **(b) recovers no top-60 file in this phase.**
 
-## 8. Remedição oficial no GitHub Actions
+## 8. Official re-measurement on GitHub Actions
 
-| Medição | Run | Etapa A | Top-60 | Mathlib inteiro |
+| Measurement | Run | Stage A | Top-60 | Whole of Mathlib |
 |---|---|---|---|---|
-| depois de (a) | [39845428621](https://github.com/Enzo47961/mathlib4/actions/runs/39845428621) (auditor `aa5750b`) | v3 | 39/60, **65,0 %** | 1244/8651, **14,4 %** |
-| depois da L-33a | [39849624202](https://github.com/Enzo47961/mathlib4/actions/runs/39849624202) (auditor `d5f6264`) | v4 | 39/60, **65,0 %** | 1282/8651, **14,8 %** |
+| after (a) | [39845428621](https://github.com/Enzo47961/mathlib4/actions/runs/39845428621) (auditor `aa5750b`) | v3 | 39/60, **65.0 %** | 1244/8651, **14.4 %** |
+| after L-33a | [39849624202](https://github.com/Enzo47961/mathlib4/actions/runs/39849624202) (auditor `d5f6264`) | v4 | 39/60, **65.0 %** | 1282/8651, **14.8 %** |
 
-As duas medições conferem com a local. Fork `afd92f7`; nenhum `.lean` difere de `e1b2403b`.
+Both measurements agree with the local one. Fork `afd92f7`; no `.lean` file differs from `e1b2403b`.
 
-- **Top-60:** a Etapa A v4 não muda a taxa. Os 2 arquivos com `unsafe` já falhavam por sintaxe ou por comando.
-- **Mathlib inteiro:** o `unsafe` léxico aparece em 74 arquivos, e é a única causa em 40 deles. Daí a alta de 14,4 % para 14,8 %. Os dados estão em `trabalho/p0/measure2/`.
+- **Top-60:** Stage A v4 does not change the rate. The 2 files with `unsafe` already failed because of syntax or of a command.
+- **Whole of Mathlib:** lexical `unsafe` appears in 74 files, and is the only cause in 40 of them. Hence the rise from 14.4 % to 14.8 %. The data are kept in the maintainer's working directory (`p0/measure2/`).
 
-**Não entra nestes números:**
-- `run_tac`/`by_elab`: é achado (`Rejeitada`), não item não reconhecido. São 2 arquivos do Mathlib (`run_tac`), e só um deles, `NumberTheory/Bertrand.lean`, estava limpo.
-- **A detecção por ambiente da L-33a** (constante do alvo cujo tipo alcança `IO.RealWorld`, ou `@[extern]`): só aparece auditando cada arquivo com o inspetor. **Não medida no Mathlib inteiro**; fica como pendência da sub-fase.
+**Not included in these numbers:**
+- `run_tac`/`by_elab`: a finding (`Rejeitada`, rejected), not an unrecognized item. There are 2 Mathlib files (`run_tac`), and only one of them, `NumberTheory/Bertrand.lean`, was clean.
+- **L-33a's environment-based detection** (a target constant whose type reaches `IO.RealWorld`, or that carries `@[extern]`): it only appears when auditing each file with the inspector. **Not measured over the whole of Mathlib here**; measured later as L-35 (`limitations.md`).

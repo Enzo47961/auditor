@@ -1,27 +1,29 @@
-# Objeções registradas à especificação
+# Recorded objections to the specification
 
-Registradas **antes** da implementação. Mudanças requerem autorização explícita.
+Recorded **before** implementation. Changes require explicit authorization.
 
-## O-1. Justificativa de `native_decide` — RESOLVIDA: opção (B)
+"Instruction N" refers to the numbered decisions of the project's external reviewer. Status values (`Validada`, `Rejeitada`, `Não resolvida`, `Conforme`, `Não conforme`, `Não resolvido`, `Não auditada`) are quoted as the tool prints them; see the README for their meaning.
 
-**Decisão:** docstring com a gramática estrita, sem escape, sem múltiplas linhas; qualquer desvio é violação. O cenário 05 inclui o drift multi-declaração. A opção (C) fica registrada como fallback em `limitations.md` (L-4), condicionada a uma objeção real do Mathlib, sem migração preventiva.
+## O-1. `native_decide` justification — RESOLVED: option (B)
 
-**Problema.** O atributo `@[auditor_justified]` (item 3) só existe se for registrado num módulo importado. O Mathlib não vai depender do pacote do auditor, então o mecanismo decidido é inaplicável ao alvo principal. A classificação inicial desta objeção como "não substantiva" estava errada.
+**Decision:** a docstring with the strict grammar, no escaping, no multiple lines; any deviation is a violation. Scenario 05 includes the multi-declaration drift. Option (C) is recorded as a fallback in `limitations.md` (L-4), conditional on a real objection from Mathlib, with no preventive migration.
 
-### Investigação (toolchain `leanprover/lean4:v4.22.0`, commit `ba2cbbf0`)
+**Problem.** The `@[auditor_justified]` attribute (item 3) only exists if it is registered in an imported module. Mathlib will not depend on the auditor's package, so the decided mechanism is inapplicable to the main target. The initial classification of this objection as "not substantive" was wrong.
 
-**(A) Atributo ignorado silenciosamente sem o pacote: NÃO FUNCIONA.**
+### Investigation (toolchain `leanprover/lean4:v4.22.0`, commit `ba2cbbf0`)
+
+**(A) Attribute silently ignored without the package: DOES NOT WORK.**
 
 ```
 A.lean:2:2: error: unknown attribute [auditor_justified]
-A2.lean:2:21: error: unexpected identifier; expected prio     ← forma com argumentos
+A2.lean:2:21: error: unexpected identifier; expected prio     ← form with arguments
 ```
 
-Atributo não registrado é erro de elaboração, e a forma com argumentos nem passa pelo parser. Não há mecanismo de atributo "opcional".
+An unregistered attribute is an elaboration error, and the form with arguments does not even get past the parser. There is no "optional" attribute mechanism.
 
-**(B) Docstrings no ambiente elaborado: FUNCIONA.**
+**(B) Docstrings in the elaborated environment: WORKS.**
 
-Projeto lake com `Fix/Target.lean` compilado para `.olean`. Inspetor separado importa o módulo via `importModules` e lê com `findDocString?`, sem acesso ao texto-fonte:
+A lake project with `Fix/Target.lean` compiled to `.olean`. A separate inspector imports the module via `importModules` and reads with `findDocString?`, without access to the source text:
 
 ```
 justified   | doc=some "Lema sobre ordem.\nauditor_justified: reason=\"kernel decide too slow\" reviewer=\"@enzo\" "
@@ -29,454 +31,454 @@ unjustified | doc=some "Docstring comum, sem justificativa. "
 nodoc       | doc=none
 ```
 
-Atribuição do `native_decide` à declaração dona, por nome:
+Attributing `native_decide` to the owning declaration, by name:
 
 ```
 referência direta a Lean.ofReduceBool: justified._proof_1_3, unjustified._proof_1_3, nodoc._proof_1_3
-'consumer' depends on axioms: [Lean.ofReduceBool]   ← consumer usa justified; herda transitivamente
+'consumer' depends on axioms: [Lean.ofReduceBool]   ← consumer uses justified; inherits transitively
 ```
 
-Algoritmo: para cada declaração auditada, encontrar no seu fecho de dependências as constantes que referenciam `Lean.ofReduceBool`/`Lean.ofReduceNat` diretamente. Para cada uma, resolver a declaração dona removendo os componentes internos do nome (`justified._proof_1_3` → `justified`) e exigir justificativa na docstring da dona. No exemplo, `consumer` fica coberto porque a única fonte é `justified`, que está justificada. Se alguma dona não estiver justificada, a violação é atribuída a ela e propagada às dependentes.
+Algorithm: for each audited declaration, find in its dependency closure the constants that reference `Lean.ofReduceBool`/`Lean.ofReduceNat` directly. For each one, resolve the owning declaration by removing the internal components of the name (`justified._proof_1_3` → `justified`) and require a justification in the owner's docstring. In the example, `consumer` is covered because its only source is `justified`, which is justified. If some owner is not justified, the violation is attributed to it and propagated to its dependents.
 
-### Avaliação de (B) contra as três objeções do item 3
+### Assessment of (B) against the three objections of item 3
 
-- **(a) "Comentários não existem no ambiente elaborado".** Docstrings existem: ficam no `.olean` e a Etapa B os lê diretamente. A Etapa A não participa.
-- **(b) "Cruzamento por posição quebra em refatoração".** Não há cruzamento por posição: a docstring pertence à declaração pelo nome, no ambiente.
-- **(c) "Docstring na declaração errada e ninguém detecta".** Detecta-se: se a justificativa estiver em outra declaração, a dona do `native_decide` fica sem ela, e o resultado é violação (fail-closed).
+- **(a) "Comments do not exist in the elaborated environment".** Docstrings do: they are stored in the `.olean` and Stage B reads them directly. Stage A takes no part.
+- **(b) "Matching by position breaks under refactoring".** There is no matching by position: the docstring belongs to the declaration by name, in the environment.
+- **(c) "A docstring on the wrong declaration and nobody notices".** It is noticed: if the justification is on another declaration, the owner of the `native_decide` is left without one, and the result is a violation (fail-closed).
 
-### Riscos residuais de (B)
+### Residual risks of (B)
 
-1. **A convenção de nomes auxiliares (`X._proof_N`) é detalhe de implementação do compilador** e pode mudar entre versões do Lean. Mitigação: se a resolução da dona não encontrar uma declaração não-interna, o resultado é `Não resolvida` com razão `native_decide_owner_unresolved`. A convenção entra no teste de defasagem de `docs/maintenance.md`.
-2. **A docstring aparece na documentação gerada do Mathlib.** Não sei se revisores do Mathlib aceitam uma linha estruturada visível em docs. Não testável aqui.
-3. **Falsificação.** Qualquer autor pode escrever a linha. O atributo tinha a mesma propriedade; a aprovação continua humana e fora do escopo.
-4. **Gramática estrita.** Linha `auditor_justified: reason="…" reviewer="@handle"` com parse estrito. Linha malformada é violação, não é ignorada.
+1. **The naming convention for auxiliaries (`X._proof_N`) is a compiler implementation detail** and may change between Lean versions. Mitigation: if resolving the owner does not find a non-internal declaration, the result is `Não resolvida` (unresolved) with reason `native_decide_owner_unresolved`. The convention enters the staleness test of `docs/maintenance.md`.
+2. **The docstring appears in Mathlib's generated documentation.** I do not know whether Mathlib reviewers accept a visible structured line in docs. Not testable here.
+3. **Forgery.** Any author can write the line. The attribute had the same property; approval remains human and out of scope.
+4. **Strict grammar.** A line `auditor_justified: reason="…" reviewer="@handle"` with strict parsing. A malformed line is a violation, not ignored.
 
-### Recomendação
+### Recommendation
 
-Adotar (B). Ele responde às três objeções do item 3 com evidência, funciona sem dependência no projeto-alvo e é fail-closed por construção. Como reverte uma decisão explícita (item 3 rejeitou docstrings), **aguardo autorização**. Se (B) for rejeitado, apresento os trade-offs de (C).
+Adopt (B). It answers the three objections of item 3 with evidence, works without a dependency in the target project and is fail-closed by construction. Since it reverses an explicit decision (item 3 rejected docstrings), **I await authorization**. If (B) is rejected, I will present the trade-offs of (C).
 
-Fixtures da investigação: preservados para virar testes de regressão da regra.
+Investigation fixtures: kept, to become regression tests for the rule.
 
-## O-2. Isenção de `maxHeartbeats 0` depende da Etapa A
+## O-2. The `maxHeartbeats 0` exemption depends on Stage A
 
-`set_option` não é registrado no ambiente elaborado; a condição (b) só pode ser cruzada sintaticamente. Mitigação: só a forma `set_option maxHeartbeats 0 in <declaração>` é elegível à isenção (o `in` vincula a opção à declaração seguinte, sem cruzamento por posição). A forma em nível de arquivo ou seção nunca é isentável.
+`set_option` is not recorded in the elaborated environment; condition (b) can only be matched syntactically. Mitigation: only the form `set_option maxHeartbeats 0 in <declaration>` is eligible for the exemption (the `in` binds the option to the following declaration, without matching by position). The file-level or section-level form is never exemptable.
 
-## O-3. `maxHeartbeats 0` como `Rejeitada` — RESOLVIDA
+## O-3. `maxHeartbeats 0` as `Rejeitada` — RESOLVED
 
-Implementado como decidido: `Rejeitada`, razão `set_option_violation`, apenas na declaração que usa a opção. Uma declaração dependente é avaliada pelos próprios méritos (opção i) e pode ser `Validada` + `Conforme`; a dependência aparece no campo `depends_on_rejected: [nomes]` do schema v1.
+Implemented as decided: `Rejeitada` (rejected), reason `set_option_violation`, only on the declaration that uses the option. A dependent declaration is evaluated on its own merits (option i) and may be `Validada` + `Conforme`; the dependency appears in the `depends_on_rejected: [names]` field of schema v1.
 
-## O-4. Warnings não têm campo no schema da spec
+## O-4. Warnings have no field in the spec's schema
 
-O item 5 introduz warnings (confusables). Campo opcional `warnings` (lista) por declaração e no nível do relatório. É aditivo e não altera campos obrigatórios.
+Item 5 introduces warnings (confusables). An optional `warnings` field (a list) per declaration and at the report level. It is additive and does not change mandatory fields.
 
-## Q1–Q3 — RESOLVIDAS
+## Q1–Q3 — RESOLVED
 
-- **Q1:** (X) ortogonal estrito, mais `overall_status` (`verified` só se ambos os estados forem positivos). Aplicado em todos os testes.
-- **Q2:** o cenário 03 foi reescopado para axioma desconhecido (`03-axiom-unknown`): `Não resolvido` + `unknown_axiom`.
+- **Q1:** (X) strictly orthogonal, plus `overall_status` (`verified` only if both states are positive). Applied in every test.
+- **Q2:** scenario 03 was rescoped to an unknown axiom (`03-axiom-unknown`): `Não resolvido` + `unknown_axiom`.
 - **Q3(a):** `g_zero` → `Não resolvida`, `implemented_by_candidate`.
-- **Q3(b):** justificativa órfã → violação `orphan_justification`.
+- **Q3(b):** an orphan justification → violation `orphan_justification`.
 
-### Registros sobre a aplicação (para veto)
+### Notes on the application (for veto)
 
-- **R-1. A cobertura descrita na Q2 não bate com (X).** A Q2 descreve o cenário 02 como "proibido em dependência, via sorryAx". Pela tabela (X), o `sorryAx` afeta só `proof_status`, e as premissas são avaliadas sem ele: o 02 testa admissão transitiva, não a categoria "proibido" nas premissas. Essa categoria fica coberta pelo 05 (`Lean.ofReduceBool` sem justificativa → `Não conforme`). Um axioma proibido que não seja `sorryAx` nem `ofReduceBool` só terá cobertura nos testes de regressão da policy. Implementei a tabela literalmente.
-- **R-2. `orphan_justification` vai para `proof_status: Rejeitada`.** Derivação: a spec define `Rejeitada` como "violação concreta de política demonstrada", e (X) reserva `premises_status` para dependências.
+- **R-1. The coverage described in Q2 does not match (X).** Q2 describes scenario 02 as "forbidden in a dependency, via sorryAx". By table (X), `sorryAx` affects only `proof_status`, and the premises are evaluated without it: 02 tests transitive admission, not the "forbidden" category in the premises. That category is covered by 05 (`Lean.ofReduceBool` without justification → `Não conforme`). A forbidden axiom that is neither `sorryAx` nor `ofReduceBool` will only be covered by the policy's regression tests. I implemented the table literally.
+- **R-2. `orphan_justification` goes to `proof_status: Rejeitada`.** Derivation: the spec defines `Rejeitada` as "a concrete policy violation demonstrated", and (X) reserves `premises_status` for dependencies.
 
-## Q4–Q6 — RESOLVIDAS
+## Q4–Q6 — RESOLVED
 
-- **Q4:** precedência `rejected` > `unresolved` > `verified` ("pior estado vence"). Formalizada como tabela no README; entra no schema v1 na etapa de Schema.
-- **Q5:** allow-list de projeto gerada por `auditor-gen-allowlist --project <dir>`, vinculada ao pino do ambiente; allow-list obsoleta é fail-closed. Testes da camada 1 contra um projeto Lake mínimo (`tests/allowlist`). A allow-list do Mathlib é evidência da camada 2. A correção semântica da allow-list é Fase 1+ (L-16).
-- **Q6:** alvo que não compila → exit 1, `proof_status: Não resolvida`, `overall_status: unresolved`, razão `compile_failure`.
+- **Q4:** precedence `rejected` > `unresolved` > `verified` ("the worst state wins"). Formalized as a table in the README; it enters schema v1 in the Schema step.
+- **Q5:** a project allow-list generated by `auditor-gen-allowlist --project <dir>`, bound to the environment pin; a stale allow-list is fail-closed. Layer-1 tests against a minimal Lake project (`tests/allowlist`). The Mathlib allow-list is layer-2 evidence. Semantic correctness of the allow-list is Phase 1+ (L-16).
+- **Q6:** a target that does not compile → exit 1, `proof_status: Não resolvida`, `overall_status: unresolved`, reason `compile_failure`.
 
-## Decisões locais tomadas na Etapa A (para veto)
+## Local decisions taken in Stage A (for veto)
 
-- **D-1. Classificação de risco dos comandos** (`tools/gen_allowlist/classification.toml`). Fail-closed quando o comando introduz sintaxe, executa código arbitrário capaz de alterar o ambiente, é interno do core ou oculta conteúdo (`#exit`). `#eval` e `run_cmd` são fail-closed; `unif_hint`, `grind_pattern` e `#check` são permitidos.
-- **D-2. Regra de confusables:** detecção por pares (TR39 §4) no arquivo, ignorando componentes de um caractere (L-6). Avisar sobre todo caractere confusable dispararia em quase todo arquivo do Mathlib (α→a, ι→i, ℝ→R).
-- **D-3. Estrutura:** cenários como diretórios-projeto; pacote em `src/auditor/` (layout Python padrão), não em `src/main.py`.
+- **D-1. Risk classification of commands** (`tools/gen_allowlist/classification.toml`). Fail-closed when the command introduces syntax, executes arbitrary code capable of changing the environment, is internal to the core, or hides content (`#exit`). `#eval` and `run_cmd` are fail-closed; `unif_hint`, `grind_pattern` and `#check` are allowed.
+- **D-2. Confusables rule:** detection by pairs (TR39 §4) within the file, ignoring single-character components (L-6). Warning about every confusable character would fire on almost every Mathlib file (α→a, ι→i, ℝ→R).
+- **D-3. Structure:** scenarios as project directories; the package in `src/auditor/` (standard Python layout), not in `src/main.py`.
 
-## O-5. `@[extern]` — ACEITO
-Entra na spec com a mesma categoria de risco de `@[implemented_by]`. Cenário `04b-extern` criado, com o mesmo formato de ground truth do 04: (a) atributo sozinho; (b) combinado com `Lean.ofReduceBool`. O ground truth deriva `False`: um `@[extern "lean_nat_add"]` de usuário sobre uma definição que multiplica. O fixture precisa de `precompileModules := true`, porque o interpretador só avalia um `extern` de usuário se o módulo que o define tiver código nativo carregado. As regras de política para `extern` dependem de Q7.
+## O-5. `@[extern]` — ACCEPTED
+It enters the spec in the same risk category as `@[implemented_by]`. Scenario `04b-extern` created, with the same ground-truth format as 04: (a) the attribute alone; (b) combined with `Lean.ofReduceBool`. The ground truth derives `False`: a user `@[extern "lean_nat_add"]` on a definition that multiplies. The fixture needs `precompileModules := true`, because the interpreter only evaluates a user `extern` if the module defining it has native code loaded. The policy rules for `extern` depend on Q7.
 
-## Q7 — RESOLVIDA: opção (a), com especificação de fronteira
+## Q7 — RESOLVED: option (a), with a boundary specification
 
-Implementações do toolchain são TCB. A fronteira é declarada pelo toolchain (raízes de biblioteca em `<sysroot>/lib/lean`) e pelo `lake-manifest.json` (raízes de usuário), não pelo nome do módulo. Algoritmo, garantias e manutenção estão em `docs/tcb.md`, seção "Fronteira de TCB"; testes unitários em `tests/tcb`. O canário é o cenário `06-tcb-boundary`, e o `04b-extern` ganhou o caso (c).
+Toolchain implementations are TCB. The boundary is declared by the toolchain (library roots in `<sysroot>/lib/lean`) and by `lake-manifest.json` (user roots), not by the module name. Algorithm, guarantees and maintenance are in `docs/tcb.md`, section "TCB boundary"; unit tests in `tests/tcb`. The canary is scenario `06-tcb-boundary`, and `04b-extern` gained case (c).
 
-**Mudança no inspetor (v2).** O inspetor deixou de decidir `in_toolchain`. Agora emite só fatos: o caminho real do `.olean` de cada módulo, o sysroot, o search path efetivo e as docstrings de todas as donas. A decisão TCB/usuário fica no Python, testável sem Lean.
+**Change in the inspector (v2).** The inspector no longer decides `in_toolchain`. It now emits only facts: the real path of each module's `.olean`, the sysroot, the effective search path and the docstrings of all owners. The TCB/user decision lives in Python, testable without Lean.
 
-## D-1 a D-3 — ACEITAS
+## D-1 to D-3 — ACCEPTED
 
-- **D-1, com a adição do revisor.** `#reduce` passou a ser fail-closed, como `#eval`; antes **não estava coberto** (caía em `allowed`). Aplicando o mesmo critério ("avalia → fail-closed"), verifiquei no fonte do toolchain que `#guard` e `#widget` chamam `evalExpr`, a mesma execução de código compilado do `#eval`; os dois também passaram a fail-closed. `classification_version` subiu para 2. Testes: `tests/stage_a/test_stage_a.py::test_risky_commands`.
-- **D-2** e **D-3:** sem mudança.
+- **D-1, with the reviewer's addition.** `#reduce` became fail-closed, like `#eval`; before, it **was not covered** (it fell into `allowed`). Applying the same criterion ("evaluates → fail-closed"), I checked in the toolchain's source that `#guard` and `#widget` call `evalExpr`, the same execution of compiled code as `#eval`; both also became fail-closed. `classification_version` went up to 2. Tests: `tests/stage_a/test_stage_a.py::test_risky_commands`.
+- **D-2** and **D-3:** no change.
 
-## Q8. Comandos que só reduzem — RESOLVIDA (ver "Rodada da instrução 10"; pergunta original abaixo)
+## Q8. Commands that only reduce — RESOLVED (see "Instruction 10 round"; original question below)
 
-Pelo critério de D-1, `#reduce` (redução) foi equiparado a `#eval` (execução). Outros comandos do core também reduzem termos sem executar código compilado: `#guard_expr` (com `=~`, defeq), `#check_simp` (roda `simp`), `#synth` (resolução de instâncias), `#check_tactic` (roda uma tática). Eles continuam `allowed`. Pergunta: o critério do revisor é "executa código" (então só `#reduce` é exceção explícita) ou "avalia/reduz" (então os quatro também viram fail-closed)? Sem resposta, mantenho `allowed`. Mudar é uma linha em `classification.toml`.
+By the D-1 criterion, `#reduce` (reduction) was treated like `#eval` (execution). Other core commands also reduce terms without executing compiled code: `#guard_expr` (with `=~`, defeq), `#check_simp` (runs `simp`), `#synth` (instance resolution), `#check_tactic` (runs a tactic). They remain `allowed`. Question: is the reviewer's criterion "executes code" (so only `#reduce` is an explicit exception) or "evaluates/reduces" (so all four also become fail-closed)? Without an answer, I keep them `allowed`. Changing it is one line in `classification.toml`.
 
-## D-4 a D-10 — detalhes completos para revisão
+## D-4 to D-10 — full details for review
 
-Nenhuma é urgente para a Policy: a Policy foi implementada sem depender de veto a elas. Se alguma for vetada, a mudança é local.
+None is urgent for the Policy: the Policy was implemented without depending on a veto of them. If any is vetoed, the change is local.
 
-### D-4. Pino da allow-list de projeto
-- **O que faz.** `env_pin = SHA-256(versão do pino ‖ lean-toolchain ‖ bytes do lake-manifest.json)`, com cada parte prefixada pelo comprimento (`src/auditor/allowlist.py::env_pin`). A allow-list de projeto guarda esse valor. A Etapa A recalcula o pino a partir do ambiente atual e só usa a allow-list se os valores baterem.
-- **O que muda no comportamento.** Qualquer mudança no toolchain ou em qualquer byte do manifest (versão de dependência, até espaço em branco) torna a allow-list obsoleta: `allowlist_stale`, a Etapa A não usa a lista e o relatório sai com exit 2. O **fonte do próprio projeto não entra** no pino. Se entrasse, a allow-list do Mathlib ficaria obsoleta a cada commit, e na prática seria regenerada em cada auditoria, que é a allow-list dinâmica rejeitada na Q5(b). Consequência registrada em L-16: um comando novo do projeto cai em `unknown_command` (fail-closed); um comando redefinido mantém a classificação antiga.
-- **Como testa.** `tests/allowlist/test_project_allowlist.py`: pino igual ao recalculado; manifest alterado em um byte, campo `toolchain`, campo `env_pin` ou campo `kind` adulterados → `allowlist_stale`; `--check` detecta a deriva. Fim a fim: `tests/cli/test_cli.py::test_stale_project_allowlist_is_infra` (exit 2, nenhuma `verified`). Mutações: retirar a comparação do pino e retirar o manifest do hash são detectadas.
+### D-4. Project allow-list pin
+- **What it does.** `env_pin = SHA-256(pin version ‖ lean-toolchain ‖ bytes of lake-manifest.json)`, with each part prefixed by its length (`src/auditor/allowlist.py::env_pin`). The project allow-list stores this value. Stage A recomputes the pin from the current environment and only uses the allow-list if the values match.
+- **What changes in behaviour.** Any change to the toolchain or to any byte of the manifest (a dependency version, even whitespace) makes the allow-list stale: `allowlist_stale`, Stage A does not use the list and the report exits with exit 2. The **project's own source does not enter** the pin. If it did, the Mathlib allow-list would become stale with every commit, and in practice would be regenerated on every audit, which is the dynamic allow-list rejected in Q5(b). Consequence recorded in L-16: a new project command falls into `unknown_command` (fail-closed); a redefined command keeps the old classification.
+- **How it is tested.** `tests/allowlist/test_project_allowlist.py`: the pin equals the recomputed one; the manifest changed in one byte, or the `toolchain`, `env_pin` or `kind` field tampered with → `allowlist_stale`; `--check` detects the drift. End to end: `tests/cli/test_cli.py::test_stale_project_allowlist_is_infra` (exit 2, no `verified`). Mutations: removing the pin comparison and removing the manifest from the hash are detected.
 
-### D-5. Classificação de comandos de projeto
-- **O que faz.** O gerador separa os comandos extraídos em comandos do core (classificados por `tools/gen_allowlist/classification.toml`) e comandos novos do projeto. Os novos só saem de `unclassified` se estiverem em `<projeto>/.auditor/classification.toml`. O gerador recusa (exit 2) classificação que: cite comando inexistente; cite comando do core (um projeto não pode reclassificar `#eval` como permitido); classifique um comando duas vezes; ou tenha chave desconhecida.
-- **O que muda no comportamento.** Comando de projeto não classificado → `unclassified_command` em qualquer posição → declarações `Não resolvida`. No core, o padrão para comando sem risco listado é `allowed`, porque o critério foi aplicado a todos os 122 comandos extraídos. No projeto, o padrão é fail-closed, porque ninguém olhou os comandos novos.
-- **Como testa.** `tests/allowlist`: `my_lemma` sem classificação → `unclassified_command`; com classificação → aceito; os quatro tipos de classificação inválida → exit 2. Mutações: tornar `unclassified` vazio, desligar a checagem de comando obsoleto, de duplicata e de chave desconhecida são detectadas.
+### D-5. Classification of project commands
+- **What it does.** The generator splits the extracted commands into core commands (classified by `tools/gen_allowlist/classification.toml`) and new project commands. The new ones only leave `unclassified` if they are in `<project>/.auditor/classification.toml`. The generator refuses (exit 2) a classification that: cites a nonexistent command; cites a core command (a project cannot reclassify `#eval` as allowed); classifies a command twice; or has an unknown key.
+- **What changes in behaviour.** An unclassified project command → `unclassified_command` in any position → declarations `Não resolvida`. In the core, the default for a command without a listed risk is `allowed`, because the criterion was applied to all 122 extracted commands. In the project, the default is fail-closed, because nobody has looked at the new commands.
+- **How it is tested.** `tests/allowlist`: `my_lemma` without a classification → `unclassified_command`; with a classification → accepted; the four kinds of invalid classification → exit 2. Mutations: making `unclassified` empty, turning off the stale-command, duplicate and unknown-key checks are detected.
 
-### D-6. Módulos do projeto na extração
-- **O que faz.** O gerador roda `lake build` no projeto e importa **todos** os `.olean` em `<projeto>/.lake/build/lib/lean`, mais `Lean`. Os comandos extraídos são os de todo esse ambiente.
-- **O que muda no comportamento.** A allow-list cobre todo comando disponível em qualquer arquivo do projeto, e não só nos arquivos que importam tudo. Um comando definido num módulo que o alvo não importa fica na allow-list, mas não pode aparecer no alvo sem import (o Lean não o reconheceria), então o efeito é nulo. Projeto sem build → erro explícito.
-- **Como testa.** `tests/allowlist`: o comando `my_lemma`, definido em `Mini.Cmd`, aparece na allow-list gerada; projeto sem `lake-manifest.json` → exit 2.
+### D-6. Project modules in the extraction
+- **What it does.** The generator runs `lake build` in the project and imports **all** the `.olean` files in `<project>/.lake/build/lib/lean`, plus `Lean`. The extracted commands are those of that entire environment.
+- **What changes in behaviour.** The allow-list covers every command available in any file of the project, not only in files that import everything. A command defined in a module that the target does not import is on the allow-list, but it cannot appear in the target without the import (Lean would not recognize it), so the effect is nil. A project without a build → an explicit error.
+- **How it is tested.** `tests/allowlist`: the command `my_lemma`, defined in `Mini.Cmd`, appears in the generated allow-list; a project without `lake-manifest.json` → exit 2.
 
-### D-7. Execução do inspetor
-- **O que faz.** `Inspect.lean` é compilado como executável com o toolchain do projeto-alvo, numa pasta de cache fora do repositório. A chave do cache é o hash do fonte + toolchain + lakefile do inspetor. O executável roda sob `lake env` na raiz do projeto, para herdar o `LEAN_PATH` fixado.
-- **O que muda no comportamento.** A primeira auditoria com um toolchain novo leva cerca de 15 s a mais (compilação); as seguintes reutilizam o binário. Qualquer mudança no fonte gera binário novo, e `source_sha256` e `binary_sha256` entram na TCB e no fingerprint. Falha de compilação → `inspector_build_failed` (exit 2).
-- **Como testa.** `tests/stage_b`: a identidade do inspetor depende do toolchain; o `source_sha256` do relatório é o hash do fonte; a versão declarada em Lean e em Python coincidem. Evidência adicional: a saída do executável compilado é **idêntica, byte a byte,** à do interpretador (`lean --run`) no fixture 05.
+### D-7. Running the inspector
+- **What it does.** `Inspect.lean` is compiled as an executable with the target project's toolchain, in a cache folder outside the repository. The cache key is the hash of the inspector's source + toolchain + lakefile. The executable runs under `lake env` at the project root, to inherit the pinned `LEAN_PATH`.
+- **What changes in behaviour.** The first audit with a new toolchain takes about 15 s more (compilation); later ones reuse the binary. Any change to the source produces a new binary, and `source_sha256` and `binary_sha256` enter the TCB and the fingerprint. A compilation failure → `inspector_build_failed` (exit 2).
+- **How it is tested.** `tests/stage_b`: the inspector's identity depends on the toolchain; the report's `source_sha256` is the hash of the source; the version declared in Lean and in Python match. Additional evidence: the output of the compiled executable is **byte-for-byte identical** to the interpreter's (`lean --run`) on fixture 05.
 
-### D-8. Declarações reportadas
-- **O que faz.** O relatório cobre as constantes do módulo-alvo que (a) têm faixa de declaração no fonte (`declRangeExt`) e (b) têm nome de usuário. Nomes privados são julgados pela parte de usuário. Ficam fora: `match_N`, `_proof_N`, recursores, `noConfusion`, equações.
-- **O que muda no comportamento.** Entram também constantes geradas com faixa no fonte: construtor e projeções de `structure`, instâncias anônimas (`instInhabitedP`) e o parser criado por `macro` (`tacticObviously`). Cada uma recebe estados próprios. Declarações `private` são reportadas com o nome interno (`_private.Mod.0.hidden`); o vínculo com a Etapa A (`set_option … in`) usa o nome de usuário.
-- **Como testa.** `tests/stage_b::test_reported_declarations_exact` (conjunto exato por fixture, incluindo `edges` e `macro`); `test_edges_internal_names_never_reported`; `test_edges_private_declaration_reported_and_owned`. Mutações: retirar o filtro de faixa e o tratamento de privadas são detectadas.
+### D-8. Reported declarations
+- **What it does.** The report covers the constants of the target module that (a) have a declaration range in the source (`declRangeExt`) and (b) have a user name. Private names are judged by their user part. Left out: `match_N`, `_proof_N`, recursors, `noConfusion`, equations.
+- **What changes in behaviour.** Generated constants with a range in the source are also included: a `structure`'s constructor and projections, anonymous instances (`instInhabitedP`) and the parser created by `macro` (`tacticObviously`). Each gets its own states. `private` declarations are reported with their internal name (`_private.Mod.0.hidden`); the link to Stage A (`set_option … in`) uses the user name.
+- **How it is tested.** `tests/stage_b::test_reported_declarations_exact` (the exact set per fixture, including `edges` and `macro`); `test_edges_internal_names_never_reported`; `test_edges_private_declaration_reported_and_owned`. Mutations: removing the range filter and the handling of private names are detected.
 
-### D-9. Formato do toolchain
-- **O que faz.** Para conferir que o inspetor rodou com o Lean fixado, o wrapper extrai a versão de `leanprover/lean4:vX.Y.Z` (com `-rcN` opcional) e a compara com `Lean.versionString` emitido pelo inspetor.
-- **O que muda no comportamento.** Toolchains em outro formato (`nightly-…`, forks, `stable`) → `toolchain_unrecognized`, exit 2, sem tentar auditar. Divergência de versão → `toolchain_mismatch`, exit 2.
-- **Como testa.** `tests/stage_b::test_unrecognized_toolchain_format` e `test_ingest_file_level_mismatch`. A mutação que retira a checagem de versão é detectada.
+### D-9. Toolchain format
+- **What it does.** To check that the inspector ran with the pinned Lean, the wrapper extracts the version from `leanprover/lean4:vX.Y.Z` (with an optional `-rcN`) and compares it with the `Lean.versionString` emitted by the inspector.
+- **What changes in behaviour.** Toolchains in another format (`nightly-…`, forks, `stable`) → `toolchain_unrecognized`, exit 2, without trying to audit. A version mismatch → `toolchain_mismatch`, exit 2.
+- **How it is tested.** `tests/stage_b::test_unrecognized_toolchain_format` and `test_ingest_file_level_mismatch`. The mutation that removes the version check is detected.
 
-### D-10. Fim de linha
-- **O que faz.** `.gitattributes` com `* -text` desliga a conversão automática de fim de linha do git. Os geradores gravam bytes UTF-8 com LF, e o `--check` compara bytes, não texto.
-- **O que muda no comportamento.** No Windows, sem isso, o checkout converteria o `lake-manifest.json` para CRLF: o `env_pin` mudaria e toda allow-list de projeto pareceria obsoleta. Os hashes da TCB (fonte do inspetor, política) também mudariam entre sistemas.
-- **Como testa.** Indiretamente: `tests/maintenance/test_allowlist_fresh.py` compara bytes e passou nos dois sistemas (Linux e Windows), e os testes do pino dependem dos bytes exatos.
+### D-10. Line endings
+- **What it does.** `.gitattributes` with `* -text` turns off git's automatic line-ending conversion. The generators write UTF-8 bytes with LF, and `--check` compares bytes, not text.
+- **What changes in behaviour.** On Windows, without this, the checkout would convert `lake-manifest.json` to CRLF: `env_pin` would change and every project allow-list would look stale. The TCB hashes (inspector source, policy) would also change between systems.
+- **How it is tested.** Indirectly: `tests/maintenance/test_allowlist_fresh.py` compares bytes and passed on both systems (Linux and Windows), and the pin tests depend on the exact bytes.
 
-## Decisões locais da Policy, Schema e CLI (para veto)
+## Local decisions on the Policy, Schema and CLI (for veto)
 
-- **D-11. `debug.skipKernelTC true` é `set_option` proibido.** A opção faz o Lean aceitar declarações **sem** checagem do kernel; é o caso extremo de "set_option que relaxa checagem". Teste: `tests/policy/test_rules.py::test_forbidden_option_rejects`.
-- **D-12. Allow-list de opções.** Reconhecidas: `maxHeartbeats`, `maxRecDepth`, `synthInstance.maxHeartbeats`, `synthInstance.maxSize`, `autoImplicit`, `relaxedAutoImplicit`, `checkBinderAnnotations`, e os prefixos `linter.`, `pp.`, `trace.`, mais `profiler`. Opção fora da lista → `Não resolvida`, `set_option_unrecognized`. É provável que o Mathlib use opções fora dela; a lista será ajustada com evidência da camada 2.
-- **D-13. Alcance de `set_option` em nível de arquivo ou seção.** Atinge toda declaração que não esteja comprovadamente **antes** da opção. O fim de seção não é rastreado (aproximação conservadora: mais declarações atingidas, nunca menos). Forma `in` que não se vincula a declaração com nome, sendo a opção proibida ou não reconhecida → `set_option_unattributed` em todas as declarações. Teste fim a fim: `tests/policy/set-option`.
-- **D-14. Declaração vista pela Etapa A e ausente do ambiente** → entrada própria no relatório, `Não resolvida`/`Não resolvido`, razão `declaration_not_found_in_environment`, exit 1.
-- **D-15 (REVISADA pelo revisor: exit 2, `no_declarations_found`, `--allow-empty`; texto original:)** Arquivo sem declarações → `no_declarations`, exit 1 (sem nada a selar, nunca exit 0). O schema impõe que exit 0 tenha pelo menos uma declaração.
-- **D-16. Entrada não reconhecida pela Etapa A** (sintaxe nova, comando fora da allow-list, Unicode proibido) afeta só `proof_status` (`Não resolvida`, `stage_a_unrecognized`). As premissas vêm do ambiente elaborado, que a Etapa B analisou por completo.
-- **D-17. Precedência dentro de cada estado:** pior efeito vence (`Rejeitada` > `Não resolvida` > `Validada`; `Não conforme` > `Não resolvido` > `Conforme`). É a mesma regra da Q4, aplicada dentro de cada estado: `sorry` + candidato `implemented_by` → `Rejeitada`.
-- **D-18. `declaration_hash`** = SHA-256 de (nome, tipo de declaração, `Expr.hash` do tipo, `Expr.hash` do valor). Determinístico; o `Expr.hash` subjacente é estrutural de 64 bits (L-14). É `null` para declaração não elaborada.
-- **D-19. Layout do relatório.** A spec lista `tcb` e `execution_metadata` como campos por declaração; eles estão em cada declaração (cópia) **e** no nível do relatório. Também há campos de arquivo (`compilation`, `infrastructure`, `file_findings`, `not_covered`, `exit_code`). O schema amarra `overall_status` à tabela da Q4, `correspondence_status` à constante `Não auditada`, `Validada` à TCB completa e exit 0 à ausência de entradas não reconhecidas.
-- **D-20. Dependência `jsonschema` (≥ 4.18)** em tempo de execução. A CLI valida todo relatório antes de gravá-lo; relatório fora do schema → `report_schema_invalid`, exit 2.
-- **D-21. Timeout padrão de 300 s** (o orçamento de 5 min da spec), configurável com `--timeout`; `--timeout-test artificial` marca o relatório (L-11). **Revisada na instrução 11:** 90 s por arquivo (`--timeout-file`).
+- **D-11. `debug.skipKernelTC true` is a forbidden `set_option`.** The option makes Lean accept declarations **without** kernel checking; it is the extreme case of "a set_option that relaxes checking". Test: `tests/policy/test_rules.py::test_forbidden_option_rejects`.
+- **D-12. Options allow-list.** Recognized: `maxHeartbeats`, `maxRecDepth`, `synthInstance.maxHeartbeats`, `synthInstance.maxSize`, `autoImplicit`, `relaxedAutoImplicit`, `checkBinderAnnotations`, and the prefixes `linter.`, `pp.`, `trace.`, plus `profiler`. An option outside the list → `Não resolvida`, `set_option_unrecognized`. Mathlib probably uses options outside it; the list will be adjusted with layer-2 evidence.
+- **D-13. Reach of `set_option` at file or section level.** It hits every declaration that is not provably **before** the option. The end of a section is not tracked (a conservative approximation: more declarations hit, never fewer). An `in` form that does not bind to a named declaration, with the option forbidden or unrecognized → `set_option_unattributed` on every declaration. End-to-end test: `tests/policy/set-option`.
+- **D-14. A declaration seen by Stage A and missing from the environment** → its own entry in the report, `Não resolvida`/`Não resolvido`, reason `declaration_not_found_in_environment`, exit 1.
+- **D-15 (REVISED by the reviewer: exit 2, `no_declarations_found`, `--allow-empty`; original text:)** A file without declarations → `no_declarations`, exit 1 (nothing to seal, never exit 0). The schema requires exit 0 to have at least one declaration.
+- **D-16. Input not recognized by Stage A** (new syntax, a command outside the allow-list, forbidden Unicode) affects only `proof_status` (`Não resolvida`, `stage_a_unrecognized`). The premises come from the elaborated environment, which Stage B analysed completely.
+- **D-17. Precedence within each state:** the worst effect wins (`Rejeitada` > `Não resolvida` > `Validada`; `Não conforme` > `Não resolvido` > `Conforme`). It is the same rule as Q4, applied within each state: `sorry` + an `implemented_by` candidate → `Rejeitada`.
+- **D-18. `declaration_hash`** = SHA-256 of (name, declaration kind, `Expr.hash` of the type, `Expr.hash` of the value). Deterministic; the underlying `Expr.hash` is a 64-bit structural hash (L-14). It is `null` for a non-elaborated declaration.
+- **D-19. Report layout.** The spec lists `tcb` and `execution_metadata` as per-declaration fields; they are in each declaration (a copy) **and** at the report level. There are also file fields (`compilation`, `infrastructure`, `file_findings`, `not_covered`, `exit_code`). The schema ties `overall_status` to the Q4 table, `correspondence_status` to the constant `Não auditada`, `Validada` to a complete TCB, and exit 0 to the absence of unrecognized entries.
+- **D-20. Dependency `jsonschema` (≥ 4.18)** at run time. The CLI validates every report before writing it; a report outside the schema → `report_schema_invalid`, exit 2.
+- **D-21. Default timeout of 300 s** (the spec's 5-min budget), configurable with `--timeout`; `--timeout-test artificial` marks the report (L-11). **Revised in instruction 11:** 90 s per file (`--timeout-file`).
 
-## Rodada da instrução 10 — resoluções
+## Instruction 10 round — resolutions
 
-- **Q8 — RESOLVIDA** com o critério do revisor: fail-closed se o comando *pode executar código compilado em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente*. `#guard_expr`, `#check_tactic` → fail-closed; `#check`, `#synth`, `#check_simp` → permitidos (revisados). O critério e a tabela estão em `limitations.md` (L-17); `classification_version = "3"`.
-- **D-15 — REVISADA** conforme o revisor: arquivo sem declarações → exit 2, `no_declarations_found`. `--allow-empty` torna explícito o caso de arquivo só de imports (exit 0, aviso `empty_file_allowed`, `execution_metadata.allow_empty: true`). O schema impõe que exit 0 sem declarações exige `allow_empty: true`.
-- **Aceitas:** D-4 a D-13 e D-20.
-  - D-7: a taxa de acerto do cache é medida na Action (`docs/ci.md`).
-  - D-8: as exclusões estão em L-15.
-  - D-20: `jsonschema` e seu fecho transitivo entram na TCB (`tcb.aggregator.python_dependencies`, com versões exatas); dependência não resolvível → TCB incompleta.
-- **Teste anti-LLM transitivo:** percorre o mesmo fecho da TCB (`src/auditor/pydeps.py`); uma dependência nova, mesmo transitiva, que traga biblioteca de LLM o faz falhar (testado com um grafo sintético de dois níveis).
-- **Testes de mutação versionados:** `tools/mutation/` + `docs/maintenance.md`, com teste de integridade do catálogo.
+- **Q8 — RESOLVED** with the reviewer's criterion: fail-closed if the command *can execute compiled code at elaboration time, before Stage B can inspect the environment*. `#guard_expr`, `#check_tactic` → fail-closed; `#check`, `#synth`, `#check_simp` → allowed (reviewed). The criterion and the table are in `limitations.md` (L-17); `classification_version = "3"`.
+- **D-15 — REVISED** as per the reviewer: a file without declarations → exit 2, `no_declarations_found`. `--allow-empty` makes the import-only file case explicit (exit 0, warning `empty_file_allowed`, `execution_metadata.allow_empty: true`). The schema requires that exit 0 without declarations has `allow_empty: true`.
+- **Accepted:** D-4 to D-13 and D-20.
+  - D-7: the cache hit rate is measured in the Action (`docs/ci.md`).
+  - D-8: the exclusions are in L-15.
+  - D-20: `jsonschema` and its transitive closure enter the TCB (`tcb.aggregator.python_dependencies`, with exact versions); an unresolvable dependency → incomplete TCB.
+- **Transitive anti-LLM test:** it walks the same closure as the TCB (`src/auditor/pydeps.py`); a new dependency, even a transitive one, that brings in an LLM library makes it fail (tested with a two-level synthetic graph).
+- **Versioned mutation tests:** `tools/mutation/` + `docs/maintenance.md`, with a catalog-integrity test.
 
-## Decisões locais do CI (para veto)
+## Local CI decisions (for veto)
 
-- **D-22. Falha do job.** Arquivo com exit 1 (rejeição ou não resolução) faz o job falhar; só infraestrutura (orçamento, timeout, exit 2) deixa o job verde com o label `auditor-failed-infra`. Se o check do job bloqueia merge é configuração do repositório-alvo (branch protection), não da ferramenta.
-- **D-23. `auditor-tier1.yml` é reutilizável** (`workflow_call`), com modelos de chamada em `ci/templates/`. Neste repositório ele não roda em `pull_request`: os fixtures são, de propósito, rejeitados, e auditá-los aqui só produziria jobs vermelhos sem significado. O CI do próprio auditor é `ci.yml` (a suíte inteira).
-- **D-24. Separação de privilégios em três workflows.** O job que roda código do PR tem só leitura. O label vem de `workflow_run` (sem checkout, artefato tratado como não confiável). O comentário vem de `issue_comment` (sem checkout, só OWNER/MEMBER/COLLABORATOR). Alternativa rejeitada: `pull_request_target` com checkout do PR, que daria token de escrita a código não confiável. Testado como política em `tests/ci/test_workflows.py`.
-- **D-25. Fixação de versões** (**revisada na instrução 11**: SHA obrigatório; ver D-35). Instalador do elan fixado em `v4.2.4`. Ações oficiais do GitHub fixadas por tag de versão maior (`@v4`, `@v5`), não por SHA; o teste aceita os dois formatos. Para o fork, recomendo fixar por SHA (mudança só nos modelos).
-- **D-26. `#check_tactic_failure`** foi classificado como fail-closed por derivação direta do critério da Q8 (roda tática do usuário, como `#check_tactic`).
-- **D-27. Subprocesso do `auditor-ci`.** Cada arquivo é auditado em processo separado (`python -m auditor check`), com o mesmo pacote que orquestra (caminho do pacote no `PYTHONPATH`). O isolamento impede que um arquivo afete o seguinte; o timeout do subprocesso é o restante do orçamento + 30 s.
-- **D-28. O que o orçamento de 5 min mede** (**revisada na instrução 11**: inclui a preparação). O orçamento cobre a auditoria (todos os arquivos, incluindo o `lake build` de cada módulo-alvo). Instalação do elan, do Python e `lake exe cache get` ficam fora dele: são preparação do runner, medidas pela duração total do job. Se o revisor entender que os 5 min da spec incluem a preparação, o ajuste é passar o tempo já gasto no job para o `auditor-ci` descontar do orçamento.
+- **D-22. Job failure.** A file with exit 1 (rejection or non-resolution) makes the job fail; only infrastructure (budget, timeout, exit 2) leaves the job green with the `auditor-failed-infra` label. Whether the job's check blocks merging is a setting of the target repository (branch protection), not of the tool.
+- **D-23. `auditor-tier1.yml` is reusable** (`workflow_call`), with call templates in `ci/templates/`. In this repository it does not run on `pull_request`: the fixtures are rejected on purpose, and auditing them here would only produce meaningless red jobs. The auditor's own CI is `ci.yml` (the whole suite).
+- **D-24. Privilege separation into three workflows.** The job that runs PR code has read-only access. The label comes from `workflow_run` (no checkout, artifact treated as untrusted). The comment comes from `issue_comment` (no checkout, only OWNER/MEMBER/COLLABORATOR). Rejected alternative: `pull_request_target` with a checkout of the PR, which would give a write token to untrusted code. Tested as policy in `tests/ci/test_workflows.py`.
+- **D-25. Version pinning** (**revised in instruction 11**: SHA mandatory; see D-35). The elan installer pinned to `v4.2.4`. Official GitHub actions pinned by major version tag (`@v4`, `@v5`), not by SHA; the test accepts both formats. For the fork, I recommend pinning by SHA (a change only in the templates).
+- **D-26. `#check_tactic_failure`** was classified as fail-closed by direct derivation from the Q8 criterion (it runs a user tactic, like `#check_tactic`).
+- **D-27. `auditor-ci` subprocess.** Each file is audited in a separate process (`python -m auditor check`), with the same package that orchestrates (the package path on `PYTHONPATH`). The isolation keeps one file from affecting the next; the subprocess timeout is the remaining budget + 30 s.
+- **D-28. What the 5-min budget measures** (**revised in instruction 11**: it includes preparation). The budget covers the audit (all files, including the `lake build` of each target module). Installing elan and Python and `lake exe cache get` are outside it: they are runner preparation, measured by the job's total duration. If the reviewer understands that the spec's 5 min include preparation, the adjustment is to pass the time already spent in the job to `auditor-ci` to deduct from the budget.
 
-## Rodada da instrução 11 — resoluções
+## Instruction 11 round — resolutions
 
-- **Aceitas sem modificação:** D-14, D-16, D-17, D-19, D-20, D-22, D-23, D-24, D-26, D-27.
-- **D-18 — ACEITA para a Fase 0**, com L-14. Item de Fase 1 em `docs/roadmap.md`: substituir o hash estrutural de 64 bits por SHA-256 truncado a 128 bits ou BLAKE3-128 (64 bits não resiste a colisão adversarial: quem forja uma colisão troca uma declaração sem mudar o hash).
-- **D-21 — REVISADA:** timeout **por arquivo** de 90 s (`--timeout-file`, na CLI e no `auditor-ci`); o orçamento de 5 min é wall-clock do PR; arquivo que estoura o timeout encerra a auditoria do PR com exit 2. O default será reajustado pelo p95 medido na camada 2 (`tools/layer2/timings.py`).
-- **D-25 — REVISADA, obrigatória:** toda action fixada por SHA de commit, neste repositório e nos modelos; procedimento de atualização em `docs/maintenance.md`. Ao aplicar, apareceu um erro na D-25 original (D-35).
-- **D-28 — REVISADA:** o orçamento é wall-clock do PR, do trigger ao relatório, **incluindo `lake exe cache get`**. 5 min é o SLA do steady-state; cache `cold` → orçamento estendido (15 min), `first_run: true`, `cache_cold_extension` e label `auditor-first-run` quando passa dos 5 min. Os PRs de medição da camada 2 são feitos depois do primeiro run.
-- **README, "Status":** "Fase 0 = Camada 1 (done) + Camada 2 (pending user evidence)"; a Fase 1 depende da camada 2.
+- **Accepted without modification:** D-14, D-16, D-17, D-19, D-20, D-22, D-23, D-24, D-26, D-27.
+- **D-18 — ACCEPTED for Phase 0**, with L-14. A Phase 1 item in `docs/roadmap.md`: replace the 64-bit structural hash with SHA-256 truncated to 128 bits or BLAKE3-128 (64 bits does not resist adversarial collisions: whoever forges a collision swaps a declaration without changing the hash).
+- **D-21 — REVISED:** a **per-file** timeout of 90 s (`--timeout-file`, in the CLI and in `auditor-ci`); the 5-min budget is the PR's wall clock; a file that exceeds the timeout ends the PR's audit with exit 2. The default will be readjusted by the p95 measured in layer 2 (`tools/layer2/timings.py`).
+- **D-25 — REVISED, mandatory:** every action pinned by commit SHA, in this repository and in the templates; update procedure in `docs/maintenance.md`. Applying it exposed an error in the original D-25 (D-35).
+- **D-28 — REVISED:** the budget is the PR's wall clock, from the trigger to the report, **including `lake exe cache get`**. 5 min is the steady-state SLA; a `cold` cache → extended budget (15 min), `first_run: true`, `cache_cold_extension` and the `auditor-first-run` label when it goes past 5 min. The layer-2 measurement PRs are made after the first run.
+- **README, "Status":** "Phase 0 = Layer 1 (done) + Layer 2 (pending user evidence)"; Phase 1 depends on layer 2.
 
-## Decisões locais da instrução 11 (para veto)
+## Local decisions of instruction 11 (for veto)
 
-- **D-29. Exit 2 do PR e cor do job.** `auditor-ci run` sai com o exit code do PR (0/1/2). Infraestrutura vence: rejeição + timeout → exit 2. A cor do job continua a da D-22: o passo da auditoria aceita 0/1/2, e um passo dedicado falha o job só quando `audit_failed` é verdadeiro. Exit 2 sozinho → job verde + `auditor-failed-infra` (critério 3 da spec: não bloqueia merge).
-- **D-30. Origem do relógio.** Primeira tentativa: `github.event.pull_request.updated_at` (o evento do PR; inclui a fila do runner). Re-execução (`run_attempt > 1`): início do job, senão uma re-execução nasceria com o orçamento esgotado. O `outcome.json` declara `clock_origin` (`trigger`, `job_start`, ou `auditor_start`/`auditor_start_fallback` fora do GitHub ou com carimbo inválido).
-- **D-31. Como `cache_state` é medido.** Dois sinais: restauração do cache de build do alvo (`hit`/`partial`/`miss`/`none`) e presença do binário do inspetor. `cold` = algum sinal frio; `delta` = cache de build parcial; `warm` = o resto. O orçamento estendido só é concedido com evidência positiva de cache frio. `first_run` é `cache_state == cold`: inclui cache despejado (o GitHub remove caches sem uso há 7 dias), não só o primeiro run literal no fork.
-- **D-32. Cache do Mathlib no job.** `~/.cache/mathlib` (onde `lake exe cache get` guarda os arquivos) é restaurado com `actions/cache/restore`, chave por SO + `lean-toolchain` + commit base, `restore-keys` pelo prefixo (`partial`), e salvo quando não houve acerto exato. O tamanho desse diretório diante do limite de cache do repositório é verificação da camada 2.
-- **D-33. Labels.** `auditor-failed-infra` vence `auditor-first-run`: cache cold que estoura o orçamento estendido é infraestrutura. `auditor-first-run` só quando `cache_cold_extension` (cold, sem infraestrutura, total > 5 min). O workflow de label aceita só esses dois nomes.
-- **D-34. Inspetor compilado antes do primeiro arquivo.** Com o binário fora do cache, o `auditor-ci` o compila antes de auditar: o custo entra no orçamento do PR, não no timeout de 90 s de um arquivo.
-- **D-35. Correção da D-25 original: o elan não estava fixado.** O `elan-init.sh` tirado da tag `v4.2.4` baixa a release **`latest`** do elan (`releases/latest/download/...`). O relatório anterior dizia "elan fixado em v4.2.4", o que só era verdade para o script. Agora os workflows baixam `elan-x86_64-unknown-linux-gnu.tar.gz` da release `v4.2.4` e conferem o SHA-256 antes de executar. Resíduos (L-18): o toolchain Lean baixado pelo elan e as dependências Python instaladas pelo pip não são conferidos por hash no CI.
-- **D-36. `--timeout` continua aceito** como sinônimo de `--timeout-file` na CLI (mesmo destino; o default é 90 s). **Rejeitada na instrução 12** (ver lá).
-- **D-37. `outcome.json` passou a `auditor-ci-outcome/2`.** O `label-decision` rejeita a versão anterior (resulta em `auditor-failed-infra`, fail-closed).
-- **D-38. Fanout para escolher o arquivo da medição.** `tools/layer2/fanout.py`: fanout = número de módulos do projeto que importam o módulo, direta ou transitivamente, a partir do cabeçalho de imports. Nome de import ilegível (ex.: com `«»`) é erro, não é ignorado.
+- **D-29. PR exit 2 and job colour.** `auditor-ci run` exits with the PR's exit code (0/1/2). Infrastructure wins: rejection + timeout → exit 2. The job colour remains that of D-22: the audit step accepts 0/1/2, and a dedicated step fails the job only when `audit_failed` is true. Exit 2 alone → green job + `auditor-failed-infra` (spec criterion 3: does not block merging).
+- **D-30. Clock origin.** First attempt: `github.event.pull_request.updated_at` (the PR event; includes the runner queue). Re-run (`run_attempt > 1`): the start of the job, otherwise a re-run would be born with its budget exhausted. `outcome.json` declares `clock_origin` (`trigger`, `job_start`, or `auditor_start`/`auditor_start_fallback` outside GitHub or with an invalid timestamp).
+- **D-31. How `cache_state` is measured.** Two signals: restoration of the target's build cache (`hit`/`partial`/`miss`/`none`) and the presence of the inspector binary. `cold` = some cold signal; `delta` = partial build cache; `warm` = the rest. The extended budget is only granted with positive evidence of a cold cache. `first_run` is `cache_state == cold`: it includes an evicted cache (GitHub removes caches unused for 7 days), not only the literal first run in the fork.
+- **D-32. Mathlib cache in the job.** `~/.cache/mathlib` (where `lake exe cache get` keeps its files) is restored with `actions/cache/restore`, keyed by OS + `lean-toolchain` + base commit, `restore-keys` by prefix (`partial`), and saved when there was no exact hit. The size of this directory against the repository's cache limit is a layer-2 check.
+- **D-33. Labels.** `auditor-failed-infra` wins over `auditor-first-run`: a cold cache that exceeds the extended budget is infrastructure. `auditor-first-run` only when `cache_cold_extension` (cold, no infrastructure, total > 5 min). The label workflow accepts only these two names.
+- **D-34. Inspector compiled before the first file.** With the binary out of cache, `auditor-ci` compiles it before auditing: the cost goes into the PR budget, not into one file's 90 s timeout.
+- **D-35. Correction of the original D-25: elan was not pinned.** The `elan-init.sh` taken from tag `v4.2.4` downloads elan's **`latest`** release (`releases/latest/download/...`). The previous report said "elan pinned at v4.2.4", which was only true for the script. The workflows now download `elan-x86_64-unknown-linux-gnu.tar.gz` from release `v4.2.4` and check the SHA-256 before running it. Residue (L-18): the Lean toolchain downloaded by elan and the Python dependencies installed by pip are not hash-checked in CI.
+- **D-36. `--timeout` is still accepted** as a synonym of `--timeout-file` in the CLI (same destination; the default is 90 s). **Rejected in instruction 12** (see there).
+- **D-37. `outcome.json` became `auditor-ci-outcome/2`.** `label-decision` rejects the previous version (resulting in `auditor-failed-infra`, fail-closed).
+- **D-38. Fanout for choosing the measurement file.** `tools/layer2/fanout.py`: fanout = the number of project modules that import the module, directly or transitively, from the import header. An unreadable import name (e.g. with `«»`) is an error, not ignored.
 
-## Rodada da instrução 12 — resoluções
+## Instruction 12 round — resolutions
 
-- **Aceitas:** D-29, D-30, D-31, D-32, D-33, D-34, D-35, D-37.
-- **L-18 → roadmap (Fase 1):** toolchain Lean e dependências Python verificados por hash (`docs/roadmap.md`).
-- **D-36 — REJEITADA e aplicada:** `auditor check --timeout` foi removido (sem sinônimo). Os nomes "total" foram para o orçamento do PR no `auditor-ci`: `--budget` → `--timeout-total`, `--first-run-budget` → `--timeout-total-first-run`; entradas do workflow `budget-seconds` → `timeout-total-seconds`, `first-run-budget-seconds` → `timeout-total-first-run-seconds`. O timeout por arquivo continua `--timeout-file` (D-21 aceita). Registrado em `CHANGELOG.md`. **Interpretação a confirmar:** a instrução diz "renomeie `--timeout` para `--timeout-total`". Na CLI `auditor check`, que audita um arquivo, `--timeout` era o timeout por arquivo, que já se chama `--timeout-file`. Renomeá-lo para `--timeout-total` desfaria a D-21. Por isso o nome "total" foi aplicado ao que de fato é total: o orçamento do PR. Se a intenção era outra, a troca é mecânica.
-- **D-38 — detalhes:** `docs/ci.md`, "Escolha do arquivo de maior fanout (D-38)": (a) algoritmo, (b) justificativa e alternativas, (c) testes. Rodado no Mathlib real (commit `e1b2403b`, 8651 módulos, sem erro de cabeçalho). Foi acrescentado o fecho direto (`imports_transitive`), porque o custo da auditoria de um arquivo cresce com ele, e não com o fanout.
-- **Bloqueio da camada 2 — opção (X) executada:** toolchain do auditor `v4.22.0` → **`v4.36.0-rc1`** (o do Mathlib `master`, commit `e1b2403b`, em 2026-10-20). Allow-list regenerada, inspetor portado, fixtures recompilados, suíte inteira rodada. Procedimento em `docs/maintenance.md`, "Procedimento ao subir o toolchain". Dois achados mudam significado (D-39, D-43) e um muda a fronteira (D-42).
-- **Executar ou preparar — preparar:** `docs/layer2-checklist.md`. Nada público foi executado.
-- **Confirmações pedidas:**
-  - (a) `docs/invalidation.md` existe (versionado desde o commit `09a8550`);
-  - (b) D-18 está em `docs/roadmap.md` (linha "Hash de declaração resistente a colisão"), junto com o item novo de L-18;
-  - (c) o Mathlib `master` usa `leanprover/lean4:v4.36.0-rc1` (commit do Lean `c9afcddf`), lido do `lean-toolchain` do commit `e1b2403bdd31a2756e30282d62b3fa54cc95c869` em 2026-10-20.
+- **Accepted:** D-29, D-30, D-31, D-32, D-33, D-34, D-35, D-37.
+- **L-18 → roadmap (Phase 1):** Lean toolchain and Python dependencies verified by hash (`docs/roadmap.md`).
+- **D-36 — REJECTED and applied:** `auditor check --timeout` was removed (no synonym). The "total" names went to the PR budget in `auditor-ci`: `--budget` → `--timeout-total`, `--first-run-budget` → `--timeout-total-first-run`; workflow inputs `budget-seconds` → `timeout-total-seconds`, `first-run-budget-seconds` → `timeout-total-first-run-seconds`. The per-file timeout remains `--timeout-file` (D-21 accepted). Recorded in `CHANGELOG.md`. **Interpretation to be confirmed:** the instruction says "rename `--timeout` to `--timeout-total`". In the `auditor check` CLI, which audits one file, `--timeout` was the per-file timeout, already called `--timeout-file`. Renaming it to `--timeout-total` would undo D-21. That is why the "total" name was applied to what is actually total: the PR budget. If the intention was different, the change is mechanical.
+- **D-38 — details:** `docs/ci.md`, "Choosing the highest-fanout file (D-38)": (a) algorithm, (b) justification and alternatives, (c) tests. Run on the real Mathlib (commit `e1b2403b`, 8651 modules, no header error). The forward closure (`imports_transitive`) was added, because the cost of auditing a file grows with it, not with fanout.
+- **Layer-2 blocker — option (X) executed:** the auditor's toolchain `v4.22.0` → **`v4.36.0-rc1`** (Mathlib `master`'s, commit `e1b2403b`, on 2026-10-20). Allow-list regenerated, inspector ported, fixtures recompiled, whole suite run. Procedure in `docs/maintenance.md`, "Procedure when bumping the toolchain". Two findings change meaning (D-39, D-43) and one changes the boundary (D-42).
+- **Execute or prepare — prepare:** `docs/layer2-checklist.md`. Nothing public was executed.
+- **Requested confirmations:**
+  - (a) `docs/invalidation.md` exists (versioned since commit `09a8550`);
+  - (b) D-18 is in `docs/roadmap.md` (row "Collision-resistant declaration hash"), together with the new L-18 item;
+  - (c) Mathlib `master` uses `leanprover/lean4:v4.36.0-rc1` (Lean commit `c9afcddf`), read from the `lean-toolchain` of commit `e1b2403bdd31a2756e30282d62b3fa54cc95c869` on 2026-10-20.
 
-## Q9. `native_decide` na v4.36 — DECIDIDA na instrução 13: opção (a)
+## Q9. `native_decide` on v4.36 — DECIDED in instruction 13: option (a)
 
-**O que mudou.** Na v4.22, `native_decide` produzia um termo com `Lean.ofReduceBool`, um axioma fixo e conhecido; a política o tratava como avaliação nativa com justificativa (O-1). Na v4.36.0-rc1 (`Lean.Meta.nativeEqTrue`), o tático compila e avalia `e`, e então **adiciona ao ambiente um axioma novo, por uso**: `<dona>._native.native_decide.ax_N : e = true` (o mesmo vale para `bv_decide`). O kernel nunca reconfere esse axioma.
+**What changed.** On v4.22, `native_decide` produced a term with `Lean.ofReduceBool`, a fixed, known axiom; the policy treated it as native evaluation with a justification (O-1). On v4.36.0-rc1 (`Lean.Meta.nativeEqTrue`), the tactic compiles and evaluates `e`, and then **adds a new axiom to the environment, per use**: `<owner>._native.native_decide.ax_N : e = true` (the same holds for `bv_decide`). The kernel never re-checks this axiom.
 
-**O problema.** O ambiente não registra que o axioma veio do tático. Um `axiom` escrito à mão com o mesmo nome e o mesmo tipo é indistinguível (demonstrado: fixture `edges`, `uses_spoof`, travado por teste). Uma tática importada (outro arquivo do PR, ou uma dependência) também pode adicionar um axioma com essa forma sem que a Etapa A do arquivo-alvo veja nada.
+**The problem.** The environment does not record that the axiom came from the tactic. A hand-written `axiom` with the same name and type is indistinguishable (demonstrated: fixture `edges`, `uses_spoof`, locked by a test). An imported tactic (another file of the PR, or a dependency) can also add an axiom of this shape without the target file's Stage A seeing anything.
 
-**Comportamento atual (D-43), fail-closed.** O inspetor reconhece a forma (`native_auxiliary`). A política aplica as regras de justificativa e do padrão combinado como antes, e **além disso** deixa as premissas `Não resolvido` (`native_auxiliary_axiom`). Efeito na conformance: só os casos justificados mudaram, de `verified` para `unresolved` (`nd_justified`, `consumes_justified`, `add_native`); `f_bad`/`e_bad`/`e_mixed` continuam `Rejeitada`, com premissas `Não resolvido` em vez de `Conforme`. Nenhuma rejeição se perdeu.
+**Current behaviour (D-43), fail-closed.** The inspector recognizes the shape (`native_auxiliary`). The policy applies the justification and combined-pattern rules as before, and **additionally** leaves the premises `Não resolvido` (`native_auxiliary_axiom`). Effect on conformance: only the justified cases changed, from `verified` to `unresolved` (`nd_justified`, `consumes_justified`, `add_native`); `f_bad`/`e_bad`/`e_mixed` remain `Rejeitada`, with premises `Não resolvido` instead of `Conforme`. No rejection was lost.
 
-**Opções:**
-- **(a) Fail-closed permanente na Fase 0** (o atual): `native_decide` nunca sai `verified`. A justificativa O-1 continua obrigatória (sem ela, `Não conforme`), mas não basta. Simples e correto. Custo: quem usa `native_decide` com justificativa perde o `verified`. O Mathlib já proíbe `native_decide` por política própria, então o impacto no alvo principal é pequeno.
-- **(b) Corroboração.** Aceitar o axioma auxiliar como avaliação nativa (e, com justificativa válida, `verified`) só se: a forma bate; a dona está no arquivo auditado; a Etapa A viu `native_decide`/`bv_decide` dentro da declaração dona; nenhum `axiom` com esse nome no arquivo; nenhum comando fail-closed no arquivo. **Não é sólido contra adversário:** `first | native_decide | tatica_importada_maliciosa` satisfaz tudo, com o axioma forjado pela tática importada.
-- **(c) Reavaliação pelo auditor.** O auditor compila e avalia `e` de novo, num processo separado. Volta a executar código do PR no auditor (contra D-39) e dá a mesma confiança no compilador que o `native_decide`. Pesado.
-- **(d) Reconferência pelo kernel.** O inspetor tenta reduzir `e` a `true` com o kernel (`Kernel.whnf`), com limite de esforço. Se conseguir, o axioma é admissível sem confiar no compilador: `verified` sem avaliação nativa. Se não conseguir dentro do limite, `Não resolvido`. É sólido. Mas o `native_decide` existe justamente onde o kernel é lento, então na maioria dos casos o resultado seria `Não resolvido`, como em (a), com custo de CPU.
+**Options:**
+- **(a) Permanently fail-closed in Phase 0** (the current behaviour): `native_decide` never comes out `verified`. The O-1 justification remains mandatory (without it, `Não conforme`), but it is not enough. Simple and correct. Cost: whoever uses `native_decide` with a justification loses `verified`. Mathlib already forbids `native_decide` by its own policy, so the impact on the main target is small.
+- **(b) Corroboration.** Accept the auxiliary axiom as native evaluation (and, with a valid justification, `verified`) only if: the shape matches; the owner is in the audited file; Stage A saw `native_decide`/`bv_decide` inside the owning declaration; there is no `axiom` with that name in the file; there is no fail-closed command in the file. **Not sound against an adversary:** `first | native_decide | malicious_imported_tactic` satisfies all of it, with the axiom forged by the imported tactic.
+- **(c) Re-evaluation by the auditor.** The auditor compiles and evaluates `e` again, in a separate process. This brings back executing PR code in the auditor (against D-39) and gives the same trust in the compiler as `native_decide`. Heavy.
+- **(d) Re-checking by the kernel.** The inspector tries to reduce `e` to `true` with the kernel (`Kernel.whnf`), with an effort limit. If it succeeds, the axiom is admissible without trusting the compiler: `verified` without native evaluation. If it does not succeed within the limit, `Não resolvido`. It is sound. But `native_decide` exists precisely where the kernel is slow, so in most cases the result would be `Não resolvido`, as in (a), at a CPU cost.
 
-**Recomendação: (a) na Fase 0, e (d) como item a avaliar na Fase 1.** (b) dá uma aparência de verificação que um adversário contorna. (c) contradiz D-39.
+**Recommendation: (a) in Phase 0, and (d) as an item to evaluate in Phase 1.** (b) gives an appearance of verification that an adversary bypasses. (c) contradicts D-39.
 
-## Decisões locais da instrução 12 (para veto)
+## Local decisions of instruction 12 (for veto)
 
-- **D-39. O inspetor não executa código do ambiente importado.** Na v4.36, `importModules (loadExts := true)` exige `enableInitializersExecution`, que executaria os `initialize` dos módulos importados — inclusive os do PR — dentro do inspetor. O inspetor passou a importar com `loadExts := false` e a ler cada extensão pelas entradas dos módulos. Consequências:
-  - o `collectAxioms` oficial, sem a extensão de axiomas pré-calculados, percorre os corpos (L-20);
-  - docstring Verso (sem texto bruto) conta como justificativa ausente;
-  - `@[simp]`/`@[ext]` do fingerprint vêm das entradas globais gravadas, não do estado final; um `attribute [-simp]` global não é descontado (o fingerprint muda de definição; o inspetor subiu para a versão 4).
+- **D-39. The inspector does not run code from the imported environment.** On v4.36, `importModules (loadExts := true)` requires `enableInitializersExecution`, which would run the imported modules' `initialize` blocks — including the PR's — inside the inspector. The inspector now imports with `loadExts := false` and reads each extension through the modules' entries. Consequences:
+  - the official `collectAxioms`, without the precomputed-axioms extension, walks the bodies (L-20);
+  - a Verso docstring (without raw text) counts as a missing justification;
+  - the fingerprint's `@[simp]`/`@[ext]` come from the recorded global entries, not from the final state; a global `attribute [-simp]` is not discounted (the fingerprint changes definition; the inspector went up to version 4).
 
-  Só o gerador da allow-list executa initializers, em manutenção, sobre código revisado.
-- **D-40. Classificação dos 40 comandos novos da v4.36** (`classification_version = "4"`):
-  - `allowed` (11): `#check_assertions`, `#import_path`, `#show_deprecated_modules`, `assert_not_exists`, `assert_not_imported`, `deprecated_module`, `deprecated_syntax`, `grind_annotated`, `coinductive` (declaração; entrou também nas palavras de declaração da Etapa A), `recall`, `unlock_limits` (D-41);
-  - `metaprogramming`/fail-closed (29): `#guard_panic`, `#grind_lint`, `reprove` (roda tática sem resultado inspecionável, como `#check_tactic`), `with_weak_namespace` (o comando envolvido fica indentado e escaparia da checagem de coluna 0), `docs_to_verso`, a família `cbv_simproc` (6), os `declare_*config_elab*` e `def_eval_config_item` (5), os `declare_decidable_*`/`declare_eval_bin*` (5), os `register_*` (6) e `set_library_suggestions` (avalia um termo como motor de sugestões; substitui `set_premise_selector`, que era fail-closed).
+  Only the allow-list generator runs initializers, during maintenance, on reviewed code.
+- **D-40. Classification of the 40 new v4.36 commands** (`classification_version = "4"`):
+  - `allowed` (11): `#check_assertions`, `#import_path`, `#show_deprecated_modules`, `assert_not_exists`, `assert_not_imported`, `deprecated_module`, `deprecated_syntax`, `grind_annotated`, `coinductive` (a declaration; it also joined Stage A's declaration keywords), `recall`, `unlock_limits` (D-41);
+  - `metaprogramming`/fail-closed (29): `#guard_panic`, `#grind_lint`, `reprove` (runs a tactic with no inspectable result, like `#check_tactic`), `with_weak_namespace` (the wrapped command is indented and would escape the column-0 check), `docs_to_verso`, the `cbv_simproc` family (6), the `declare_*config_elab*` and `def_eval_config_item` (5), the `declare_decidable_*`/`declare_eval_bin*` (5), the `register_*` (6) and `set_library_suggestions` (evaluates a term as a suggestions engine; replaces `set_premise_selector`, which was fail-closed).
 
-  Removido: `set_premise_selector`.
-- **D-41. `unlock_limits`** (zera `maxRecDepth`, `maxHeartbeats` e `synthInstance.maxHeartbeats`) é registrado pela Etapa A como os três `set_option … 0`, com `via: "unlock_limits"`, inclusive na forma `unlock_limits in`. A política existente decide: `maxHeartbeats 0` → `Rejeitada`. Testado de ponta a ponta (fixture `set-option`, `unlocked`).
-- **D-42. Raízes do toolchain mudaram:** a v4.36.0-rc1 declara também `LeanChecker`, `LeanExport` e `LeanIR` (todas da distribuição do Lean). Pela regra da Q7-a (raiz declarada pelo toolchain = TCB), elas entram automaticamente. Pelo `docs/tcb.md` (ii), isso exige revisão por quem não é o autor: **pedida aqui**.
-- **D-43. Axioma auxiliar nativo: fail-closed provisório.** O inspetor emite `native_auxiliary` (forma: nome `…._native.<tática>.ax_…` e tipo `@Eq.{1} Bool e Bool.true`, `e` fechado). A política tem `axioms.native_auxiliary_action`, cuja única opção é `"fail_closed"`; o schema ganhou a classificação `native_auxiliary`. Fica assim até a Q9.
-- **D-44. Um toolchain suportado por vez.** A allow-list do core da v4.22.0 foi removida: sem inspetor e suíte correspondentes, ela seria promessa não verificada.
-- **D-45. Fixture próprio do CI** (`tests/ci/clean-project`): os testes do `auditor-ci` usavam o cenário 06 como "projeto que passa inteiro". Com a Q9, ele deixou de passar; o fixture novo separa os testes do CI da decisão de política.
-- **D-46. Convenção da dona em auxiliares `where` mudou** (L-4): o axioma auxiliar de `outer.aux` é referenciado pelo próprio `outer.aux`, que vira a dona (antes, `outer`). A justificativa passa a ser procurada onde o `native_decide` está escrito. Travado por teste.
+  Removed: `set_premise_selector`.
+- **D-41. `unlock_limits`** (sets `maxRecDepth`, `maxHeartbeats` and `synthInstance.maxHeartbeats` to zero) is recorded by Stage A as the three `set_option … 0`, with `via: "unlock_limits"`, including in the `unlock_limits in` form. The existing policy decides: `maxHeartbeats 0` → `Rejeitada`. Tested end to end (fixture `set-option`, `unlocked`).
+- **D-42. The toolchain's roots changed:** v4.36.0-rc1 also declares `LeanChecker`, `LeanExport` and `LeanIR` (all from the Lean distribution). By the Q7-a rule (a root declared by the toolchain = TCB), they enter automatically. By `docs/tcb.md` (ii), this requires review by someone other than the author: **requested here**.
+- **D-43. Native auxiliary axiom: provisionally fail-closed.** The inspector emits `native_auxiliary` (shape: name `…._native.<tactic>.ax_…` and type `@Eq.{1} Bool e Bool.true`, `e` closed). The policy has `axioms.native_auxiliary_action`, whose only option is `"fail_closed"`; the schema gained the `native_auxiliary` classification. It stays this way until Q9.
+- **D-44. One supported toolchain at a time.** The v4.22.0 core allow-list was removed: without a matching inspector and suite, it would be an unverified promise.
+- **D-45. A dedicated CI fixture** (`tests/ci/clean-project`): the `auditor-ci` tests used scenario 06 as "a project that passes entirely". With Q9, it stopped passing; the new fixture separates the CI tests from the policy decision.
+- **D-46. The owner convention for `where` auxiliaries changed** (L-4): the auxiliary axiom of `outer.aux` is referenced by `outer.aux` itself, which becomes the owner (before, `outer`). The justification is now looked for where the `native_decide` is written. Locked by a test.
 
-## Rodada da instrução 13 — resoluções
+## Instruction 13 round — resolutions
 
-- **Q9 → (a), permanente na Fase 0.** `native_decide` (e toda avaliação nativa por `nativeEqTrue`) nunca sai `verified`. Motivo registrado pelo revisor: certificar dependeria de detalhes internos do compilador que mudam entre versões, e a Fase 0 é desenhada para ser estável contra bumps de toolchain. (b), (c) e (d) foram rejeitadas, cada uma pelo motivo da pergunta. A opção (d) foi para o roadmap da Fase 1 como item de **pesquisa**, com critério de ≥ 50 % dos casos justificados e manutenção da D-39. Se não atingir o critério, fica fail-closed para sempre. Código: sem mudança (já era o comportamento da D-43). Documentação: `docs/limitations.md` (L-19), `docs/tcb.md`, `docs/roadmap.md`, `CHANGELOG.md`.
-- **D-36: interpretação confirmada.** `--timeout-total-first-run` está documentado como orçamento **estendido** de um run com cache frio, não como segundo orçamento permanente, em `CHANGELOG.md` e em `docs/maintenance.md` ("Orçamentos de tempo do CI"). O SLA de 5 min é de steady-state.
-- **D-42: aprovada sob condição, condição aplicada.** Ver D-47.
-- **Aceitas sem modificação:** D-39, D-40, D-41, D-43, D-44, D-45, D-46.
-- **Mutação em lotes:** `stage_b` → `policy` → `ci`, um grupo por vez, com commit entre os grupos. **115/115 detectadas nos 5 grupos, 0 sobreviventes.** Houve 1 sobrevivente real na Etapa B, corrigida com um teste novo. Detalhes em `docs/maintenance.md`, "Registro de execuções".
-- **D-38, reprodutibilidade:** o `fanout.py` não acessa a rede nem o `master`. Grava a procedência (commit, SHA-256 do `lake-manifest.json`, `lean-toolchain`) e aceita `--expect-commit`, que sai com 2 se o checkout não for o fixado. **Correção de uma premissa:** não existe teste de drift da D-38 contra o Mathlib real na suíte, porque a suíte não baixa o Mathlib. A garantia é a procedência conferida na medição (checklist, passo 6). O mecanismo é testado em `tests/maintenance/test_layer2_tools.py`.
-- **`Mathlib/Logic/Basic.lean` → `Mathlib/Basic/Logic/Basic.lean`:** registrado no `CHANGELOG.md`. Busca no repositório (`git grep`): nenhum script, fixture ou teste usa o caminho antigo. Só `docs/ci.md` e o checklist o citavam, e os dois foram atualizados.
-- **Proporção de `native_decide` no Mathlib (medida agora, no commit fixado):** `tools/layer2/native_usage.py` (lexer e regra da Etapa A; comentários e strings não contam):
-  - biblioteca `Mathlib`: **2 de 256 505 declarações com corpo** (0,0008 %). As duas são **código de metaprogramação**, não provas: os padrões de sintaxe `+native`/`native := true` do linter que **proíbe** avaliação nativa no Mathlib, e um campo de configuração da tática `inclusion`. **Provas da biblioteca que usam avaliação nativa: 0.**
-  - `MathlibTest` (fora da biblioteca): 33 de 7 463 declarações; a maior concentração está em `MathlibTest/Algebra` (17 de 34).
-  - Conclusão: o impacto da Q9 no alvo principal é nulo hoje. Os 3 relatórios da camada 2 incluem a medição, no Mathlib inteiro e por PR (checklist, passos 6 e 10).
-- **Achado relacionado:** a tática `inclusion` do Mathlib (`Mathlib/Tactic/Inclusion/Core/Core.lean`) chama `nativeEqTrue` diretamente quando usada com `+native`. É exatamente o caso de "tática importada que cria o axioma auxiliar" da Q9 (b). O axioma gerado (`…._native.inclusion.ax_…`) tem a forma reconhecida pelo inspetor e sai `Não resolvido`, como o `native_decide`. Isso confirma que a opção (b) seria contornável sem adversário nenhum: basta uma tática legítima com outro nome.
+- **Q9 → (a), permanent in Phase 0.** `native_decide` (and every native evaluation through `nativeEqTrue`) never comes out `verified`. Reason recorded by the reviewer: certifying it would depend on internal compiler details that change between versions, and Phase 0 is designed to be stable across toolchain bumps. (b), (c) and (d) were rejected, each for the reason given in the question. Option (d) went onto the Phase 1 roadmap as a **research** item, with a criterion of ≥ 50 % of justified cases and keeping D-39. If it does not meet the criterion, it stays fail-closed forever. Code: no change (it was already D-43's behaviour). Documentation: `docs/limitations.md` (L-19), `docs/tcb.md`, `docs/roadmap.md`, `CHANGELOG.md`.
+- **D-36: interpretation confirmed.** `--timeout-total-first-run` is documented as the **extended** budget of a run with a cold cache, not as a second permanent budget, in `CHANGELOG.md` and in `docs/maintenance.md` ("CI time budgets"). The 5-min SLA is a steady-state one.
+- **D-42: approved on condition, condition applied.** See D-47.
+- **Accepted without modification:** D-39, D-40, D-41, D-43, D-44, D-45, D-46.
+- **Mutation in batches:** `stage_b` → `policy` → `ci`, one group at a time, with a commit between groups. **115/115 detected in the 5 groups, 0 survivors.** There was 1 real survivor in Stage B, fixed with a new test. Details in `docs/maintenance.md`, "Run log".
+- **D-38, reproducibility:** `fanout.py` does not access the network or `master`. It records provenance (commit, SHA-256 of `lake-manifest.json`, `lean-toolchain`) and accepts `--expect-commit`, which exits with 2 if the checkout is not the pinned one. **Correction of a premise:** there is no D-38 drift test against the real Mathlib in the suite, because the suite does not download Mathlib. The guarantee is the provenance checked during the measurement (checklist, step 6). The mechanism is tested in `tests/maintenance/test_layer2_tools.py`.
+- **`Mathlib/Logic/Basic.lean` → `Mathlib/Basic/Logic/Basic.lean`:** recorded in `CHANGELOG.md`. A search of the repository (`git grep`): no script, fixture or test uses the old path. Only `docs/ci.md` and the checklist cited it, and both were updated.
+- **Share of `native_decide` in Mathlib (measured now, at the pinned commit):** `tools/layer2/native_usage.py` (Stage A's lexer and rule; comments and strings do not count):
+  - `Mathlib` library: **2 of 256,505 declarations with a body** (0.0008 %). Both are **metaprogramming code**, not proofs: the `+native`/`native := true` syntax patterns of the linter that **forbids** native evaluation in Mathlib, and a configuration field of the `inclusion` tactic. **Library proofs that use native evaluation: 0.**
+  - `MathlibTest` (outside the library): 33 of 7,463 declarations; the largest concentration is in `MathlibTest/Algebra` (17 of 34).
+  - Conclusion: the impact of Q9 on the main target is nil today. The 3 layer-2 reports include the measurement, over the whole of Mathlib and per PR (checklist, steps 6 and 10).
+- **Related finding:** Mathlib's `inclusion` tactic (`Mathlib/Tactic/Inclusion/Core/Core.lean`) calls `nativeEqTrue` directly when used with `+native`. It is exactly the case of "an imported tactic that creates the auxiliary axiom" from Q9 (b). The generated axiom (`…._native.inclusion.ax_…`) has the shape recognized by the inspector and comes out `Não resolvido`, like `native_decide`. This confirms that option (b) would be bypassable without any adversary: a legitimate tactic with another name suffices.
 
-## Decisões locais da instrução 13 (para veto)
+## Local decisions of instruction 13 (for veto)
 
-- **D-47. A condição da D-42 aplicada a todas as raízes, inclusive às da v4.22.** O princípio do revisor ("as raízes que o projeto-alvo efetivamente usa") vale para todas as raízes declaradas, não só para as três novas. Medido no fecho de imports da biblioteca `Mathlib` (`e1b2403b`, 10 527 módulos, com as 8 dependências conferidas contra o `rev` do `lake-manifest.json`), as raízes usadas são `Init` (668 módulos), `Lake` (1: `Lake.Util.Casing`, via `public meta import` em `Mathlib.Tactic.Linter.TextBased`), `Lean` (741) e `Std` (215). Ficam fora `LeanChecker`, `LeanExport` e `LeanIR` (as três novas) e **também `LakeMain` e `Leanc`**, que eram TCB desde a Q7-a. A mudança é na direção fail-closed: um `@[extern]`/`@[implemented_by]` dessas raízes passa a sair `unresolved` (`module_root_not_used_by_target_project`). Se a intenção era restringir só as três novas, basta acrescentar `LakeMain` e `Leanc` à allow-list.
-  - **Nota sobre "verificar contra o `lake-manifest.json`".** O manifest não lista raízes do toolchain, só pacotes. A verificação implementada é a mais próxima do que a condição pede: o fecho é calculado com cada dependência exatamente na revisão que o manifest fixa (o gerador recusa pacote fora do `rev`), e o SHA-256 do manifest fica gravado na allow-list.
-- **D-48. Allow-list de raízes por toolchain, com conferência em tempo de execução.** O arquivo é `src/auditor/data/tcb_roots/<toolchain>.json`, gerado por `tools/gen_tcb_roots.py`. A fronteira passa a exigir esse arquivo. Toolchain sem arquivo, arquivo de outro toolchain, raízes declaradas diferentes das gravadas (drift do toolchain) ou raiz da allow-list não declarada → `tcb_boundary_undeclared` (exit 2).
-- **D-49. Drift da D-42 em dois níveis.** (i) O cenário `06-tcb-boundary` ganhou uma declaração por raiz da allow-list (`uses_init`, `uses_lean`, `uses_std`, `uses_lake`, cada uma usando uma constante `@[extern]`/`@[implemented_by]` daquela raiz), que precisa sair TCB; se a allow-list deixar de reconhecer a raiz, o cenário falha. (ii) Um teste unitário com toolchain sintético cobre a raiz declarada e não usada (→ `unresolved`) e o drift da lista declarada. A conferência contra o Mathlib real fica no checklist da camada 2 (passo 3, `gen_tcb_roots.py --check`), porque a suíte não baixa o Mathlib.
-- **D-50. `import all` no parser de cabeçalho.** `fanout.py` (e o gerador de raízes, que o reutiliza) passou a tratar `all` depois de `import` como modificador. Antes, `all` era lido como nome de módulo. Isso não mudava o ranking do fanout (o nome era descartado por ser externo), mas faria o fecho de raízes falhar com "import sem fonte".
-- **D-51. Medição de avaliação nativa é léxica e declarada como estimativa.** Ela reutiliza a regra da Etapa A e conta também `bv_decide`, que a Etapa A não lista. Isso não é furo: o veredito vem da Etapa B, pela forma do axioma. O veredito por declaração continua sendo o do auditor (`native_auxiliary_axiom`), que pega também táticas como `inclusion +native`.
+- **D-47. D-42's condition applied to every root, including v4.22's.** The reviewer's principle ("the roots that the target project actually uses") holds for every declared root, not only for the three new ones. Measured on the import closure of the `Mathlib` library (`e1b2403b`, 10,527 modules, with the 8 dependencies checked against the `rev` in `lake-manifest.json`), the roots used are `Init` (668 modules), `Lake` (1: `Lake.Util.Casing`, via `public meta import` in `Mathlib.Tactic.Linter.TextBased`), `Lean` (741) and `Std` (215). Left out: `LeanChecker`, `LeanExport` and `LeanIR` (the three new ones) and **also `LakeMain` and `Leanc`**, which had been TCB since Q7-a. The change goes in the fail-closed direction: an `@[extern]`/`@[implemented_by]` from these roots now comes out `unresolved` (`module_root_not_used_by_target_project`). If the intention was to restrict only the three new ones, it is enough to add `LakeMain` and `Leanc` to the allow-list.
+  - **Note on "check against `lake-manifest.json`".** The manifest does not list toolchain roots, only packages. The check implemented is the closest to what the condition asks: the closure is computed with each dependency at exactly the revision the manifest pins (the generator refuses a package off its `rev`), and the manifest's SHA-256 is recorded in the allow-list.
+- **D-48. A roots allow-list per toolchain, checked at run time.** The file is `src/auditor/data/tcb_roots/<toolchain>.json`, generated by `tools/gen_tcb_roots.py`. The boundary now requires this file. A toolchain without a file, a file from another toolchain, declared roots different from the recorded ones (toolchain drift) or a root of the allow-list that is not declared → `tcb_boundary_undeclared` (exit 2).
+- **D-49. D-42 drift at two levels.** (i) Scenario `06-tcb-boundary` gained one declaration per root of the allow-list (`uses_init`, `uses_lean`, `uses_std`, `uses_lake`, each using an `@[extern]`/`@[implemented_by]` constant from that root), which must come out TCB; if the allow-list stops recognizing the root, the scenario fails. (ii) A unit test with a synthetic toolchain covers a declared but unused root (→ `unresolved`) and drift of the declared list. The check against the real Mathlib stays in the layer-2 checklist (step 3, `gen_tcb_roots.py --check`), because the suite does not download Mathlib.
+- **D-50. `import all` in the header parser.** `fanout.py` (and the roots generator, which reuses it) now treats `all` after `import` as a modifier. Before, `all` was read as a module name. This did not change the fanout ranking (the name was dropped as external), but it would make the roots closure fail with "import without a source".
+- **D-51. The native-evaluation measurement is lexical and declared as an estimate.** It reuses Stage A's rule and also counts `bv_decide`, which Stage A does not list. That is not a hole: the verdict comes from Stage B, by the axiom's shape. The per-declaration verdict remains the auditor's (`native_auxiliary_axiom`), which also catches tactics such as `inclusion +native`.
 
-## Rodada da instrução 14 — resoluções (camada 1 fechada)
+## Instruction 14 round — resolutions (layer 1 closed)
 
-- **Camada 1: aceita como fechada.** 558 testes; 115/115 mutações nos 5 grupos, 0 sobreviventes e 0 puladas.
-- **Q9-a: confirmada pela medição.** A medição foi registrada em `docs/tcb.md` (decisão Q7-a) e no roadmap da Fase 1, ao lado de (d) e do critério de ≥ 50 %.
-- **D-47: aceita, com quatro adições obrigatórias, todas feitas:**
-  1. **Renomeado:** `tcb_roots` → `target_trusted_roots`. Isso vale para o diretório `src/auditor/data/target_trusted_roots/`, para `load_target_trusted_roots` e para o campo `Boundary.trusted_roots`. No resultado da Etapa B, `boundary.toolchain_roots` passou a ser `boundary.trusted_roots`, ao lado de `boundary.declared_roots`. O JSON ganhou o campo `meaning`, que diz o que ele significa e o que não significa. O nome do gerador (`tools/gen_tcb_roots.py`) ficou como estava, porque é o citado no texto da instrução.
-  2. **L-21** em `docs/limitations.md` (a Fase 0 é voltada ao Mathlib; outros alvos geram o próprio arquivo; podem aparecer falsos positivos).
-  3. **Roadmap da Fase 1:** descoberta automática de raízes para alvos arbitrários, com a mesma política de verificação contra o `lake-manifest.json`.
-  4. **`docs/tcb.md`:** tabela com as raízes declaradas pelo Lean v4.36, as usadas pelo Mathlib `e1b2403b` e as que estão em `target_trusted_roots`.
-- **D-48, D-49, D-50: aceitas.** **D-51: aceita com nota.** A contagem exata, por compilação, ficou registrada como item da Fase 1 no roadmap.
-- **D-38: aceita.** Registrada como **L-22** em `docs/limitations.md`.
-- **`rea` (MCP) e a suíte:** nenhum teste depende de servidor MCP. `git grep` em `tests/`, `src/`, `tools/` e `pyproject.toml` não acha referência, e a suíte inteira da camada 1 (558) rodou **depois** de o WSL ser desligado, com o `rea` desconectado.
-- **Preparação da camada 2:**
-  1. **Critérios de aborto para falha que não é de infraestrutura.** Os que já existiam cobriam os sinais de ambiente (passo 5) e `unknown_command`, `inspector_disagreement` e `missing_constants` (passo 7). **Não** cobriam:
-     - o lema de sonda não sair `verified`;
-     - uma declaração que o PR não tocou sair `Rejeitada`, `Não conforme` ou `Não resolvido`;
-     - `native_auxiliary_axiom` na biblioteca;
+- **Layer 1: accepted as closed.** 558 tests; 115/115 mutations in the 5 groups, 0 survivors and 0 skipped.
+- **Q9-a: confirmed by the measurement.** The measurement was recorded in `docs/tcb.md` (decision Q7-a) and on the Phase 1 roadmap, next to (d) and the ≥ 50 % criterion.
+- **D-47: accepted, with four mandatory additions, all made:**
+  1. **Renamed:** `tcb_roots` → `target_trusted_roots`. This applies to the directory `src/auditor/data/target_trusted_roots/`, to `load_target_trusted_roots` and to the field `Boundary.trusted_roots`. In the Stage B result, `boundary.toolchain_roots` became `boundary.trusted_roots`, next to `boundary.declared_roots`. The JSON gained the `meaning` field, which says what it means and what it does not mean. The generator's name (`tools/gen_tcb_roots.py`) stayed as it was, because it is the one cited in the instruction's text.
+  2. **L-21** in `docs/limitations.md` (Phase 0 is Mathlib-oriented; other targets generate their own file; false positives may appear).
+  3. **Phase 1 roadmap:** automatic root discovery for arbitrary targets, with the same verification policy against `lake-manifest.json`.
+  4. **`docs/tcb.md`:** a table with the roots declared by Lean v4.36, those used by Mathlib `e1b2403b` and those in `target_trusted_roots`.
+- **D-48, D-49, D-50: accepted.** **D-51: accepted with a note.** The exact count, by compilation, was recorded as a Phase 1 item on the roadmap.
+- **D-38: accepted.** Recorded as **L-22** in `docs/limitations.md`.
+- **`rea` (MCP) and the suite:** no test depends on an MCP server. `git grep` in `tests/`, `src/`, `tools/` and `pyproject.toml` finds no reference, and the whole layer-1 suite (558) ran **after** WSL was shut down, with `rea` disconnected.
+- **Layer-2 preparation:**
+  1. **Abort criteria for a failure that is not infrastructure.** The existing ones covered the environment signals (step 5) and `unknown_command`, `inspector_disagreement` and `missing_constants` (step 7). They did **not** cover:
+     - the probe lemma not coming out `verified`;
+     - a declaration the PR did not touch coming out `Rejeitada`, `Não conforme` or `Não resolvido`;
+     - `native_auxiliary_axiom` in the library;
      - `tcb_boundary_*`;
-     - `--check` divergente no meio da medição.
+     - a diverging `--check` midway through the measurement.
 
-     O checklist ganhou a seção "Falha que não é de infraestrutura", que vale em todos os passos: parar, não ajustar nada para passar, não repetir, trazer os artefatos. A classificação fica fora do run.
-  2. **Teste de fumaça (passo 3b, antes de qualquer PR).** Roda `auditor-ci run` num único arquivo (`Mathlib/Logic/Hydra.lean`) no commit fixado, com `--build-cache miss`, e confere `cache_state: cold`, `first_run: true`, `infra_failed: false`, `exit_code` 0, nenhum `allowlist_unavailable` nem outro sinal de ambiente, e todas as declarações `verified`. Os comandos foram executados aqui sobre o fixture `tests/ci/clean-project`, com a mesma CLI e as mesmas checagens: `cold`, `first_run: True`, `exit_code` 0, nenhum sinal de ambiente.
-- **Flutuação observada (sem causa conhecida).** Depois do renome, `test_06_toolchain_extern_does_not_trigger` falhou uma vez, numa execução combinada com outros arquivos cuja saída não foi guardada. Em seguida passou 4 vezes: 3 sozinho e 1 na mesma combinação. A causa não é conhecida, e nenhuma é afirmada aqui. A partir de agora, as execuções por partes guardam o log de qualquer falha. Se voltar a acontecer, haverá evidência.
+     The checklist gained the section "A failure that is not infrastructure", which applies to every step: stop, do not adjust anything to make it pass, do not repeat, bring the artifacts. The classification happens outside the run.
+  2. **Smoke test (step 3b, before any PR).** It runs `auditor-ci run` on a single file (`Mathlib/Logic/Hydra.lean`) at the pinned commit, with `--build-cache miss`, and checks `cache_state: cold`, `first_run: true`, `infra_failed: false`, `exit_code` 0, no `allowlist_unavailable` or other environment signal, and every declaration `verified`. The commands were run here on the `tests/ci/clean-project` fixture, with the same CLI and the same checks: `cold`, `first_run: True`, `exit_code` 0, no environment signal.
+- **Observed flakiness (no known cause).** After the rename, `test_06_toolchain_extern_does_not_trigger` failed once, in a run combined with other files whose output was not saved. It then passed 4 times: 3 alone and 1 in the same combination. The cause is not known, and none is claimed here. From now on, runs in parts keep the log of any failure. If it happens again, there will be evidence.
 
-## Rodada da instrução 15 — camada 2, primeiro `auditor-prep`
+## Instruction 15 round — layer 2, first `auditor-prep`
 
-O primeiro `auditor-prep` no fork (`Enzo47961/mathlib4`, `auditor-base` = `847592d` sobre `e1b2403b`; run 39656457392) parou no passo 3. O comportamento fail-closed na fumaça foi o esperado: sem allow-list, 0 `verified` e 20 `unresolved` (`stage_a_unrecognized`). As três falhas abaixo são bugs reais das ferramentas, encontrados pelo ambiente-alvo e indetectáveis na camada 1 (L-23).
+The first `auditor-prep` in the fork (`Enzo47961/mathlib4`, `auditor-base` = `847592d` on top of `e1b2403b`; run 39656457392) stopped at step 3. The fail-closed behaviour in the smoke test was the expected one: without an allow-list, 0 `verified` and 20 `unresolved` (`stage_a_unrecognized`). The three failures below are real tool bugs, found by the target environment and undetectable in layer 1 (L-23).
 
-- **D-52: aprovada.** O gerador extrai só das `lean_lib` `@[default_target]` (ou `--lib`).
-  - **Causa:** `project_modules()` importava todo `.olean` do build, inclusive a biblioteca `Cache` do Mathlib, que define `Lean.Name.fromComponents` como `Mathlib.Lean.Name`. A D-6 supunha um projeto com uma biblioteca só.
-  - **Testes:**
-    - (a) `test_extraction_ignores_non_target_library`: o mini-projeto ganha uma segunda `lean_lib` (`Tool`) que define o mesmo nome que a `Mini`. A extração padrão usa só a `Mini`, e pedir as duas (`--lib Mini --lib Tool`) falha com exit 2, o que prova que a colisão do fixture é real.
-    - Leitura do lakefile `.lean` e `.toml`; lakefile sem `@[default_target]` → erro que pede `--lib`.
-    - (b) Mutações no grupo `allowlist`: voltar a listar tudo; aceitar `defaultTargets` que não são `lean_lib`; aceitar lakefile sem alvo.
-    - (c) O caso real (Mathlib + `Cache`) é conferido pelo próximo `auditor-prep`.
-- **D-53: aprovada, opção forte (normalizar, não só documentar).** CRLF → LF antes do hash em `env_pin` e em `gen_tcb_roots.py`, e também na procedência do `fanout.py`, para os três hashes do mesmo manifesto baterem. SHA-256 do conteúdo normalizado (não o blob do git, que é SHA-1; D-18).
-  - **Versões:** `ENV_PIN_VERSION` `2`; `generator_version` `3`.
-  - **Regeneração:** `target_trusted_roots` foi regenerado no clone local (Windows, CRLF) do `e1b2403b`. Só o hash mudou, para `f77f47db…`, o mesmo que o runner Linux calculou: evidência direta de que a normalização funciona entre os sistemas.
-  - **Testes:**
+- **D-52: approved.** The generator extracts only from the `@[default_target]` `lean_lib`s (or `--lib`).
+  - **Cause:** `project_modules()` imported every `.olean` of the build, including Mathlib's `Cache` library, which defines `Lean.Name.fromComponents` as `Mathlib.Lean.Name`. D-6 assumed a project with a single library.
+  - **Tests:**
+    - (a) `test_extraction_ignores_non_target_library`: the mini-project gains a second `lean_lib` (`Tool`) that defines the same name as `Mini`. The default extraction uses only `Mini`, and asking for both (`--lib Mini --lib Tool`) fails with exit 2, which proves the fixture's collision is real.
+    - Reading of `.lean` and `.toml` lakefiles; a lakefile without `@[default_target]` → an error asking for `--lib`.
+    - (b) Mutations in the `allowlist` group: going back to listing everything; accepting `defaultTargets` that are not `lean_lib`s; accepting a lakefile without a target.
+    - (c) The real case (Mathlib + `Cache`) is checked by the next `auditor-prep`.
+- **D-53: approved, strong option (normalize, not just document).** CRLF → LF before hashing in `env_pin` and in `gen_tcb_roots.py`, and also in `fanout.py`'s provenance, so that the three hashes of the same manifest match. SHA-256 of the normalized content (not git's blob, which is SHA-1; D-18).
+  - **Versions:** `ENV_PIN_VERSION` `2`; `generator_version` `3`.
+  - **Regeneration:** `target_trusted_roots` was regenerated in the local clone (Windows, CRLF) of `e1b2403b`. Only the hash changed, to `f77f47db…`, the same one the Linux runner computed: direct evidence that the normalization works across systems.
+  - **Tests:**
     - `test_env_pin_ignores_crlf`;
-    - `test_allowlist_survives_line_ending_change` (gerada em LF, usada em CRLF, e o inverso; Etapa A e `--check`);
-    - `test_gen_tcb_roots_manifest_hash_ignores_crlf` (gerador e `fanout`);
-    - o arquivo versionado travado em `f77f47db…`.
-  - **Mutações:** uma em cada lugar.
-  - **Nota sobre a D-10:** o `.gitattributes` (`* -text`) protege só o repositório do auditor, não o projeto-alvo, que é clonado com a configuração de quem clona. A normalização é a garantia; a D-10 continua valendo para os arquivos do próprio auditor.
-- **D-54: aprovada como proposta, com o invariante explícito.** `--check` aceita `HEAD` ≠ commit gravado só se o gravado for ancestral, a árvore de trabalho (não só o `HEAD`) diferir apenas em `.github/` e nenhum `.lean` mudar, nem dentro de `.github/`. Registrado como **L-24**: relaxamento específico da medição em fork; no repositório real vale o check estrito.
-  - **Testes:**
-    - aceito: só `.github/`;
-    - rejeitados (5): `README.md`, um `.lean` com o mesmo fecho, `.github/Gen.lean`, mudança não commitada, commit irmão (não ancestral, mas que só difere em `.github/`);
-    - check estrito quando `HEAD` = commit gravado.
-  - **Mutações:** novo grupo `gen_tcb_roots` (8).
-  - **Execução real:** no clone local do fork (`847592d`), o `--check` passou pelo caminho de fork.
-- **D-55: aprovada.** `runs-on: ubuntu-24.04` no workflow reutilizável, no `ci.yml`, nos templates e no `auditor-prep` do fork. A atualização das actions de Node 20 fica para uma rodada separada, fora da camada 2, com registro no CHANGELOG.
-- **`syntax_extension_declared` com `command: "?"`:** será verificado na próxima fumaça. Se persistir com a allow-list do Mathlib presente, é falha que não é de infraestrutura e será tratado como bug; se desaparecer, fica registrado como consequência da falta de allow-list.
-- **Registro pedido como "L-19":** o número L-19 já existe (axioma auxiliar de avaliação nativa, Q9). O texto foi registrado como **L-23**, e o relaxamento da D-54 como **L-24**.
-- **Revalidação:** só os grupos de mutação tocados (`allowlist` e o novo `gen_tcb_roots`) foram re-rodados. `policy`, `ci`, `stage_a` e `stage_b` continuam validados pelos commits anteriores, porque o código deles não mudou. A suíte completa foi re-rodada.
+    - `test_allowlist_survives_line_ending_change` (generated with LF, used with CRLF, and the reverse; Stage A and `--check`);
+    - `test_gen_tcb_roots_manifest_hash_ignores_crlf` (generator and `fanout`);
+    - the versioned file locked at `f77f47db…`.
+  - **Mutations:** one in each place.
+  - **Note on D-10:** `.gitattributes` (`* -text`) protects only the auditor's repository, not the target project, which is cloned with the cloner's configuration. Normalization is the guarantee; D-10 still holds for the auditor's own files.
+- **D-54: approved as proposed, with the invariant made explicit.** `--check` accepts `HEAD` ≠ recorded commit only if the recorded one is an ancestor, the working tree (not only `HEAD`) differs only in `.github/` and no `.lean` file changed, not even inside `.github/`. Recorded as **L-24**: a relaxation specific to the measurement in a fork; in the real repository the strict check applies.
+  - **Tests:**
+    - accepted: only `.github/`;
+    - rejected (5): `README.md`, a `.lean` file with the same closure, `.github/Gen.lean`, an uncommitted change, a sibling commit (not an ancestor, but differing only in `.github/`);
+    - the strict check when `HEAD` = recorded commit.
+  - **Mutations:** a new `gen_tcb_roots` group (8).
+  - **Real run:** in the fork's local clone (`847592d`), `--check` passed through the fork path.
+- **D-55: approved.** `runs-on: ubuntu-24.04` in the reusable workflow, in `ci.yml`, in the templates and in the fork's `auditor-prep`. Updating the Node 20 actions is left for a separate round, outside layer 2, recorded in the CHANGELOG.
+- **`syntax_extension_declared` with `command: "?"`:** to be checked in the next smoke test. If it persists with the Mathlib allow-list present, it is a failure that is not infrastructure and will be treated as a bug; if it disappears, it is recorded as a consequence of the missing allow-list.
+- **Record requested as "L-19":** the number L-19 already exists (native-evaluation auxiliary axiom, Q9). The text was recorded as **L-23**, and the D-54 relaxation as **L-24**.
+- **Revalidation:** only the touched mutation groups (`allowlist` and the new `gen_tcb_roots`) were re-run. `policy`, `ci`, `stage_a` and `stage_b` remain validated by the earlier commits, because their code did not change. The full suite was re-run.
 
-## Rodada da instrução 16 — segundo `auditor-prep`
+## Instruction 16 round — second `auditor-prep`
 
-O segundo `auditor-prep` (run 39666288403, auditor `c3dcf08`) confirmou D-52 a D-54 no Mathlib real: allow-list com `libraries: ["Mathlib"]`, 8651 módulos e 259 comandos; `--check` aceito pelo caminho de fork. A fumaça (`Hydra.lean`) ainda saiu 20/20 `Não resolvida`, por três causas. A primeira era esperada; as outras duas são bugs da camada 1 que nenhum fixture exercitava (L-23).
+The second `auditor-prep` (run 39666288403, auditor `c3dcf08`) confirmed D-52 to D-54 on the real Mathlib: an allow-list with `libraries: ["Mathlib"]`, 8651 modules and 259 commands; `--check` accepted through the fork path. The smoke test (`Hydra.lean`) still came out 20/20 `Não resolvida`, for three reasons. The first was expected; the other two are layer-1 bugs that no fixture exercised (L-23).
 
-- **Classificação de 98 comandos do Mathlib:** decisão humana. Rascunho autorizado, com justificativa por comando pelo critério da L-17; revisão por um segundo humano; commit no fork só depois. Comando ambíguo → fail-closed, registrado em `limitations.md`.
-- **D-56: aprovada.** O `?` está em `syntax_extension` no core (`classification.toml`), e a Etapa A o procurava em qualquer posição, como as palavras reservadas. Todo `?_` virava `syntax_extension_declared`: no commit fixado, 4748 dos 8650 arquivos do Mathlib contêm `?_` ou `?nome`.
-  - **Correção:** palavras reservadas (identificadores, `#comandos`) continuam procuradas em qualquer posição; comandos-símbolo (`?`, `$`) só no início de comando.
-  - **Testes:**
-    - (a) `?_`, `?m`, `?x.y` e `f $ x` dentro de termos não geram nada;
-    - (b) `?` e `$` na coluna 0 continuam `syntax_extension_declared`;
-    - (c) `macro` indentado e no meio da linha continua detectado.
-  - **Detalhe:** a allow-list guarda `«$»` normalizado como `$`, que é o token que o lexer produz.
-- **D-57: aprovada.** `module` só é aceito como primeiro token do arquivo (comentários não viram token).
-  - **Testes:** aceito com `public import`, `import` e docstring de módulo; aceito sozinho; `unknown_command` depois de `import`, depois de comando, duplicado e depois de docstring.
-  - **Fixture de conformidade `07-module-header`** (Etapa A → Etapa B → política):
-    - `module` + `public import Fixture.Base` (também `module`) + `refine ⟨?_, ?_⟩` → `both` `Validada`/`Conforme`/`verified`;
-    - controle com `sorry` → `Rejeitada`;
-    - ground truth por `#print axioms`.
-- **Versões e mutações de D-56/D-57:** `stage_a_version` `2`. Grupo `stage_a`: 4 mutações novas (aceitar `module` em qualquer posição; nunca aceitar; símbolos em qualquer posição; símbolos nunca), 13/13 detectadas.
-- **D-58: aprovada.**
-  - (a) Os dois testes de timeout usam um fixture que compila em segundos e conferem `duration_s ≥ 1`.
-  - (b) `test_all_pass` aquece o cache do inspetor antes.
-  - (c) A suíte do `ci.yml` (Linux) é a referência da camada 1.
+- **Classification of 98 Mathlib commands:** a human decision. A draft authorized, with a justification per command by the L-17 criterion; review by a second human; commit in the fork only afterwards. An ambiguous command → fail-closed, recorded in `limitations.md`.
+- **D-56: approved.** `?` is in `syntax_extension` in the core (`classification.toml`), and Stage A looked for it in any position, like the reserved words. Every `?_` became `syntax_extension_declared`: at the pinned commit, 4748 of Mathlib's 8650 files contain `?_` or `?name`.
+  - **Fix:** reserved words (identifiers, `#commands`) are still looked for in any position; symbol commands (`?`, `$`) only at the start of a command.
+  - **Tests:**
+    - (a) `?_`, `?m`, `?x.y` and `f $ x` inside terms produce nothing;
+    - (b) `?` and `$` at column 0 remain `syntax_extension_declared`;
+    - (c) an indented `macro` and one in the middle of the line are still detected.
+  - **Detail:** the allow-list stores `«$»` normalized as `$`, which is the token the lexer produces.
+- **D-57: approved.** `module` is only accepted as the file's first token (comments do not become tokens).
+  - **Tests:** accepted with `public import`, `import` and a module docstring; accepted alone; `unknown_command` after `import`, after a command, duplicated, and after a docstring.
+  - **Conformance fixture `07-module-header`** (Stage A → Stage B → policy):
+    - `module` + `public import Fixture.Base` (also a `module`) + `refine ⟨?_, ?_⟩` → `both` `Validada`/`Conforme`/`verified`;
+    - a control with `sorry` → `Rejeitada`;
+    - ground truth by `#print axioms`.
+- **Versions and mutations for D-56/D-57:** `stage_a_version` `2`. `stage_a` group: 4 new mutations (accept `module` in any position; never accept it; symbols in any position; symbols never), 13/13 detected.
+- **D-58: approved.**
+  - (a) The two timeout tests use a fixture that compiles in seconds and check `duration_s ≥ 1`.
+  - (b) `test_all_pass` warms the inspector cache first.
+  - (c) The `ci.yml` suite (Linux) is the layer-1 reference.
 
-## Rodada da instrução 17 — rascunho da classificação do Mathlib
+## Instruction 17 round — draft of the Mathlib classification
 
-O rascunho da classificação dos 98 comandos do Mathlib (fora deste repositório: `.auditor/classification.toml` do fork, ainda não commitado) foi aprovado pelo revisor como base para a revisão humana. Resultado: 63 `allowed`, 32 `metaprogramming`, 3 `syntax_extension`; 9 ambíguos, fail-closed por precaução (exceto `#string_diagram`, allowed por precaução).
+The draft classification of Mathlib's 98 commands (outside this repository: the fork's `.auditor/classification.toml`, not yet committed) was approved by the reviewer as the basis for the human review. Result: 63 `allowed`, 32 `metaprogramming`, 3 `syntax_extension`; 9 ambiguous, fail-closed as a precaution (except `#string_diagram`, allowed as a precaution).
 
-- **Divergências da lista prévia do revisor: são correções, não discordâncias.** A lista prévia foi feita pelo nome dos comandos; o rascunho, lendo a implementação de cada um no commit fixado. A leitura prevaleceu nos 7 casos: `#count_heartbeats`, `#leansearch`, `#loogle`, `#search`, `#parse`, `deprecate` (allowed → fail-closed) e `notation3` (allowed → `syntax_extension`). Na resposta, o revisor contou 6; a contagem no rascunho é 7.
-- **Evidência de que a classificação por leitura funciona** (achados que o nome não revela):
-  - `#count_heartbeats`, `#count_heartbeats!` e `guard_min_heartbeats` elaboram o comando embrulhado com `set_option maxHeartbeats 0 in` injetado pela macro, escondido da Etapa A (`Mathlib/Util/CountHeartbeats.lean`, linhas 143, 187, 202). Sem esse achado, a regra da O-3 seria trivialmente contornável.
-  - `#import_bumps` injeta `set_option Elab.async false` e `set_option linter.minImports true`, escondidos.
-  - `#clear_deprecations` escreve arquivos (`IO.FS.writeFile`) e roda `lake build` (`IO.Process`).
-  - `lrat_proof` aceita `include_str` (lê do disco).
-  - `sudo set_option` aceita opção não declarada, fora do reconhecimento de opções da política.
-- **Quatro pontos para o segundo revisor** (não bloqueiam; a decisão fica registrada no TOML final):
-  1. `unset_option` (allowed): irmão de `set_option`. Não há bypass conhecido, porque a Etapa A vê o `set_option` literal antes, mas a simetria pede segunda opinião.
-  2. `unsuppress_compilation` (allowed): oposto de `suppress_compilation` (fail-closed); "força compilação" não é trivialmente benigno.
-  3. `#lint` (allowed): premissa registrada no TOML: os linters são código fixo do Mathlib no commit fixado; se `#lint` passar a aceitar linter escolhido pelo usuário, muda de categoria.
-  4. `#string_diagram` (ambíguo, allowed por precaução): candidato à revisão da Fase 1.
-- **L-25:** texto aprovado sem mudança. Entra no commit da classificação final.
-- **Pauta de relaxamento da Fase 1:** registrada no roadmap. São 10 itens distintos: os 9 ambíguos (que já incluem `#string_diagram` e `suppress_compilation`) e `#lint`.
+- **Divergences from the reviewer's prior list: they are corrections, not disagreements.** The prior list was made from the commands' names; the draft, by reading each one's implementation at the pinned commit. The reading prevailed in the 7 cases: `#count_heartbeats`, `#leansearch`, `#loogle`, `#search`, `#parse`, `deprecate` (allowed → fail-closed) and `notation3` (allowed → `syntax_extension`). In their answer, the reviewer counted 6; the count in the draft is 7.
+- **Evidence that classification by reading works** (findings the name does not reveal):
+  - `#count_heartbeats`, `#count_heartbeats!` and `guard_min_heartbeats` elaborate the wrapped command with `set_option maxHeartbeats 0 in` injected by the macro, hidden from Stage A (`Mathlib/Util/CountHeartbeats.lean`, lines 143, 187, 202). Without this finding, the O-3 rule would be trivially bypassable.
+  - `#import_bumps` injects `set_option Elab.async false` and `set_option linter.minImports true`, hidden.
+  - `#clear_deprecations` writes files (`IO.FS.writeFile`) and runs `lake build` (`IO.Process`).
+  - `lrat_proof` accepts `include_str` (reads from disk).
+  - `sudo set_option` accepts an undeclared option, outside the policy's option recognition.
+- **Four points for the second reviewer** (non-blocking; the decision is recorded in the final TOML):
+  1. `unset_option` (allowed): a sibling of `set_option`. There is no known bypass, because Stage A sees the literal `set_option` first, but the symmetry calls for a second opinion.
+  2. `unsuppress_compilation` (allowed): the opposite of `suppress_compilation` (fail-closed); "forces compilation" is not trivially benign.
+  3. `#lint` (allowed): premise recorded in the TOML: the linters are fixed Mathlib code at the pinned commit; if `#lint` starts accepting a user-chosen linter, it changes category.
+  4. `#string_diagram` (ambiguous, allowed as a precaution): a candidate for the Phase 1 review.
+- **L-25:** text approved without change. It goes into the commit of the final classification.
+- **Phase 1 relaxation agenda:** recorded on the roadmap. There are 10 distinct items: the 9 ambiguous ones (which already include `#string_diagram` and `suppress_compilation`) and `#lint`.
 
-## Rodada da instrução 18 — segunda revisão da classificação do Mathlib
+## Instruction 18 round — second review of the Mathlib classification
 
-- **Desvio do checklist, registrado.** O passo 3 exige que a classificação seja conferida por um segundo revisor que **não seja o autor** do rascunho. Uma revisão externa chegou sem identificação. O conteúdo citado existia, mas as 4 citações de linha não batiam com o commit fixado (`#lint`: citou Frontend.lean 23–26, o texto está em 42–45; `#string_diagram`: 35–37 → 51–52; `unset_option`: 20–23 → 43–45; `unsuppress_compilation`: 64–68 → 89–96). Por decisão do mantenedor, essa revisão foi descartada e **a segunda revisão foi feita pelo autor do rascunho (Claude)**. Ela não é independente; o primeiro revisor deve decidir se a aceita como tal.
-- **Decisões da segunda revisão:**
-  - `#lint` → fail-closed. `Batteries/Tactic/Lint/Basic.lean:131` executa o linter com `evalConstCheck`, e um arquivo pode definir o próprio com `@[env_linter]` (Frontend.lean:42–45). A premissa do rascunho ("linters fixos") era falsa.
-  - `#string_diagram` → fail-closed, por coerência com a regra de ambiguidade. O `Tactic.Monoidal.eval` é normalização Meta e não executa código compilado; o vetor "redução aciona `implemented_by`/`native_decide`" alegado na revisão externa não se sustenta no fonte.
-  - `unsuppress_compilation` → fail-closed (**achado novo**, que nem o rascunho nem a revisão externa tinham visto). A forma `unsuppress_compilation in cmd` expande para `… cmd suppress_compilation` (`Mathlib/Tactic/SuppressCompilation.lean:97–98`): reinstala, escondido da Etapa A, o elaborador local que deixa `suppress_compilation` fail-closed.
-  - `unset_option` → allowed. Só apaga a opção (`(← getOptions).erase`, `UnsetOption.lean:38`).
-- **Resultado final:** 60 `allowed`, 35 `metaprogramming`, 3 `syntax_extension`. A justificativa de cada comando fica em comentário no `classification.toml` do fork. A L-25 recebeu um parágrafo com os três acréscimos, e a pauta da Fase 1 (roadmap) passou a incluir `#lint` e `unsuppress_compilation`.
+- **Deviation from the checklist, recorded.** Step 3 requires the classification to be checked by a second reviewer who **is not the author** of the draft. An external review arrived without identification. The cited content existed, but the 4 line citations did not match the pinned commit (`#lint`: cited Frontend.lean 23–26, the text is at 42–45; `#string_diagram`: 35–37 → 51–52; `unset_option`: 20–23 → 43–45; `unsuppress_compilation`: 64–68 → 89–96). By the maintainer's decision, that review was discarded and **the second review was done by the author of the draft (Claude)**. It is not independent; the first reviewer must decide whether to accept it as such.
+- **Decisions of the second review:**
+  - `#lint` → fail-closed. `Batteries/Tactic/Lint/Basic.lean:131` runs the linter with `evalConstCheck`, and a file can define its own with `@[env_linter]` (Frontend.lean:42–45). The draft's premise ("fixed linters") was false.
+  - `#string_diagram` → fail-closed, for consistency with the ambiguity rule. `Tactic.Monoidal.eval` is Meta normalization and does not execute compiled code; the vector "reduction triggers `implemented_by`/`native_decide`" claimed in the external review does not hold up in the source.
+  - `unsuppress_compilation` → fail-closed (**a new finding**, which neither the draft nor the external review had seen). The form `unsuppress_compilation in cmd` expands to `… cmd suppress_compilation` (`Mathlib/Tactic/SuppressCompilation.lean:97–98`): it reinstalls, hidden from Stage A, the local elaborator that makes `suppress_compilation` fail-closed.
+  - `unset_option` → allowed. It only erases the option (`(← getOptions).erase`, `UnsetOption.lean:38`).
+- **Final result:** 60 `allowed`, 35 `metaprogramming`, 3 `syntax_extension`. The justification for each command is in a comment in the fork's `classification.toml`. L-25 received a paragraph with the three additions, and the Phase 1 agenda (roadmap) now includes `#lint` and `unsuppress_compilation`.
 
-## Rodada da instrução 19 (arquivo `instrução17`) — fumaça aprovada, D-59, declaração de auto-revisão
+## Instruction 19 round (file `instrução17`) — smoke test passed, D-59, self-review statement
 
-- **Marco:** o terceiro `auditor-prep` (run 39680033069) aprovou o teste de fumaça: `Hydra.lean` com 20/20 `verified`, `exit_code` 0 e `unclassified` vazio. Registrado no CHANGELOG.
-- **D-59: aprovada.** O `--check` de fork aceita `.github/` e `.auditor/` (`FORK_PREFIXES`). Continuam valendo: nenhum `.lean`, ancestralidade e comparação estrita do fecho.
-  - **Testes:**
-    - aceito com `.auditor/classification.toml` e `.auditor/allowlist.json`;
-    - rejeitados: `README.md`, `.lean`, `.github/Gen.lean`, `.auditor/X.lean`, `.auditorx/a.toml`, mudança não commitada, não ancestral.
-  - **Mutação:** voltar a só `.github/`. L-24 atualizada.
-- **Segunda revisão da classificação: auto-revisão, decisão final do mantenedor.** As 4 mudanças foram aprovadas (`#lint`, `#string_diagram`, `unsuppress_compilation` → fail-closed; `unset_option` → allowed). Final: 60/35/3.
-- **Declaração de auto-revisão (obrigação de transparência):**
-  1. **No `classification.toml`:** `reviewed_by = "author-self-review"`, `reviewer_independence = "none"` e `revision_note`. Agora são chaves validadas pelo gerador, não comentário.
-  2. **L-26** em `limitations.md`, com o texto dado e a mecânica.
-  3. **No relatório:** `tcb.classification_review_status`, obrigatório no schema `1.1.0`.
-  - **Testes:** declaração propagada até o relatório (mini-projeto `author-self-review`; fixture 07 `core-only`); seis classificações sem declaração ou incoerentes → exit 2.
-  - **Mutações:** 6 (validação, coerência, propagação e o status `core-only`).
-- **Achado da mesma família da D-53, corrigido junto:** o SHA-256 do `classification.toml` também era dos bytes crus. Com um `classification.toml` commitado no fork, o `--check` da allow-list divergiria entre clone CRLF e LF. Normalizado, com teste e mutação.
-- **Achado da mesma família, NÃO corrigido (proposta D-60):** `fingerprint.dependencies()` grava `lake_manifest_sha256` dos bytes crus do manifesto (`src/auditor/fingerprint/__init__.py`, `dependencies`). O fingerprint do relatório difere entre um clone CRLF e um LF do mesmo commit. Não afeta o resultado da auditoria, mas afeta a reprodutibilidade do fingerprint. Proposta: usar `normalize_newlines`, como nos outros três hashes.
-- **Bug do workflow do fork (corrigido no fork):** no `auditor-prep`, `grep … | tee … || echo "nenhum sinal de ambiente"` nunca imprimia a linha, porque o `||` decidia pelo `tee` (sempre 0), não pelo `grep`. Agora o resultado do `grep` é testado diretamente.
-- **Origem da revisão externa descartada (pergunta do revisor): ainda sem resposta.** O que se sabe do próprio documento:
-  - ele começava com uma instrução a quem revisaria a revisão ("Revise criticamente a resposta de segundo revisor abaixo…");
-  - a assinatura era "Segundo Revisor Independente", sem nome;
-  - as 4 citações traziam texto correto do commit fixado, mas em linhas deslocadas (+16 a +25), compatível com citação de memória, ou de outra versão dos arquivos, sem o fonte do commit fixado aberto.
+- **Milestone:** the third `auditor-prep` (run 39680033069) passed the smoke test: `Hydra.lean` with 20/20 `verified`, `exit_code` 0 and `unclassified` empty. Recorded in the CHANGELOG.
+- **D-59: approved.** The fork `--check` accepts `.github/` and `.auditor/` (`FORK_PREFIXES`). Still in force: no `.lean`, ancestry and strict comparison of the closure.
+  - **Tests:**
+    - accepted with `.auditor/classification.toml` and `.auditor/allowlist.json`;
+    - rejected: `README.md`, `.lean`, `.github/Gen.lean`, `.auditor/X.lean`, `.auditorx/a.toml`, an uncommitted change, a non-ancestor.
+  - **Mutation:** going back to only `.github/`. L-24 updated.
+- **Second review of the classification: self-review, the maintainer's final decision.** The 4 changes were approved (`#lint`, `#string_diagram`, `unsuppress_compilation` → fail-closed; `unset_option` → allowed). Final: 60/35/3.
+- **Self-review statement (a transparency obligation):**
+  1. **In `classification.toml`:** `reviewed_by = "author-self-review"`, `reviewer_independence = "none"` and `revision_note`. These are now keys validated by the generator, not a comment.
+  2. **L-26** in `limitations.md`, with the given text and the mechanics.
+  3. **In the report:** `tcb.classification_review_status`, mandatory in schema `1.1.0`.
+  - **Tests:** the statement propagated up to the report (mini-project `author-self-review`; fixture 07 `core-only`); six classifications without a statement or inconsistent → exit 2.
+  - **Mutations:** 6 (validation, consistency, propagation and the `core-only` status).
+- **A finding from the same family as D-53, fixed with it:** the SHA-256 of `classification.toml` was also of the raw bytes. With a `classification.toml` committed in the fork, the allow-list's `--check` would diverge between a CRLF and an LF clone. Normalized, with a test and a mutation.
+- **A finding from the same family, NOT fixed (proposal D-60):** `fingerprint.dependencies()` records `lake_manifest_sha256` of the manifest's raw bytes (`src/auditor/fingerprint/__init__.py`, `dependencies`). The report's fingerprint differs between a CRLF and an LF clone of the same commit. It does not affect the audit result, but it affects the reproducibility of the fingerprint. Proposal: use `normalize_newlines`, as in the other three hashes.
+- **A bug in the fork's workflow (fixed in the fork):** in `auditor-prep`, `grep … | tee … || echo "nenhum sinal de ambiente"` never printed the line, because the `||` was decided by `tee` (always 0), not by `grep`. The `grep` result is now tested directly.
+- **Origin of the discarded external review (the reviewer's question): still unanswered.** What is known from the document itself:
+  - it began with an instruction to whoever would review the review ("Revise criticamente a resposta de segundo revisor abaixo…", i.e. "Critically review the second reviewer's answer below…");
+  - the signature was "Segundo Revisor Independente" (Second Independent Reviewer), without a name;
+  - the 4 citations carried correct text from the pinned commit, but at shifted lines (+16 to +25), consistent with quoting from memory, or from another version of the files, without the pinned commit's source open.
 
-  Este autor não sabe de onde o documento veio (não foi produzido nesta sessão). A pergunta foi repassada ao mantenedor; a resposta, quando vier, entra aqui.
+  This author does not know where the document came from (it was not produced in this session). The question was passed on to the maintainer; the answer, when it comes, goes here.
 
-## Rodada da instrução 20 (arquivo `instrução18`) — PRs de medição; D-61, A2, D-62
+## Instruction 20 round (file `instrução18`) — measurement PRs; D-61, A2, D-62
 
-- **Marco (pedido do revisor):** 633 testes, 125/125 mutações depois de pegar 1 sobrevivente real, fumaça 20/20 e `auditor-prep` todo verde, com a allow-list idêntica byte a byte. Registrado no CHANGELOG.
-- **Resultado dos PRs (relatório `relatorio_camada2_medicao`):** todos abaixo de 300 s, mas nenhum em steady-state.
-  - #2 trivial: 137 s cold; 126 s warm no re-run.
-  - #3 médio: sonda `verified`; 10 `unresolved` por `set_option backward.*`.
-  - #4 fanout (`Set/Defs.lean`): 37/37 `unresolved` por `syntax_extension_declared`.
-- **A1 → D-61: aprovada e implementada.** Workflow reutilizável `auditor-warm-cache` + modelo, e `auditor-ci inspector`.
-  - **Testes:** as mesmas chaves do `auditor-tier1` (a do Mathlib com `github.sha` no lugar de `pull_request.base.sha`); o mesmo runner; só leitura; sem comentário, label ou PR; os quatro caminhos do `auditor-ci inspector`.
-  - **Mutações:** 6.
-  - **Verificação no ambiente real**, exigida pelo revisor: workflow no base, depois PR trivial com `cache_state: warm` e `inspector: hit`. Pendente até o próximo envio.
-  - **Alternativa rejeitada pelo revisor:** re-run do mesmo PR como medição. A4 (`clock_origin: job_start` no re-run) fica moot.
-- **A2: aprovada e implementada.** Restaurar e salvar o cache do inspetor em passos separados, com o salvamento em `always()`, condicionado a `auditor-ci inspector --check` = `built=true`.
-  - **Testes:** a ordem dos passos e as condições.
-  - **Mutações:** 2 (sem `always()`; sem a condição do build).
-  - **Verificação no ambiente real:** PR vermelho por `unresolved`, seguido de re-run com `inspector: hit`.
-- **A5 → D-62: aprovada e implementada.** O auditor é movido para `$RUNNER_TEMP/auditor-tool` depois do `pip install`; a política default vem de lá.
-  - **Teste:** nenhum passo posterior referencia `.auditor-tool` no workspace.
-  - **Mutação:** 1.
-  - **Verificação no ambiente real:** `project_dirty: false` no relatório da próxima medição.
-  - `auditor-prep` (só no fork) recebe a mesma mudança.
-- **A3 → L-27 (texto do revisor) + achado pendente.** `Basic/Logic/Basic.lean`, escolhido como fanout no caminho de sucesso, não declara sintaxe (grep vazio, só docstrings), mas tem `simproc_decl` (linhas 42 e 75). A Etapa A o deixa fail-closed, e a sonda sairia `unresolved`. `Init.lean` (opção terciária) também: `register_linter_set`, `run_cmd`. Proposta na L-27: critério "Etapa A sem item não reconhecido". Primeiro arquivo que passa: `Mathlib/Lean/Name.lean` (posição 3); primeiro fora de `Tactic/`, `Lean/` e `Util/`: `Mathlib/Data/String/Defs.lean` (posição 4).
-- **PR #3 válido como medição.** As opções `backward.*` entraram na pauta de relaxamento da Fase 1 (`roadmap.md`).
-- **Refinamento (não bloqueia a Fase 0), proposto pelo revisor:** um PR de medição deveria distinguir `measurement_result: success | fail-closed-path`, para não sinalizar falha quando o resultado é o esperado. Hoje, `exit_code` 1 cobre `unresolved` sem `infra_failed`, e o job fica vermelho.
-- **L-28 (avaliação nativa):** 0 usos reais no Mathlib `e1b2403b`; os 2 casos léxicos são falsos positivos.
-- **Achado novo, sem decisão pedida ainda:** a Etapa A trata como início de comando qualquer token na coluna 0. Termos que continuam um comando na coluna 0 (`match … with`, `do`, `f!"…"`) saem `unknown_command`. Visto em `Mathlib/Lean/Meta/Simp.lean:32`, `Mathlib/Tactic/MkIffOfInductiveProp.lean` (linhas 176, 195, 216, 229) e `Mathlib/Tactic/SplitIfs.lean:32`. É fail-closed, portanto seguro, mas o checklist trata `unknown_command` como allow-list incompleta. Na verdade é falso positivo do lexer, não comando sem classificação.
-- **Explicação do `inspector: miss` com arquivo `hit` (ressalva do relatório anterior):** o sinal de cache é medido antes da compilação prévia do inspetor (`_prebuild_inspector`); o campo do arquivo é medido depois dela. Os dois estão certos: o primeiro diz que o cache veio frio, o segundo que o arquivo não pagou a compilação.
-- **Origem da revisão externa descartada:** perguntada ao mantenedor três vezes, sem resposta. Registrado sem bloquear, por instrução do revisor. Se a Fase 1 precisar de revisão independente real, saber o que falhou na primeira tentativa vai importar.
+- **Milestone (the reviewer's request):** 633 tests, 125/125 mutations after catching 1 real survivor, smoke test 20/20 and `auditor-prep` all green, with the allow-list byte-for-byte identical. Recorded in the CHANGELOG.
+- **Result of the PRs (report `relatorio_camada2_medicao`):** all under 300 s, but none in steady state.
+  - #2 trivial: 137 s cold; 126 s warm on the re-run.
+  - #3 medium: probe `verified`; 10 `unresolved` because of `set_option backward.*`.
+  - #4 fanout (`Set/Defs.lean`): 37/37 `unresolved` because of `syntax_extension_declared`.
+- **A1 → D-61: approved and implemented.** The reusable workflow `auditor-warm-cache` + template, and `auditor-ci inspector`.
+  - **Tests:** the same keys as `auditor-tier1` (Mathlib's with `github.sha` instead of `pull_request.base.sha`); the same runner; read-only; no comment, label or PR; the four paths of `auditor-ci inspector`.
+  - **Mutations:** 6.
+  - **Check in the real environment**, required by the reviewer: the workflow on the base, then a trivial PR with `cache_state: warm` and `inspector: hit`. Pending until the next push.
+  - **Alternative rejected by the reviewer:** re-running the same PR as a measurement. A4 (`clock_origin: job_start` on the re-run) becomes moot.
+- **A2: approved and implemented.** Restoring and saving the inspector cache in separate steps, with the save in `always()`, conditional on `auditor-ci inspector --check` = `built=true`.
+  - **Tests:** the order of the steps and the conditions.
+  - **Mutations:** 2 (without `always()`; without the build condition).
+  - **Check in the real environment:** a PR red because of `unresolved`, followed by a re-run with `inspector: hit`.
+- **A5 → D-62: approved and implemented.** The auditor is moved to `$RUNNER_TEMP/auditor-tool` after `pip install`; the default policy comes from there.
+  - **Test:** no later step references `.auditor-tool` in the workspace.
+  - **Mutation:** 1.
+  - **Check in the real environment:** `project_dirty: false` in the next measurement's report.
+  - `auditor-prep` (fork only) receives the same change.
+- **A3 → L-27 (the reviewer's text) + a pending finding.** `Basic/Logic/Basic.lean`, chosen as fanout on the success path, does not declare syntax (empty grep, only docstrings), but has `simproc_decl` (lines 42 and 75). Stage A leaves it fail-closed, and the probe would come out `unresolved`. `Init.lean` (tertiary option) too: `register_linter_set`, `run_cmd`. Proposal in L-27: the criterion "Stage A with no unrecognized item". The first file that passes: `Mathlib/Lean/Name.lean` (position 3); the first outside `Tactic/`, `Lean/` and `Util/`: `Mathlib/Data/String/Defs.lean` (position 4).
+- **PR #3 valid as a measurement.** The `backward.*` options went onto the Phase 1 relaxation agenda (`roadmap.md`).
+- **Refinement (does not block Phase 0), proposed by the reviewer:** a measurement PR should distinguish `measurement_result: success | fail-closed-path`, so as not to signal failure when the result is the expected one. Today, `exit_code` 1 covers `unresolved` without `infra_failed`, and the job turns red.
+- **L-28 (native evaluation):** 0 real uses in Mathlib `e1b2403b`; the 2 lexical cases are false positives.
+- **A new finding, no decision requested yet:** Stage A treats any token at column 0 as the start of a command. Terms that continue a command at column 0 (`match … with`, `do`, `f!"…"`) come out `unknown_command`. Seen in `Mathlib/Lean/Meta/Simp.lean:32`, `Mathlib/Tactic/MkIffOfInductiveProp.lean` (lines 176, 195, 216, 229) and `Mathlib/Tactic/SplitIfs.lean:32`. It is fail-closed, therefore safe, but the checklist treats `unknown_command` as an incomplete allow-list. It is actually a lexer false positive, not an unclassified command.
+- **Explanation of `inspector: miss` with the file `hit` (caveat of the previous report):** the cache signal is measured before the inspector's pre-build (`_prebuild_inspector`); the file's field is measured after it. Both are right: the first says the cache came cold, the second that the file did not pay for the compilation.
+- **Origin of the discarded external review:** asked of the maintainer three times, without an answer. Recorded without blocking, as instructed by the reviewer. If Phase 1 needs a real independent review, knowing what failed in the first attempt will matter.
 
-## Rodada da instrução 22 (arquivo `instrução20`) — Fase 0 fechada com condições
+## Instruction 22 round (file `instrução20`) — Phase 0 closed with conditions
 
-- **Origem da revisão externa descartada: respondida pelo mantenedor.** Foi outra IA, **sem acesso ao código-fonte**. Diagnóstico: as 4 citações tinham o texto certo, mas em linhas deslocadas (+16 a +25). Isso é compatível com conhecimento prévio dos arquivos (outra versão, ou memória), sem o fonte do commit fixado aberto. Falha da primeira tentativa de revisão independente, diagnóstico: **revisor sem o fonte no commit fixado**. Consequências para a revisão independente da Fase 1:
-  - o revisor recebe o fonte no commit fixado (`e1b2403b` ou o vigente), não descrições nem trechos;
-  - toda citação traz arquivo, linha e SHA do commit;
-  - as citações são conferidas mecanicamente contra o commit antes de a revisão ser aceita: uma linha que não bate invalida a citação, como aconteceu aqui;
-  - o revisor se identifica (pessoa, ou modelo e sessão), com o grau de independência declarado (`reviewer_independence`).
-- **Passo 9 achou um bug real no `auditor-report`** (filtro `head_sha` da API não determinístico). Corrigido no modelo; detalhes em `maintenance.md`, "Testes de referência dos modos de falha do CI".
-- **Passo 8 passou de primeira:** timeout de arquivo → exit 2, `infra_failed`, job verde, label `auditor-failed-infra`, PR mesclável.
+- **Origin of the discarded external review: answered by the maintainer.** It was another AI, **without access to the source code**. Diagnosis: the 4 citations had the right text, but at shifted lines (+16 to +25). This is consistent with prior knowledge of the files (another version, or memory), without the pinned commit's source open. The failure of the first attempt at an independent review, diagnosed: **a reviewer without the source at the pinned commit**. Consequences for Phase 1's independent review:
+  - the reviewer receives the source at the pinned commit (`e1b2403b` or the current one), not descriptions or excerpts;
+  - every citation carries file, line and the commit's SHA;
+  - citations are checked mechanically against the commit before the review is accepted: a line that does not match invalidates the citation, as happened here;
+  - the reviewer identifies themselves (a person, or a model and session), with their degree of independence declared (`reviewer_independence`).
+- **Step 9 found a real bug in `auditor-report`** (the API's non-deterministic `head_sha` filter). Fixed in the template; details in `maintenance.md`, "Reference tests for the CI failure modes".
+- **Step 8 passed on the first try:** a file timeout → exit 2, `infra_failed`, green job, label `auditor-failed-infra`, PR mergeable.
 
-## Rodada da instrução 24 (arquivo `instrução22`) — Fase 0 fechada incondicionalmente
+## Instruction 24 round (file `instrução22`) — Phase 0 closed unconditionally
 
-- **Pendência da revisão externa descartada: ENCERRADA.** Perguntada 3× e respondida em 2026-10-22: outra IA, sem acesso ao fonte, deslocamento de linha +16 a +25. Regras de revisão independente da Fase 1 registradas em roadmap.md. Pendência encerrada.
+- **Pending item from the discarded external review: CLOSED.** Asked 3× and answered on 2026-10-22: another AI, without access to the source, line shift +16 to +25. Rules for Phase 1's independent review recorded in roadmap.md. Pending item closed.
 
-## Quirks conhecidos da API do GitHub
+## Known GitHub API quirks
 
-Registro para quem for construir workflows parecidos (instrução 23).
+A record for whoever builds similar workflows (instruction 23).
 
-- **O filtro `head_sha` da API de execuções do GitHub Actions não é determinístico.** A mesma consulta, repetida em sequência, alterna entre 0 e 1 resultado. Isso vale para os três endpoints: `/repos/{repo}/actions/runs?head_sha=…`, `/actions/workflows/{arquivo}/runs?head_sha=…` e `/actions/workflows/{id}/runs?head_sha=…`. A listagem **sem** filtro foi estável em todas as repetições. `gh run list --commit` usa esse filtro e herda o problema, em qualquer versão (testado: 2.101.0 e 2.103.0).
-  - Evidência (2026-10-22, `Enzo47961/mathlib4`, `total_count` por endpoint, na ordem arquivo / id / repositório):
-    - commit `769e23c` (execução 39813522377, concluída): 0 / 1 / 1;
+- **The `head_sha` filter of the GitHub Actions runs API is not deterministic.** The same query, repeated in sequence, alternates between 0 and 1 result. This holds for the three endpoints: `/repos/{repo}/actions/runs?head_sha=…`, `/actions/workflows/{file}/runs?head_sha=…` and `/actions/workflows/{id}/runs?head_sha=…`. Listing **without** the filter was stable in every repetition. `gh run list --commit` uses this filter and inherits the problem, in any version (tested: 2.101.0 and 2.103.0).
+  - Evidence (2026-10-22, `Enzo47961/mathlib4`, `total_count` per endpoint, in the order file / id / repository):
+    - commit `769e23c` (run 39813522377, completed): 0 / 1 / 1;
     - commit `d585660`: 1 / 1 / 1;
-    - commit `dd08fb8` (execução 39760172227): 1 / 0 / 1;
-    - seis repetições para `769e23c` (colunas: arquivo, id, repositório e, como controle, os `check-runs` do commit): `1 1 1 1`, `1 1 1 1`, `1 1 1 1`, `1 1 0 1`, `1 1 0 1`, `1 1 1 1`.
-  - Efeito observado: o `@auditor report` respondeu "nenhuma execução" para um commit auditado (passo 9, run 39818084000).
-  - Contorno adotado no `auditor-report.yml`: listar as execuções recentes sem filtro e selecionar `head_sha` no cliente, com o SHA validado como 40 hex antes de entrar no `jq`.
+    - commit `dd08fb8` (run 39760172227): 1 / 0 / 1;
+    - six repetitions for `769e23c` (columns: file, id, repository and, as a control, the commit's `check-runs`): `1 1 1 1`, `1 1 1 1`, `1 1 1 1`, `1 1 0 1`, `1 1 0 1`, `1 1 1 1`.
+  - Observed effect: `@auditor report` answered "no run" for an audited commit (step 9, run 39818084000).
+  - Workaround adopted in `auditor-report.yml`: list recent runs without a filter and select `head_sha` on the client, with the SHA validated as 40 hex characters before it enters `jq`.
 
-## Rodada da instrução 23 (arquivo `instrução21`) — qualificação no sumário
+## Instruction 23 round (file `instrução21`) — qualification in the summary
 
-- **Linha `classificação: … (L-26)` no sumário** (Job Summary e comentário do `@auditor report`), antes do fechamento incondicional da Fase 0. Motivo, do revisor: a L-26 existe para que a declaração viaje com a alegação; uma exceção para "comentário em PR de fork" abre a próxima. O valor vem do `tcb.classification_review_status` de cada relatório; sem relatório legível com o campo, a linha diz "indeterminada", nunca some.
-- **Comentários de PR #1-#9 são legado; qualificação author-self-review é obrigatória em qualquer comentário novo.** Na prática, só o PR #8 tem comentários do `@auditor report` anteriores à linha: o da primeira tentativa do passo 9, que não traz resultado, e o da segunda, que traz o sumário sem a linha. Atualizá-los é opcional e fica fora do fechamento (`roadmap.md`).
+- **The line `classificação: … (L-26)` in the summary** (Job Summary and the `@auditor report` comment), before Phase 0's unconditional closure. Reason, from the reviewer: L-26 exists so that the statement travels with the claim; an exception for "a comment on a fork PR" opens the door to the next one. The value comes from each report's `tcb.classification_review_status`; without a readable report with the field, the line says "indeterminada" (undetermined), and never disappears.
+- **Comments on PRs #1-#9 are legacy; the author-self-review qualification is mandatory on any new comment.** In practice, only PR #8 has `@auditor report` comments that predate the line: the one from step 9's first attempt, which carries no result, and the one from the second, which carries the summary without the line. Updating them is optional and outside the closure (`roadmap.md`).
 
-## Correções feitas na retomada (sessão no Windows)
+## Fixes made on resumption (Windows session)
 
-- O código da Etapa B e da Q5 da sessão anterior não foi preservado: só o `stage_a.py` (já com suporte a allow-list de projeto) e os documentos. A Q5 e a Etapa B foram reimplementadas a partir das decisões registradas.
-- Portabilidade: a saída do Lean passou a ser decodificada como UTF-8 explicitamente (no Windows, o padrão é cp1252, o que quebrava dois testes de ground truth com nomes Unicode).
+- The Stage B and Q5 code from the previous session was not preserved: only `stage_a.py` (already with project allow-list support) and the documents. Q5 and Stage B were re-implemented from the recorded decisions.
+- Portability: Lean's output is now decoded explicitly as UTF-8 (on Windows, the default is cp1252, which broke two ground-truth tests with Unicode names).

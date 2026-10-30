@@ -1,362 +1,366 @@
-# Estudo de usuário (Fase 1, sub-fase 1c)
+# User study (Phase 1, sub-phase 1c)
 
 ```
-status: metodologia aprovada (instrução 27); convite aprovado; seleção dos PRs e defeitos plantados em preparação; recrutamento pendente
-classificação: author-self-review (L-26)
+status: methodology approved (instruction 27); invitation approved; PR selection and planted defects ready; metrics pre-registered (section 11); recruitment pending
+classification: author-self-review (L-26)
 ```
 
-**Pergunta (instrução 24).** A ferramenta reduz o tempo humano líquido de revisão? Ou seja, T_net = T_convencional − T_assistido > 0, com taxa de falsos alertas abaixo de 30 %.
+**Question (instruction 24).** Does the tool reduce net human review time? That is, T_net = T_conventional − T_assisted > 0, with a false-alarm rate below 30 %.
 
-## 0. Escopo: opção (B) da instrução 26, por declaração (instrução 28)
+*Terminology.* "Instruction N" refers to the numbered decisions of the project's external reviewer. Status values such as `Rejeitada` (rejected), `Não resolvida` (unresolved) and `Não conforme` (non-conforming) are quoted exactly as the auditor prints them in its reports.
 
-**Granularidade (instrução 28, Q1 (a)).** A exclusão é **por declaração**, não por PR. Por PR, ela eliminava 9 de 13 PRs (seção 8): `backward.*` aparece em quase todo arquivo, muitas vezes numa declaração entre 80. O PR fica no estudo, e o alerta das causas conhecidas é tratado assim:
-- **Causas conhecidas** (instruções 26 e 28):
-  - `implemented_by_candidate` de `ctorIdx` gerado (L-34);
-  - `set_option_unrecognized`/`set_option_unattributed` de opção `backward.*`;
-  - `target_defines_executable_code` de delaborador ou de extensão do `positivity` em arquivo matemático (L-35).
-- **Briefing:** avisa das causas conhecidas, mas **não diz "ignore"**. Diz: "estes tipos de alerta têm causa conhecida e estão sendo corrigidos; se você os encontrar, registre o tempo gasto neles separadamente". O revisor é instruído a reportar o tempo, não a ignorar.
-- **Taxa de falsos alertas do critério (< 30 %):** medida **só sobre os alertas que não são de causa conhecida**.
+## 0. Scope: option (B) of instruction 26, per declaration (instruction 28)
+
+**Granularity (instruction 28, Q1 (a)).** The exclusion is **per declaration**, not per PR. Per PR, it removed 9 of 13 PRs (section 8): `backward.*` appears in almost every file, often in one declaration out of 80. The PR stays in the study, and alerts from known causes are handled as follows:
+- **Known causes** (instructions 26 and 28):
+  - `implemented_by_candidate` from a generated `ctorIdx` (L-34);
+  - `set_option_unrecognized`/`set_option_unattributed` from a `backward.*` option;
+  - `target_defines_executable_code` from a delaborator or a `positivity` extension in a mathematical file (L-35).
+- **Briefing:** it warns about the known causes but **does not say "ignore"**. It says: "these alert types have a known cause and are being fixed; if you encounter them, record the time you spend on them separately". Participants are asked to report the time, not to ignore the alerts.
+- **False-alarm rate of the criterion (< 30 %):** measured **only over alerts that are not from a known cause**.
 - **T_net:**
-  - o tempo gasto com alertas de causa conhecida é medido à parte e **excluído do T_net principal**;
-  - o relatório traz os dois números: **T_net sem causas conhecidas** (o principal) e **T_net com** (para transparência).
-- **Classificação dos alertas:** cada alerta é atribuído a uma causa pelo próprio relatório do auditor (código e detalhe da razão), mecanicamente, antes de os formulários serem lidos.
+  - the time spent on known-cause alerts is measured separately and **excluded from the main T_net**;
+  - the report gives both numbers: **T_net without known causes** (the main one) and **T_net with them** (for transparency).
+- **Alert classification:** each alert is assigned to a cause mechanically, from the auditor's own report (reason code and detail), before the forms are read.
 
-O texto original da opção (B), a seguir, continua valendo para o objetivo e para o registro do escopo.
+The original text of option (B), below, still holds for the goal and for the record of the scope.
 
-### Opção (B), texto de 2026-10-23
+### Option (B), text of 2026-10-23
 
-**A amostra exclui os casos de `ctorIdx` gerado e de opções `backward.*`.**
-- **Por quê:** com a ferramenta atual, 28,6 % das provas corretas difíceis saem `Não resolvida` por essas duas causas conhecidas (L-31, L-34). Ambas são fail-closed e as duas são P0 da Fase 2. Medir agora a configuração completa daria um T_net negativo pelo motivo errado: não porque a ferramenta não ajude, mas por duas causas de falso positivo que já se sabe que vão mudar.
-- **O que o resultado mede, portanto:** o valor da ferramenta no escopo que ela cobre, não na configuração de produção.
-- **Quando corrige:** a Fase 2, depois de corrigir as duas causas, re-mede com a amostra completa.
-- **Este registro faz parte do resultado** e acompanha qualquer citação dele.
+**The sample excludes the cases of generated `ctorIdx` and of `backward.*` options.**
+- **Why:** with the current tool, 28.6 % of hard correct proofs come out `Não resolvida` because of these two known causes (L-31, L-34). Both are fail-closed, and both are P0 items of Phase 2. Measuring the full configuration now would give a negative T_net for the wrong reason: not because the tool does not help, but because of two causes of false positives that are already known to change.
+- **What the result therefore measures:** the value of the tool within the scope it covers, not in the production configuration.
+- **When this is corrected:** Phase 2, after fixing the two causes, re-measures with the full sample.
+- **This statement is part of the result** and accompanies any citation of it.
 
-## 1. Participantes
+## 1. Participants
 
-- **3 revisores reais do Mathlib**, ou no mínimo 2, com a limitação registrada. A experiência de cada um como revisor do Mathlib é declarada no resultado, sem identificação, salvo consentimento.
-- **Recrutamento:** o mantenedor envia o convite (`docs/user-study-invite.md`) depois da revisão do texto pelo revisor do projeto.
-- **Participação voluntária;** qualquer um pode desistir a qualquer momento.
-- **Tempo estimado:** 2 a 3 horas por revisor (seção 4).
+- **3 real Mathlib reviewers**, or at least 2, with the limitation recorded. Each participant's experience as a Mathlib reviewer is stated in the result, without identification unless they consent.
+- **Recruitment:** the maintainer sends the invitation (`docs/user-study-invite.md`) after the project reviewer has reviewed the text.
+- **Participation is voluntary;** anyone may withdraw at any time.
+- **Estimated time:** 2 to 3 hours per participant (section 4).
 
-## 2. PRs: 10 reais, no fork de medição
+## 2. PRs: 10 real ones, in the measurement fork
 
-- **Origem:** PRs reais do Mathlib integrados depois de `e1b2403b`, reaplicados no fork (`Enzo47961/mathlib4`, branch `auditor-base`) como PRs de medição. O `auditor-tier1` audita cada um.
-- **Seleção mecânica**, com os critérios publicados antes da escolha:
-  - aplica sem conflito sobre `e1b2403b`;
-  - altera de 1 a 5 arquivos `.lean`, com até 300 linhas de diff;
-  - não toca `Tactic/`, `Lean/` nem `Util/` (conteúdo matemático);
-  - a ordem de escolha é a ordem de integração no Mathlib.
-- **Estratos (instrução 24):**
-  - 5 do **caminho de sucesso** (a Etapa A aceita todos os arquivos alterados);
-  - 5 do **caminho fail-closed** (algum arquivo alterado tem item que a Etapa A não reconhece).
-- **Exclusão da opção (B), decidida pelo próprio relatório do auditor:** sai do sorteio o PR em que alguma declaração auditada fica `Não resolvida` por `implemented_by_candidate` de `ctorIdx` gerado, ou por `set_option_unrecognized`/`set_option_unattributed` de opção `backward.*`. A lista de PRs excluídos e o motivo de cada um são publicados com o resultado.
-- **Defeito plantado (aprovado na instrução 27).** Mede se a ferramenta ajuda o revisor a achar um defeito que ele perderia, e não só se economiza tempo em PRs corretos.
-  - **Condição 1: injetado em PR real, nunca construído.** O defeito entra, com alteração pontual, num dos PRs reais selecionados (reaplicado sobre `e1b2403b`). O resto do PR fica intacto, e o revisor não pode distinguir o PR por inspeção.
-    - **PR A (estrato sucesso):** um `sorry` numa dependência a 3 imports de distância do arquivo principal do PR. A alteração na dependência faz parte do diff, como em qualquer PR que toca mais de um arquivo.
-    - **PR B (estrato fail-closed):** um `@[implemented_by]` mentiroso com `native_decide` numa declaração do PR.
-    - **Ground truth formal:** prova da negação do que o defeito "prova", ou o `sorry` em si (`sorryAx` no fecho), conferida como no benchmark (`docs/benchmark.md`).
-  - **Condição 2: três desfechos, reportados separadamente, nunca agregados.** Para cada defeito plantado:
-    - **(a)** a ferramenta sinalizou (`Não resolvida`/`Rejeitada`), e o revisor investigou e achou o defeito. Mede o valor da ferramenta;
-    - **(b)** a ferramenta sinalizou, e o revisor ignorou o alerta e aprovou. Mede o ruído do alerta;
-    - **(c)** a ferramenta não sinalizou. Não deveria acontecer, porque o defeito é fail-closed por construção; se acontecer, é **achado crítico** e entra na L-32.
-  - **Aviso aos participantes:** o convite diz que alguns PRs podem conter defeitos plantados, sem dizer quais.
-  - **Se os 3 revisores vetarem o plantio:** o parágrafo sai do convite, os 10 PRs ficam todos reais, e esta limitação é registrada: "o estudo não mediu a capacidade do revisor de encontrar defeitos plantados, porque os revisores optaram por não participar dessa parte". O estudo continua; a Fase 2 pode re-medir com plantio, se houver revisores dispostos.
+- **Source:** real Mathlib PRs merged after `e1b2403b`, re-applied in the fork (`Enzo47961/mathlib4`, branch `auditor-base`) as measurement PRs. `auditor-tier1` audits each one.
+- **Mechanical selection**, with the criteria published before the choice:
+  - applies cleanly on top of `e1b2403b`;
+  - changes 1 to 5 `.lean` files, with at most 300 diff lines;
+  - does not touch `Tactic/`, `Lean/` or `Util/` (mathematical content);
+  - the order of choice is the merge order in Mathlib.
+- **Strata (instruction 24):**
+  - 5 from the **success path** (Stage A accepts every changed file);
+  - 5 from the **fail-closed path** (some changed file has an item that Stage A does not recognize).
+- **Option (B) exclusion, decided by the auditor's own report:** a PR leaves the draw if some audited declaration is `Não resolvida` because of `implemented_by_candidate` from a generated `ctorIdx`, or because of `set_option_unrecognized`/`set_option_unattributed` from a `backward.*` option. The list of excluded PRs, with the reason for each, is published with the result. (Superseded by the per-declaration exclusion of section 0.)
+- **Planted defect (approved in instruction 27).** It measures whether the tool helps a reviewer find a defect they would otherwise miss, and not only whether it saves time on correct PRs.
+  - **Condition 1: injected into a real PR, never constructed.** The defect is introduced, as a minimal change, into one of the selected real PRs (re-applied on top of `e1b2403b`). The rest of the PR is untouched, and the participant cannot tell the PR apart by inspection.
+    - **PR A (success stratum):** a `sorry` in a dependency 3 imports away from the PR's main file. The change to the dependency is part of the diff, as in any PR that touches more than one file.
+    - **PR B (fail-closed stratum):** a lying `@[implemented_by]` with `native_decide` in a declaration of the PR.
+    - **Formal ground truth:** a proof of the negation of what the defect "proves", or the `sorry` itself (`sorryAx` in the closure), checked as in the benchmark (`docs/benchmark.md`).
+  - **Condition 2: three outcomes, reported separately, never aggregated.** For each planted defect:
+    - **(a)** the tool flagged it (`Não resolvida`/`Rejeitada`), and the participant investigated and found the defect. This measures the tool's value;
+    - **(b)** the tool flagged it, and the participant ignored the alert and approved. This measures alert noise;
+    - **(c)** the tool did not flag it. This should not happen, because the defect is fail-closed by construction; if it does, it is a **critical finding** and goes into L-32.
+  - **Notice to participants:** the invitation says that some PRs may contain planted defects, without saying which.
+  - **If all 3 participants veto planting:** the paragraph is removed from the invitation, all 10 PRs stay real, and this limitation is recorded: "the study did not measure the reviewer's ability to find planted defects, because the participants chose not to take part in that component". The study continues; Phase 2 may re-measure with planting if willing reviewers are found.
 
-## 3. Desenho: cruzado, com ordem aleatória
+## 3. Design: crossover, with randomized order
 
-- Cada PR é revisado por **2 revisores diferentes**: um **com** o auditor (sumário e relatório do PR) e outro **sem** (só o diff).
-- Ninguém revisa o mesmo PR duas vezes. São 20 revisões ao todo, cerca de 7 por revisor, metade com o auditor e metade sem.
-- **Conflito de interesse (instrução 27):** um revisor não é atribuído a revisar o próprio PR. Se um dos 10 PRs tiver um dos revisores como autor, esse revisor não é atribuído a esse PR, e a amostra efetiva para esse revisor é 9, não 10. O sorteio aplica essa restrição antes de distribuir, e a autoria de cada PR é publicada com a atribuição.
-- **A atribuição e a ordem são sorteadas** com uma semente publicada antes do início, para controlar o efeito de aprendizado e a dificuldade do PR.
-- **Condição "sem auditor":** o revisor recebe o diff do PR (link do commit, sem a página do PR no fork, que mostra o sumário).
-- **Condição "com auditor":** o revisor recebe a página do PR no fork, com o Job Summary e o relatório.
-- **O que cada revisão pede:** decidir se o PR pode ser integrado do ponto de vista da integridade das provas (`sorry`, axiomas, avaliação nativa, código que roda na elaboração, comandos de risco). Correspondência e estilo ficam fora, como no auditor.
+- Each PR is reviewed by **2 different participants**: one **with** the auditor (the PR's summary and report) and one **without** it (the diff only).
+- Nobody reviews the same PR twice. There are 20 reviews in total, about 7 per participant, half with the auditor and half without.
+- **Conflict of interest (instruction 27):** a participant is never assigned their own PR. If one of the 10 PRs was authored by a participant, that participant is not assigned that PR, and their effective sample is 9, not 10. The draw applies this constraint before distributing, and the authorship of each PR is published with the assignment.
+- **The assignment and the order are randomized** with a seed published before the start, to control for learning effects and PR difficulty.
+- **"Without auditor" condition:** the participant receives the PR's diff (a commit link, without the PR page in the fork, which shows the summary).
+- **"With auditor" condition:** the participant receives the PR page in the fork, with the Job Summary and the report.
+- **What each review asks for:** decide whether the PR can be merged from the point of view of proof integrity (`sorry`, axioms, native evaluation, code that runs during elaboration, risky commands). Statement correspondence and style are out of scope, as in the auditor.
 
-## 4. Medidas
+## 4. Measures
 
-Cada revisor registra num formulário, por revisão:
-- início e fim da revisão;
-- veredito (íntegro / não íntegro / não sei) e os problemas achados;
-- **na condição com auditor:** o tempo gasto lendo o relatório, e se algum alerta pareceu falso (com o motivo).
+Each participant records in a form, per review:
+- start and end of the review;
+- verdict (sound / not sound / don't know) and the problems found;
+- **in the with-auditor condition:** the time spent reading the report, and whether any alert seemed false (with the reason).
 
-**Derivadas, sempre por PR e por estrato, nunca só agregadas:**
+**Derived measures, always per PR and per stratum, never only aggregated:**
 
-| Medida | Definição |
+| Measure | Definition |
 |---|---|
-| T_convencional, T_assistido | tempo da revisão sem e com o auditor, para o mesmo PR |
-| **T_net** | T_convencional − T_assistido, por PR; resultado = **mediana** dos 10 PRs |
-| Taxa de falsos alertas | alertas **que não são de causa conhecida** (seção 0) que o revisor e o ground truth (ou a aceitação do PR no Mathlib) julgam infundados / alertas que não são de causa conhecida, por PR |
-| Alertas de causa conhecida | contagem e tempo, por causa (`ctorIdx`, `backward.*`, delaborador/`positivity`), reportados à parte |
-| T_net principal × T_net com causas conhecidas | o principal exclui o tempo gasto com alertas de causa conhecida; o segundo inclui, para transparência |
-| Tempo de interpretação | parte do T_assistido gasta lendo o relatório |
-| Falso negativo percebido | problema de integridade achado pelo revisor e não sinalizado pelo auditor |
-| Defeito plantado | desfechos (a), (b) e (c) da seção 2, por defeito e por condição (com/sem auditor), separados |
+| T_conventional, T_assisted | review time without and with the auditor, for the same PR |
+| **T_net** | T_conventional − T_assisted, per PR; result = **median** over the 10 PRs |
+| False-alarm rate | alerts **that are not from a known cause** (section 0) that the participant and the ground truth (or the PR's acceptance in Mathlib) judge unfounded / alerts that are not from a known cause, per PR (superseded by section 11) |
+| Known-cause alerts | count and time, per cause (`ctorIdx`, `backward.*`, delaborator/`positivity`), reported separately |
+| Main T_net × T_net with known causes | the main one excludes the time spent on known-cause alerts; the second includes it, for transparency |
+| Interpretation time | the part of T_assisted spent reading the report |
+| Perceived false negative | an integrity problem found by the participant and not flagged by the auditor |
+| Planted defect | outcomes (a), (b) and (c) of section 2, per defect and per condition (with/without auditor), kept separate |
 
-O custo por revisor é de cerca de 7 revisões de 15 a 25 minutos, mais 15 minutos de instrução: **2 a 3 horas**.
+The cost per participant is about 7 reviews of 15 to 25 minutes, plus a 15-minute briefing: **2 to 3 hours**.
 
-## 5. Critérios (instrução 24)
+## 5. Criteria (instruction 24)
 
-- **Aceitação:** T_net > 0 na mediana, com taxa de falsos alertas < 30 %.
-- **Se não:** registrar como **L-32**: "T_net é X s (meta: > 0); taxa de falsos alertas é Y% (meta: < 30%)".
-- **Kill criterion:** T_net < 0 e falsos alertas > 50 %. Nesse caso a ferramenta aumenta o trabalho humano, e a Fase 2 fica bloqueada até um estudo de acompanhamento mostrar T_net > 0.
-- **A Fase 1 não falha por T_net ≤ 0;** falha por não medir ou por medir com amostra enviesada. A exclusão da opção (B) é declarada justamente para não ser um viés escondido.
+- **Acceptance:** median T_net > 0, with a false-alarm rate < 30 %.
+- **Otherwise:** record as **L-32**: "T_net is X s (target: > 0); false-alarm rate is Y% (target: < 30%)".
+- **Kill criterion:** T_net < 0 and false alarms > 50 %. In that case the tool increases human work, and Phase 2 is blocked until a follow-up study shows T_net > 0.
+- **Phase 1 does not fail because T_net ≤ 0;** it fails by not measuring, or by measuring with a biased sample. The option (B) exclusion is declared precisely so that it is not a hidden bias.
 
-## 6. Limitações (declaradas antes dos números)
+## 6. Limitations (declared before the numbers)
 
-- **Tamanho:** 3 revisores e 10 PRs dão um sinal preliminar, não uma conclusão estatística sobre o Mathlib inteiro. Não haverá teste de significância.
-- **Escopo:** a exclusão da opção (B) torna o resultado não representativo da configuração de produção (seção 0).
-- **Tempo:** autodeclarado.
-- **Recrutamento:** os revisores são voluntários recrutados pelo mantenedor (viés de seleção). A classificação usada pela ferramenta é auto-revisada (L-26).
-- **PRs reaplicados sobre `e1b2403b`,** não os PRs originais no momento da revisão real.
-- **Defeitos plantados** (se aprovados) são artificiais por definição.
+- **Size:** 3 participants and 10 PRs give a preliminary signal, not a statistical conclusion about Mathlib as a whole. There will be no significance test.
+- **Scope:** the option (B) exclusion makes the result unrepresentative of the production configuration (section 0).
+- **Time:** self-reported.
+- **Recruitment:** participants are volunteers recruited by the maintainer (selection bias). The classification used by the tool is self-reviewed (L-26).
+- **PRs re-applied on top of `e1b2403b`,** not the original PRs at the time of their real review.
+- **Planted defects** are artificial by definition.
 
-## 7. Dados e publicação
+## 7. Data and publication
 
-- **Dados brutos:** formulários anonimizados (revisor A, B, C), tempos, vereditos e alertas, publicados com o resultado.
-- **Nomes:** só com consentimento explícito de cada participante.
-- **Qualificação obrigatória em todo lugar:** a classificação é auto-revisada (L-26), e o escopo é o da opção (B).
-- **Resultado:** registrado nesta página e, se for o caso, como L-32.
+- **Raw data:** anonymized forms (participant A, B, C), times, verdicts and alerts, published with the result.
+- **Names:** only with each participant's explicit consent.
+- **Mandatory qualification everywhere:** the classification is self-reviewed (L-26), and the scope is that of option (B).
+- **Result:** recorded on this page and, if applicable, as L-32.
 
-## 8. Resultado da seleção e da exclusão (B): parada para decisão (2026-10-23)
+## 8. Result of the selection and of the (B) exclusion: stop for a decision (2026-10-23)
 
-**Seleção mecânica** (`tools/phase1/study_select.py`; `study/selection.json`): dos 31 PRs integrados ao Mathlib depois de `e1b2403b`, **13 elegíveis**, 8 do estrato sucesso e 5 do fail-closed. Os demais saíram por CI, documentação, infraestrutura, mais de 5 arquivos ou diff que não aplica.
+**Mechanical selection** (`tools/phase1/study_select.py`; `study/selection.json`): of the 31 PRs merged into Mathlib after `e1b2403b`, **13 are eligible**, 8 in the success stratum and 5 in the fail-closed one. The others were dropped for being CI, documentation or infrastructure, for having more than 5 files, or for a diff that does not apply.
 
-**Exclusão (B), por PR** (`tools/phase1/study_audit.py`; `study/audit.json`; run 39936018705): **9 dos 13 excluídos**.
+**(B) exclusion, per PR** (`tools/phase1/study_audit.py`; `study/audit.json`; run 39936018705): **9 of the 13 excluded**.
 
-| PR | Estrato | Exclusão | `verified` / declarações |
+| PR | Stratum | Exclusion | `verified` / declarations |
 |---|---|---|---|
 | #45105 | fail-closed | `backward.*` | 0/248 |
-| #45097 | fail-closed | mantido | 229/432 |
-| #45102 | sucesso | `backward.*` | 82/83 |
-| #43841 | sucesso | mantido | 0/88 (só `target_defines_executable_code`: um delaborador) |
-| #44400 | sucesso | mantido | 62/62 |
+| #45097 | fail-closed | kept | 229/432 |
+| #45102 | success | `backward.*` | 82/83 |
+| #43841 | success | kept | 0/88 (only `target_defines_executable_code`: one delaborator) |
+| #44400 | success | kept | 62/62 |
 | #44425 | fail-closed | `backward.*`, `ctorIdx` | 0/175 |
 | #44511 | fail-closed | `backward.*` | 222/636 |
 | #44969 | fail-closed | `backward.*` | 90/293 |
-| #45117 | sucesso | `backward.*` | 76/77 |
-| #44973 | sucesso | `backward.*` | 88/117 |
-| #45025 | sucesso | mantido | 114/114 |
-| #45180 | sucesso | `backward.*` | 73/74 |
-| #45114 | sucesso | `backward.*` | 177/178 |
+| #45117 | success | `backward.*` | 76/77 |
+| #44973 | success | `backward.*` | 88/117 |
+| #45025 | success | kept | 114/114 |
+| #45180 | success | `backward.*` | 73/74 |
+| #45114 | success | `backward.*` | 177/178 |
 
-**Mantidos:** 3 do sucesso (#43841, #44400, #45025) e 1 do fail-closed (#45097). Faltam 6 para os 10.
+**Kept:** 3 from the success stratum (#43841, #44400, #45025) and 1 from the fail-closed one (#45097). Six short of the 10.
 
-**Achado 1: `backward.*` está em quase todo arquivo alterado.** Em 5 dos 9 excluídos, a causa é **uma** declaração entre 74 e 178. A exclusão por PR elimina o PR inteiro por uma declaração.
+**Finding 1: `backward.*` is in almost every changed file.** In 5 of the 9 excluded PRs, the cause is **one** declaration out of 74 to 178. Excluding per PR drops the whole PR because of one declaration.
 
-**Achado 2: a regra por ambiente da L-33a dispara em arquivos matemáticos.** As constantes marcadas (`target_defines_executable_code`) são:
-- **delaboradores:** escritos à mão (`@[delab …]`, como `WithAbs.delabToAbs`) ou gerados por `notation`/`notation3` (`…_delab_app_…`);
-- **extensões do `positivity`** (`@[positivity]`): `evalIntervalLength`, `evalGelfandRadius`.
+**Finding 2: the environment rule of L-33a fires on mathematical files.** The flagged constants (`target_defines_executable_code`) are:
+- **delaborators:** hand-written (`@[delab …]`, such as `WithAbs.delabToAbs`) or generated by `notation`/`notation3` (`…_delab_app_…`);
+- **`positivity` extensions** (`@[positivity]`): `evalIntervalLength`, `evalGelfandRadius`.
 
-Os dois são código que o elaborador executa: delaboradores, ao formatar mensagens durante a elaboração; `positivity`, quando a tática é usada. Pela L-33a, `Não resolvida` é o resultado correto (fail-closed). Mas é um **custo de cobertura não medido até aqui**: no #43841, um único delaborador derruba as 88 declarações do arquivo. Esse custo apareceu em 5 dos 13 PRs. Nos arquivos com `notation`, ele se soma ao fail-closed da Etapa A.
+Both are code that the elaborator executes: delaborators when formatting messages during elaboration; `positivity` extensions when the tactic is used. Under L-33a, `Não resolvida` is the correct (fail-closed) result. But it is a **coverage cost that had not been measured**: in #43841, a single delaborator brings down all 88 declarations of the file. This cost appeared in 5 of the 13 PRs. In files with `notation`, it adds to Stage A's fail-closed.
 
-**Decisão pedida ao revisor** antes de o convite ser enviado e de os defeitos serem injetados: relatório de 23/10, perguntas 1 e 2.
+**Decision requested from the project reviewer** before the invitation is sent and the defects are injected: report of 2026-10-23, questions 1 and 2.
 
-**Decisão (instrução 28):**
-- **Q1:** opção (a), exclusão por declaração, com a especificação da seção 0. Os 13 PRs elegíveis ficam no estudo.
+**Decision (instruction 28):**
+- **Q1:** option (a), per-declaration exclusion, as specified in section 0. The 13 eligible PRs stay in the study.
 - **Q2:**
-  - L-35, com o alcance medido no Mathlib inteiro;
-  - delaboradores e `positivity` como causa conhecida na 1c;
-  - a Fase 2 distingue o delaborador escrito à mão (fail-closed correto) do gerado pelo toolchain (candidato a TCB).
-- **Defeitos plantados:** em declarações cujo alerta **não** seja de causa conhecida, verificado com o auditor:
-  - PR A num PR do estrato sucesso (#44400 ou #45025);
-  - PR B no #45097, ou também num do sucesso se o #45097 não tiver declaração elegível.
+  - L-35, with its reach measured over the whole of Mathlib;
+  - delaborators and `positivity` as a known cause in 1c;
+  - Phase 2 distinguishes hand-written delaborators (correctly fail-closed) from toolchain-generated ones (TCB candidates).
+- **Planted defects:** in declarations whose alert is **not** from a known cause, checked with the auditor:
+  - PR A in a success-stratum PR (#44400 or #45025);
+  - PR B in #45097, or also in a success-stratum PR if #45097 has no eligible declaration.
 
-**Defeitos injetados e conferidos** (`study/defects.json`, `study/defects/`; `auditor-study`, modo `defects`, run 39973055204, auditor `dce313c`):
+**Defects injected and checked** (`study/defects.json`, `study/defects/`; `auditor-study`, `defects` mode, run 39973055204, auditor `dce313c`):
 
-| Defeito | PR (estrato) | Alteração | Ground truth | Resultado do auditor |
+| Defect | PR (stratum) | Change | Ground truth | Auditor result |
 |---|---|---|---|---|
-| A | #45025 (sucesso) | `sorry` na prova de `isUnit_mul_self_iff` (`Algebra/Group/Commute/Units.lean`), a 3 imports do arquivo do PR. O lema novo do PR, `Units.isSquare_coe_iff`, o usa. | `sorryAx` no fecho | as duas declarações saem `Rejeitada`, com `sorryAx_detected` |
-| B | #45097 (fail-closed) | `@[implemented_by iInterIndexImpl]` (soma) numa auxiliar `private` que calcula `a * b`, mais `native_decide` provando `iInterIndexAux 2 3 = 5` dentro de `measure_iInter_eq_iInf_measure_iInter_le`. O arquivo sai 19/19 verified sem o defeito. | `2 * 3 = 6 ≠ 5`; só o código compilado diz 5 | `Rejeitada`, com `implemented_by_reaches_native_eval` |
+| A | #45025 (success) | `sorry` in the proof of `isUnit_mul_self_iff` (`Algebra/Group/Commute/Units.lean`), 3 imports away from the PR's file. The PR's new lemma, `Units.isSquare_coe_iff`, uses it. | `sorryAx` in the closure | both declarations come out `Rejeitada`, with `sorryAx_detected` |
+| B | #45097 (fail-closed) | `@[implemented_by iInterIndexImpl]` (addition) on a `private` helper that computes `a * b`, plus `native_decide` proving `iInterIndexAux 2 3 = 5` inside `measure_iInter_eq_iInf_measure_iInter_le`. Without the defect, the file is 19/19 verified. | `2 * 3 = 6 ≠ 5`; only the compiled code says 5 | `Rejeitada`, with `implemented_by_reaches_native_eval` |
 
-Nenhuma das duas razões é de causa conhecida.
+Neither reason is a known cause. (Defect A later moved to #44400; see section 9.)
 
-**Briefing: onde está o defeito** (instrução 29). O briefing diz explicitamente que um defeito plantado **não está necessariamente na declaração que o revisor está olhando**: pode estar numa dependência. Este é o caso do defeito A, cujo `sorry` está a 3 imports do arquivo do PR. Quando o alerta aponta para uma origem em outro arquivo (as `origins` do `sorryAx_detected`), o revisor deve seguir até lá. O convite não traz essa nuance; ela é do briefing.
+**Briefing: where the defect is** (instruction 29). The briefing states explicitly that a planted defect **is not necessarily in the declaration the participant is looking at**: it may be in a dependency. This is the case of defect A, whose `sorry` is 3 imports away from the PR's file. When an alert points to an origin in another file (the `origins` of `sorryAx_detected`), the participant should follow it there. The invitation does not include this nuance; it belongs to the briefing.
 
-**Primeira tentativa do B: erro meu.** Usei `Nat.add` como alvo de `implemented_by`, e o Lean o rejeita. Sem a troca, o `native_decide` avaliou o valor verdadeiro e recusou a proposição (run 39971602437). Corrigi com uma implementação própria, na forma do caso C08 do benchmark.
+**First attempt at B: our error.** We used `Nat.add` as the `implemented_by` target, and Lean rejects it. Without the substitution, `native_decide` evaluated the true value and refused the proposition (run 39971602437). This was fixed with a dedicated implementation, in the form of benchmark case C08.
 
-## 9. Coleta dos dados (instrução 29, item 5)
+## 9. Data collection (instruction 29, item 5)
 
-Preparada antes das respostas dos revisores, para a 1c começar sem atraso. Ferramenta: `tools/phase1/study_run.py`, com testes em `tests/maintenance/test_phase1_tools.py`.
+Prepared before the participants' replies, so that 1c can start without delay. Tool: `tools/phase1/study_run.py`, tested in `tests/maintenance/test_phase1_tools.py`.
 
-**1. Os 10 PRs** (`study/prs.json`, `study_run.py prs`). A regra mecânica da seção 2 escolhe 5 PRs por estrato, na ordem de integração no Mathlib, entre os 13 elegíveis:
-- **sucesso:** #45102, #43841, #44400, #45117, #44973;
+**1. The 10 PRs** (`study/prs.json`, `study_run.py prs`). The mechanical rule of section 2 picks 5 PRs per stratum, in Mathlib merge order, among the 13 eligible ones:
+- **success:** #45102, #43841, #44400, #45117, #44973;
 - **fail-closed:** #45105, #45097, #44425, #44511, #44969.
 
-Por essa regra, o #45025 é o 6º do estrato sucesso e fica de fora. Por isso o **defeito A foi movido para o #44400**, a outra opção que a instrução 28 autorizou. O novo defeito é um `sorry` em `Set.mul_mem_mul` (`Algebra/Group/Pointwise/Set/Basic.lean`), a 3 imports de `RingTheory/MvPowerSeries/Restricted.lean`. Pelo `to_additive`, o `sorry` chega a `Set.add_mem_add` e daí a `tendsto_sup'_antidiagonal_cofinite`. Dela dependem `MvPowerSeries.tendsto_antidiagonal`, `IsRestricted.mul`, `IsRestricted.subring` e as instâncias que o PR altera. A versão no #45025 está registrada em `study/defects.json` (`history`).
+Under this rule, #45025 is the 6th of the success stratum and is left out. Therefore **defect A was moved to #44400**, the other option authorized by instruction 28. The new defect is a `sorry` in `Set.mul_mem_mul` (`Algebra/Group/Pointwise/Set/Basic.lean`), 3 imports away from `RingTheory/MvPowerSeries/Restricted.lean`. Through `to_additive`, the `sorry` reaches `Set.add_mem_add` and from there `tendsto_sup'_antidiagonal_cofinite`. `MvPowerSeries.tendsto_antidiagonal`, `IsRestricted.mul`, `IsRestricted.subring` and the instances the PR changes all depend on it. The #45025 version is recorded in `study/defects.json` (`history`).
 
-**2. Semente publicada:** `1818766798` (`study/seed.txt`). Foi gerada e publicada em 23/10/2026, antes de qualquer resposta ao convite. O sorteio depende só da semente, de `study/prs.json` e da lista de revisores, então qualquer um pode reproduzi-lo.
+**2. Published seed:** `1818766798` (`study/seed.txt`). It was generated and published on 2026-10-23, before any reply to the invitation. The draw depends only on the seed, on `study/prs.json` and on the list of participants, so anyone can reproduce it.
 
-**3. Sorteio** (`study_run.py assign`). Cada PR vai para 2 revisores diferentes, um **com** e outro **sem** o auditor. As restrições:
-- ninguém revisa PR de que é autor (conflito de interesse, instrução 27);
-- a carga é equilibrada (7, 7, 6 com 3 revisores);
-- em cada revisor, a diferença entre revisões com e sem o auditor é de no máximo 1;
-- a ordem das revisões de cada revisor é aleatória.
+**3. Draw** (`study_run.py assign`). Each PR goes to 2 different participants, one **with** and one **without** the auditor. The constraints:
+- nobody reviews a PR they authored (conflict of interest, instruction 27);
+- the load is balanced (7, 7, 6 with 3 participants);
+- for each participant, the difference between reviews with and without the auditor is at most 1;
+- the order of each participant's reviews is random.
 
-O sorteio é por rejeição: vale a primeira tentativa do gerador que satisfaz as restrições, e o número da tentativa é publicado. A identidade dos revisores (`study/reviewers.json`, com o usuário do GitHub para o conflito de interesse) **não** é versionada. A atribuição publicada usa só A, B e C, e lista os pares (PR, revisor) excluídos por conflito.
+The draw uses rejection sampling: the first attempt of the generator that satisfies the constraints is used, and the attempt number is published. The participants' identities (`study/reviewers.json`, with GitHub usernames for the conflict-of-interest check) are **not** version-controlled. The published assignment uses only A, B and C, and lists the (PR, participant) pairs excluded for conflict of interest.
 
-**4. Formulário** (`study_run.py forms`): um CSV por revisor, com as revisões na ordem sorteada.
+**4. Form** (`study_run.py forms`): one CSV per participant, with the reviews in the drawn order.
 
-| Coluna | Conteúdo |
+| Column | Content |
 |---|---|
-| `order`, `pr`, `condition` | preenchidas pelo sorteio (`with` = com auditor, `without` = sem) |
-| `start`, `end` | início e fim da revisão (ISO 8601, por exemplo `2026-11-03T14:05`) |
-| `verdict` | `integro`, `nao_integro` ou `nao_sei` |
-| `problems_found` | os problemas de integridade achados, em texto livre |
-| `report_reading_min` | só com auditor: minutos lendo o relatório |
-| `causes_judged_false` | só com auditor: as **causas** (arquivo:código[:opção], como no relatório) cujo alerta pareceu falso, separadas por `;`, com o motivo em `notes` (instrução 30) |
-| `known_cause_min` | só com auditor: minutos gastos com alertas de causa conhecida (seção 0) |
-| `noncoverage_min` | só com auditor: minutos gastos com alertas de não-cobertura (`Não resolvida` por fail-closed; instrução 30) |
-| `notes` | livre |
+| `order`, `pr`, `condition` | filled in by the draw (`with` = with auditor, `without` = without) |
+| `start`, `end` | start and end of the review (ISO 8601, e.g. `2026-11-03T14:05`) |
+| `verdict` | `integro` (sound), `nao_integro` (not sound) or `nao_sei` (don't know) |
+| `problems_found` | the integrity problems found, as free text |
+| `report_reading_min` | with auditor only: minutes spent reading the report |
+| `causes_judged_false` | with auditor only: the **causes** (file:code[:option], as in the report) whose alert seemed false, separated by `;`, with the reason in `notes` (instruction 30) |
+| `known_cause_min` | with auditor only: minutes spent on known-cause alerts (section 0) |
+| `noncoverage_min` | with auditor only: minutes spent on non-coverage alerts (`Não resolvida` due to fail-closed; instruction 30) |
+| `notes` | free text |
 
-**5. Alertas** (`study_audit.py --prs study/prs.json --defects study/defects.json` e depois `study_run.py alerts`). O auditor roda nos 10 PRs **como os revisores os veem**, isto é, com os defeitos plantados aplicados. Cada alerta (declaração não `verified`) é atribuído a uma causa mecanicamente, **antes** de os formulários serem lidos. Um alerta é de causa conhecida quando todas as razões dele são de causa conhecida.
+**5. Alerts** (`study_audit.py --prs study/prs.json --defects study/defects.json`, then `study_run.py alerts`). The auditor runs on the 10 PRs **as the participants see them**, i.e. with the planted defects applied. Each alert (non-`verified` declaration) is assigned to a cause mechanically, **before** the forms are read. An alert is a known-cause alert when all its reasons are known causes.
 
-**6. Relatório final** (`study_run.py report`, em `study/result.json`). Traz:
-- por PR e por estrato (nunca só o agregado): T_convencional, T_assistido, **T_net principal** (sem o tempo das causas conhecidas), T_net com as causas conhecidas, tempo de leitura e alertas (de causa conhecida e outros);
-- a **taxa de falsos alertas**, só sobre os alertas que não são de causa conhecida. O alerta numa declaração com defeito plantado nunca conta como falso;
-- a mediana por estrato e no total;
-- os **defeitos plantados**: por defeito e por condição, se o revisor achou o defeito, e, na condição com auditor, o desfecho (a), (b) ou (c) da seção 2;
-- os critérios da seção 5, escritos no próprio resultado.
+**6. Final report** (`study_run.py report`, in `study/result.json`). It contains:
+- per PR and per stratum (never only the aggregate): T_conventional, T_assisted, **main T_net** (without the time on known causes), T_net with known causes, reading time and alerts (known-cause and other);
+- the **false-alarm rate** (as defined in section 11);
+- the median per stratum and overall;
+- the **planted defects**: per defect and per condition, whether the participant found the defect, and, in the with-auditor condition, outcome (a), (b) or (c) of section 2;
+- the criteria of section 5, written into the result itself.
 
-**Briefing (15 minutos), conteúdo fixo:**
-- o que o auditor verifica e o que não verifica;
-- as causas conhecidas e o pedido de registrar o tempo gasto nelas (seção 0, sem dizer "ignore");
-- que o defeito plantado pode estar numa dependência, e não na declaração principal (seção 8);
-- como preencher o formulário.
+**Briefing (15 minutes), fixed content:**
+- what the auditor checks and what it does not;
+- the known causes, and the request to record the time spent on them (section 0, without saying "ignore");
+- that the planted defect may be in a dependency, not in the main declaration (section 8);
+- how to fill in the form.
 
-## 10. Alertas dos 10 PRs e pergunta antes da primeira revisão (2026-10-23)
+## 10. Alerts of the 10 PRs and a question before the first review (2026-10-23)
 
-O auditor rodou nos 10 PRs como os revisores os veem, com os defeitos aplicados (`auditor-study`, modo `study`, run 39977160187, auditor `ae9f791`). Os defeitos foram conferidos na run 39977153820. Os 10 PRs compilam. Os alertas estão em `study/alerts.json`, atribuídos mecanicamente antes de qualquer formulário.
+The auditor ran on the 10 PRs as the participants see them, with the defects applied (`auditor-study`, `study` mode, run 39977160187, auditor `ae9f791`). The defects were checked in run 39977153820. All 10 PRs compile. The alerts are in `study/alerts.json`, assigned mechanically before any form.
 
-| PR | Estrato | `verified` | Alertas (declarações): conhecidos / outros | Causas distintas (arquivo + razão): conhecidas / outras |
+| PR | Stratum | `verified` | Alerts (declarations): known / other | Distinct causes (file + reason): known / other |
 |---|---|---|---|---|
-| #45102 | sucesso | 82/83 | 1 / 0 | 1 / 0 |
-| #43841 | sucesso | 0/88 | 88 / 0 | 1 / 0 |
-| #44400 (defeito A) | sucesso | 386/441 | 0 / 55 | 0 / 2 (o `sorry`) |
-| #45117 | sucesso | 76/77 | 1 / 0 | 1 / 0 |
-| #44973 | sucesso | 88/117 | 29 / 0 | 2 / 0 |
+| #45102 | success | 82/83 | 1 / 0 | 1 / 0 |
+| #43841 | success | 0/88 | 88 / 0 | 1 / 0 |
+| #44400 (defect A) | success | 386/441 | 0 / 55 | 0 / 2 (the `sorry`) |
+| #45117 | success | 76/77 | 1 / 0 | 1 / 0 |
+| #44973 | success | 88/117 | 29 / 0 | 2 / 0 |
 | #45105 | fail-closed | 0/248 | 0 / 248 | 2 / 1 |
-| #45097 (defeito B) | fail-closed | 227/434 | 0 / 207 | 0 / 5 (2 do defeito) |
+| #45097 (defect B) | fail-closed | 227/434 | 0 / 207 | 0 / 5 (2 from the defect) |
 | #44425 | fail-closed | 0/175 | 132 / 43 | 3 / 1 |
 | #44511 | fail-closed | 222/636 | 2 / 412 | 3 / 3 |
 | #44969 | fail-closed | 90/293 | 186 / 17 | 12 / 1 |
 
-Contando por causa distinta, há 25 alertas de causa conhecida e 13 outros. Dos 13, 4 vêm dos defeitos plantados. Os outros 9 são todos `stage_a_unrecognized`: o fail-closed do estrato fail-closed, sem defeito na prova.
+Counting by distinct cause, there are 25 known-cause alerts and 13 others. Of the 13, 4 come from the planted defects. The remaining 9 are all `stage_a_unrecognized`: the fail-closed behaviour of the fail-closed stratum, with no defect in the proof.
 
-**Duas definições a fixar antes da primeira revisão** (relatório de 23/10 ao revisor). Se fossem decididas depois de ver os formulários, isso seria escolher a métrica pelo resultado.
-1. **Unidade de alerta: declaração ou causa distinta?** Por declaração, uma única causa num arquivo vira dezenas ou centenas de alertas (88 no #43841, 412 no #44511). Nenhum revisor julga 412 declarações uma a uma, e a taxa ficaria pesada nos arquivos grandes. Por causa distinta (arquivo + código da razão + opção, quando houver), a unidade é o que o revisor de fato lê e julga.
-2. **`Não resolvida` por fail-closed conta como falso alerta?** No estrato fail-closed, todo alerta que não é de causa conhecida e não vem de defeito é `stage_a_unrecognized`: a ferramenta diz "não consigo verificar", não "está errado". Se ele contar como falso alerta, a taxa nesse estrato é cerca de 9 em 9, por desenho, e o critério de morte (> 50 %) dispara por construção.
+**Two definitions to fix before the first review** (report of 2026-10-23 to the project reviewer). Deciding them after seeing the forms would amount to choosing the metric by the result.
+1. **Alert unit: declaration or distinct cause?** Per declaration, a single cause in a file becomes dozens or hundreds of alerts (88 in #43841, 412 in #44511). No participant judges 412 declarations one by one, and the rate would be dominated by large files. Per distinct cause (file + reason code + option, when present), the unit is what the participant actually reads and judges.
+2. **Does a fail-closed `Não resolvida` count as a false alarm?** In the fail-closed stratum, every alert that is neither a known cause nor a defect is `stage_a_unrecognized`: the tool says "I cannot verify", not "this is wrong". If it counted as a false alarm, the rate in that stratum would be about 9 out of 9 by design, and the kill criterion (> 50 %) would fire by construction.
 
-## 11. Pre-registered metrics (instrução 30, 23/10/2026)
+## 11. Pre-registered metrics (instruction 30, 2026-10-23)
 
-**Data do pré-registro:** 23/10/2026. É anterior ao envio do convite, a qualquer resposta e a qualquer formulário. Esta seção substitui as definições de falso alerta das seções 0 e 4 onde elas divergirem. Nada daqui muda depois dos dados; um desvio só pode ser reportado como desvio, com o motivo.
+**Pre-registration date:** 2026-10-23. It precedes the sending of the invitation, any reply and any form. This section supersedes the false-alarm definitions of sections 0 and 4 where they differ. Nothing here changes after the data are in; a deviation can only be reported as a deviation, with its reason.
 
-**Congelamento:**
-- **data:** 23/10/2026;
-- **run que gerou os alertas:** 39977160187 (`auditor-study`, modo `study`; auditor `ae9f791`; Mathlib `e1b2403b`);
-- **commit dos artefatos:** `4feec56`.
+**Freeze:**
+- **date:** 2026-10-23;
+- **run that generated the alerts:** 39977160187 (`auditor-study`, `study` mode; auditor `ae9f791`; Mathlib `e1b2403b`);
+- **commit of the artifacts:** `4feec56`.
 
-Qualquer um pode conferir que os alertas não mudaram entre o congelamento e a análise: os hashes abaixo são do conteúdo no commit, e a run guarda os relatórios de origem.
+Anyone can check that the alerts did not change between the freeze and the analysis: the hashes below are of the content at that commit, and the run keeps the source reports.
 
-**Artefatos congelados** (SHA-256 do conteúdo no commit `4feec56`):
+**Frozen artifacts** (SHA-256 of the content at commit `4feec56`):
 
-| Artefato | Origem | SHA-256 |
+| Artifact | Origin | SHA-256 |
 |---|---|---|
-| `study/alerts.json` | relatórios da run 39977160187 (`auditor-study`, modo `study`), auditor `ae9f791`, Mathlib `e1b2403b` | `9d5b8fe308dc31348db45828de43c229c734185932de17bb213146eb91e42761` |
-| `study/categories.json` | `study_run.py classify` sobre os dois de cima | `e4baa167ecba3d8d8dbdf2c7d504dece8ef3eab9bc0157ac2027e091aa984499` |
-| `study/defects.json` | ground truth dos defeitos (conferidos na run 39977153820) | `a194581230cd7b7d756d480f333403810a8aae09266bf746643d495d73c2ce03` |
-| `study/prs.json` | os 10 PRs (regra mecânica da seção 2) | `59a642a6d264180724b979c8518166206bfbbf1ce84deea0a2d34580d945e3ac` |
-| `study/seed.txt` | semente `1818766798`, publicada em 23/10/2026 | `07fafe21461fab9fbfb1d0663936bb56fd9986e4c45de2dba09482abdc689d6d` |
-| `tools/phase1/study_run.py` | o código da análise (sorteio, taxonomia, relatório) | `c4d63260fa6898679b0665000deaae33e31bf5aabf2fe57f9be37cd0703073ff` |
+| `study/alerts.json` | reports from run 39977160187 (`auditor-study`, `study` mode), auditor `ae9f791`, Mathlib `e1b2403b` | `9d5b8fe308dc31348db45828de43c229c734185932de17bb213146eb91e42761` |
+| `study/categories.json` | `study_run.py classify` over the two above | `e4baa167ecba3d8d8dbdf2c7d504dece8ef3eab9bc0157ac2027e091aa984499` |
+| `study/defects.json` | ground truth of the defects (checked in run 39977153820) | `a194581230cd7b7d756d480f333403810a8aae09266bf746643d495d73c2ce03` |
+| `study/prs.json` | the 10 PRs (mechanical rule of section 2) | `59a642a6d264180724b979c8518166206bfbbf1ce84deea0a2d34580d945e3ac` |
+| `study/seed.txt` | seed `1818766798`, published on 2026-10-23 | `07fafe21461fab9fbfb1d0663936bb56fd9986e4c45de2dba09482abdc689d6d` |
+| `tools/phase1/study_run.py` | the analysis code (draw, taxonomy, report) | `c4d63260fa6898679b0665000deaae33e31bf5aabf2fe57f9be37cd0703073ff` |
 
-### 11.1 Unidade de alerta
+The frozen artifacts are kept byte-for-byte as committed, including the Portuguese text inside them (for example the defect descriptions in `study/defects.json` and the comments in `study_run.py`); translating them would change the hashes.
 
-**Causa distinta:** arquivo + código da razão + opção, quando houver (por exemplo, `Mathlib/X.lean:set_option_unrecognized:backward.foo`). É a métrica principal, porque é o que o revisor julga. **Declarações afetadas** são sempre reportadas junto, para transparência: sem elas, o leitor não sabe se uma causa afeta 1 declaração ou 412.
+### 11.1 Alert unit
 
-### 11.2 Taxonomia (cinco categorias, atribuídas mecanicamente)
+**Distinct cause:** file + reason code + option, when present (for example `Mathlib/X.lean:set_option_unrecognized:backward.foo`). It is the main metric, because it is what the participant judges. **Affected declarations** are always reported alongside, for transparency: without them, a reader cannot tell whether a cause affects 1 declaration or 412.
 
-| # | Categoria | Declaração | Causa |
+### 11.2 Taxonomy (five categories, assigned mechanically)
+
+| # | Category | Declaration | Cause |
 |---|---|---|---|
-| 1 | Verificação correta | `verified`, sem defeito real | (não há causa) |
-| 2 | **Falso alerta** | alguma razão **afirma** problema, sem defeito real | razão afirmativa, sem defeito real |
-| 3 | Causa conhecida | todas as razões são de causa conhecida (seção 0) | razão de causa conhecida |
-| 4 | Não-cobertura | `Não resolvida`/`Não resolvido` por fail-closed (os demais casos), sem defeito real | razão que não afirma problema |
-| 5 | Detecção correta | alguma razão corresponde ao defeito real | razão de `defect_reasons` nos arquivos do defeito |
+| 1 | Correct verification | `verified`, no real defect | (no cause) |
+| 2 | **False alarm** | some reason **asserts** a problem, with no real defect | asserting reason, no real defect |
+| 3 | Known cause | all reasons are known causes (section 0) | known-cause reason |
+| 4 | Non-coverage | `Não resolvida`/`Não resolvido` due to fail-closed (all other cases), no real defect | reason that does not assert a problem |
+| 5 | Correct detection | some reason corresponds to the real defect | reason in `defect_reasons`, in the defect's files |
 
-As regras:
-- **Razão afirmativa** é a de efeito `rejected`/`nonconforming` no agregador (`src/auditor/aggregator.py`): `*_detected`, `*_reaches_native_eval`, `elaboration_executes_code`, `orphan_justification`, `set_option_violation`, `forbidden_axiom`, `native_decide_unjustified` e `native_decide_justification_malformed`. As outras dizem "não consigo verificar".
-- **Defeito real** é o plantado, pelo `defect_reasons` de `study/defects.json`, ou um defeito achado por revisor e confirmado por ground truth formal. Neste caso, ele é registrado como achado, com a prova, e a declaração passa para a categoria 5.
-- **Precedência na declaração:** 1 se `verified`; senão 5, se houver razão de defeito; senão 2, se houver razão afirmativa; senão 3, se todas as razões forem de causa conhecida; senão 4.
-- O código é `study_run.classify`, com testes em `tests/maintenance/test_phase1_tools.py`.
+The rules:
+- **An asserting reason** is one whose effect in the aggregator (`src/auditor/aggregator.py`) is `rejected`/`nonconforming`: `*_detected`, `*_reaches_native_eval`, `elaboration_executes_code`, `orphan_justification`, `set_option_violation`, `forbidden_axiom`, `native_decide_unjustified` and `native_decide_justification_malformed`. All other reasons say "I cannot verify".
+- **A real defect** is a planted one, per `defect_reasons` in `study/defects.json`, or a defect found by a participant and confirmed by a formal ground truth. In the latter case, it is recorded as a finding, with the proof, and the declaration moves to category 5.
+- **Precedence within a declaration:** 1 if `verified`; otherwise 5 if there is a defect reason; otherwise 2 if there is an asserting reason; otherwise 3 if all reasons are known causes; otherwise 4.
+- The code is `study_run.classify`, tested in `tests/maintenance/test_phase1_tools.py`.
 
-### 11.3 Fórmulas
+### 11.3 Formulas
 
-- **Taxa de falsos alertas** (critérios das seções 5 e 6) = categoria 2 / (categoria 1 + categoria 2), em **declarações**, **só no estrato sucesso**.
-  - No estrato fail-closed, a categoria 1 é rara, e a taxa não é definida.
-  - A categoria 2 também é reportada em causas.
-  - A unidade é declaração porque a categoria 1 (`verified`) não tem causa. **Confirmado pelo revisor** (instrução 31). O denominador é o conjunto das declarações que a ferramenta avaliou sem alarme (1) ou com alarme falso (2). As categorias 3 e 4 ficam fora, porque admitem limitação em vez de avaliar.
-  - **Os dois números são sempre reportados:** a taxa em declarações (a fórmula) e a contagem em causas distintas (transparência).
-- **Taxa de não-cobertura** = categoria 4 / todas as declarações, por estrato, com o número de causas e o tempo que o revisor gastou nelas (coluna `noncoverage_min`).
-- **T_net principal** = T_convencional − (T_assistido − tempo em causas conhecidas), por PR.
-  - O resultado é a **mediana** dos 10 PRs, reportada também por estrato.
-  - O tempo em não-cobertura **fica** no T_net: é custo real.
-- **T_net secundário** = T_convencional − T_assistido, com as causas conhecidas incluídas, para transparência.
-- **Falso alerta percebido:** as causas que o revisor marcou como falsas (`causes_judged_false`), reportadas por categoria e separadas da taxonomia mecânica. Medem a leitura do revisor, não a ferramenta.
+- **False-alarm rate** (criteria of sections 5 and 6) = category 2 / (category 1 + category 2), in **declarations**, **in the success stratum only**.
+  - In the fail-closed stratum, category 1 is rare, and the rate is not defined.
+  - Category 2 is also reported in causes.
+  - The unit is the declaration because category 1 (`verified`) has no cause. **Confirmed by the project reviewer** (instruction 31). The denominator is the set of declarations that the tool evaluated without an alarm (1) or with a false alarm (2). Categories 3 and 4 are left out, because they admit a limitation instead of evaluating.
+  - **Both numbers are always reported:** the rate in declarations (the formula) and the count in distinct causes (transparency).
+- **Non-coverage rate** = category 4 / all declarations, per stratum, with the number of causes and the time the participant spent on them (column `noncoverage_min`).
+- **Main T_net** = T_conventional − (T_assisted − time on known causes), per PR.
+  - The result is the **median** over the 10 PRs, also reported per stratum.
+  - Time on non-coverage **stays** in T_net: it is a real cost.
+- **Secondary T_net** = T_conventional − T_assisted, with known causes included, for transparency.
+- **Perceived false alarm:** the causes the participant marked as false (`causes_judged_false`), reported per category and kept separate from the mechanical taxonomy. They measure the participant's reading, not the tool.
 
-### 11.4 Defeitos plantados: os três desfechos
+### 11.4 Planted defects: the three outcomes
 
-Os desfechos valem para a revisão **com** auditor do PR do defeito:
-- **(a)** o auditor marcou o defeito (alguma declaração na categoria 5), e o revisor deu o veredito `nao_integro` e achou o defeito;
-- **(b)** o auditor marcou, e o revisor aprovou (`integro` ou `nao_sei`). Mede o ruído do alerta;
-- **(c)** o auditor não marcou. É achado crítico e entra na L-32.
+The outcomes apply to the **with**-auditor review of the defect's PR:
+- **(a)** the auditor flagged the defect (some declaration in category 5), and the participant gave the verdict `nao_integro` and found the defect;
+- **(b)** the auditor flagged it, and the participant approved (`integro` or `nao_sei`). This measures alert noise;
+- **(c)** the auditor did not flag it. This is a critical finding and goes into L-32.
 
-Na revisão **sem** auditor, registra-se só se o revisor achou o defeito. Os desfechos são reportados por defeito e por condição, nunca somados.
+In the review **without** the auditor, only whether the participant found the defect is recorded. Outcomes are reported per defect and per condition, never summed.
 
-### 11.5 Critérios (seção 5, com a instrução 30)
+### 11.5 Criteria (section 5, with instruction 30)
 
-- **Aceitação:** mediana do T_net principal > 0 **e** taxa de falsos alertas (estrato sucesso) < 30 %.
-- **Kill:** mediana do T_net principal < 0 **e** taxa de falsos alertas > 50 %.
-- Os dois critérios são independentes: a não-cobertura pesa no T_net, não na taxa.
+- **Acceptance:** median main T_net > 0 **and** false-alarm rate (success stratum) < 30 %.
+- **Kill:** median main T_net < 0 **and** false-alarm rate > 50 %.
+- The two criteria are independent: non-coverage weighs on T_net, not on the rate.
 
-### 11.6 O que os dados congelados já fixam (declarado antes dos formulários)
+### 11.6 What the frozen data already determine (declared before the forms)
 
-Classificação de `study/alerts.json` (`study/categories.json`), em declarações e (causas):
+Classification of `study/alerts.json` (`study/categories.json`), in declarations and (causes):
 
-| PR | Estrato | 1 | 2 | 3 | 4 | 5 |
+| PR | Stratum | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|---|
-| #45102 | sucesso | 82 | 0 | 1 (1) | 0 | 0 |
-| #43841 | sucesso | 0 | 0 | 88 (1) | 0 | 0 |
-| #44400 | sucesso | 386 | 0 | 0 | 0 | 55 (2) |
-| #45117 | sucesso | 76 | 0 | 1 (1) | 0 | 0 |
-| #44973 | sucesso | 88 | 0 | 29 (2) | 0 | 0 |
+| #45102 | success | 82 | 0 | 1 (1) | 0 | 0 |
+| #43841 | success | 0 | 0 | 88 (1) | 0 | 0 |
+| #44400 | success | 386 | 0 | 0 | 0 | 55 (2) |
+| #45117 | success | 76 | 0 | 1 (1) | 0 | 0 |
+| #44973 | success | 88 | 0 | 29 (2) | 0 | 0 |
 | #45105 | fail-closed | 0 | 0 | 0 (2) | 248 (1) | 0 |
 | #45097 | fail-closed | 227 | 0 | 0 | 203 (3) | 4 (4) |
 | #44425 | fail-closed | 0 | 0 | 132 (3) | 43 (2) | 0 |
 | #44511 | fail-closed | 222 | 0 | 2 (4) | 412 (3) | 0 |
 | #44969 | fail-closed | 90 | 0 | 186 (12) | 17 (1) | 0 |
 
-**A categoria 2 é zero em todos os PRs.** Logo, a taxa de falsos alertas do critério já está determinada antes de qualquer revisão: **0 / 632 = 0 % no estrato sucesso**. O que o estudo ainda mede:
-- o T_net, principal e secundário;
-- a taxa de não-cobertura e o tempo gasto nela;
-- os desfechos dos defeitos plantados;
-- o falso alerta **percebido** pelos revisores.
+**Category 2 is zero in every PR.** So the false-alarm rate of the criterion is already determined before any review: **0 / 632 = 0 % in the success stratum**. What the study still measures:
+- T_net, main and secondary;
+- the non-coverage rate and the time spent on it;
+- the outcomes of the planted defects;
+- the false alarms **perceived** by the participants.
 
-Isto é declarado aqui para não parecer, depois, que o critério de precisão foi "aprovado" pelo estudo: ele foi fixado pela saída congelada da ferramenta.
+This is declared here so that it does not later look as if the precision criterion was "passed" by the study: it was fixed by the tool's frozen output.
 
-**Ressalva obrigatória (instrução 31).** O 0 % da categoria 2 foi fixado pelos dados congelados, gerados antes dos formulários. **Ele mede a ferramenta no escopo que ela cobre, não na configuração de produção**, e não é uma propriedade universal. Qualquer apresentação deste resultado deve trazer as três qualificações abaixo, além da L-26 (classificação auto-revisada):
-- **Amostra pequena e de um momento:** 10 PRs (5 no estrato sucesso), integrados ao Mathlib entre 21 e 22/10/2026 e reaplicados sobre `e1b2403b`. Não é uma estimativa para o Mathlib inteiro.
-- **"Falso alerta" aqui ≠ "falso positivo" da 1b.** Os 28,6 % da 1b (L-31) contavam toda prova correta que não saiu `verified`. Os 10 casos eram `Não resolvida` por `ctorIdx` gerado ou por `backward.*`, o que nesta taxonomia é a **categoria 3**, não a 2. A categoria 2 da 1b também foi zero. O número comparável aos 28,6 % é a proporção de declarações corretas que não saem `verified` no estrato sucesso: categoria 3 / (1 + 3) = **119 / 751 = 15,8 %**, por causas conhecidas. É reportado junto.
-- **As causas conhecidas continuam na amostra.** Com a exclusão por declaração (instrução 28), `ctorIdx` e `backward.*` não saíram da amostra: entram como categoria 3, contadas e cronometradas à parte. A Fase 2, ao corrigir essas causas, re-mede com a amostra completa.
+**Mandatory qualification (instruction 31).** The 0 % of category 2 was fixed by the frozen data, generated before the forms. **It measures the tool within the scope it covers, not in the production configuration**, and it is not a universal property. Any presentation of this result must carry the three qualifications below, in addition to L-26 (self-reviewed classification):
+- **Small sample, from one point in time:** 10 PRs (5 in the success stratum), merged into Mathlib between 21 and 22 October 2026 and re-applied on top of `e1b2403b`. It is not an estimate for Mathlib as a whole.
+- **"False alarm" here ≠ "false positive" in 1b.** The 28.6 % of 1b (L-31) counted every correct proof that did not come out `verified`. All 10 cases were `Não resolvida` because of a generated `ctorIdx` or of `backward.*`, which in this taxonomy is **category 3**, not 2. Category 2 in 1b was also zero. The number comparable to the 28.6 % is the share of correct declarations that do not come out `verified` in the success stratum: category 3 / (1 + 3) = **119 / 751 = 15.8 %**, from known causes. It is reported alongside.
+- **The known causes remain in the sample.** With the per-declaration exclusion (instruction 28), `ctorIdx` and `backward.*` did not leave the sample: they enter as category 3, counted and timed separately. Phase 2, once it fixes these causes, re-measures with the full sample.
 
-*Texto sugerido pelo revisor (instrução 31), registrado como foi recebido.* "O 0% de categoria 2 foi fixado pelos dados congelados (alertas gerados antes dos formulários) e é consequência direta da exclusão (B): a amostra exclui arquivos que caem por `ctorIdx` gerado e por `backward.*`, que são as duas causas conhecidas de falso positivo na 1b (L-31). O 0% mede a ferramenta no escopo que ela cobre, não na configuração de produção. A Fase 2, quando corrigir essas duas causas, re-mede com amostra completa. Qualquer apresentação deste resultado deve declarar essa qualificação."
+*Text suggested by the project reviewer (instruction 31), recorded as received (translated from Portuguese).* "The 0% of category 2 was fixed by the frozen data (alerts generated before the forms) and is a direct consequence of the (B) exclusion: the sample excludes files that fall because of generated `ctorIdx` and `backward.*`, which are the two known causes of false positives in 1b (L-31). The 0% measures the tool within the scope it covers, not in the production configuration. Phase 2, when it fixes these two causes, re-measures with the full sample. Any presentation of this result must declare this qualification."
 
-O texto adotado acima difere do sugerido em dois fatos:
-- a exclusão (B) por PR foi substituída pela exclusão por declaração (instrução 28), e as duas causas estão na amostra;
-- as duas causas produziam `Não resolvida` (categoria 3), não categoria 2. Por isso, excluí-las não explicaria o 0 % da categoria 2.
+The adopted text above differs from the suggested one on two facts:
+- the per-PR (B) exclusion was replaced by the per-declaration exclusion (instruction 28), and both causes are in the sample;
+- both causes produced `Não resolvida` (category 3), not category 2. So excluding them would not explain the 0 % of category 2.
 
-A divergência foi levada ao revisor (relatório de 23/10).
+The discrepancy was raised with the project reviewer (report of 2026-10-23).
 
-### 11.7 Critério × diagnóstico (instrução 31)
+### 11.7 Criterion × diagnostic (instruction 31)
 
-O critério de falsos alertas (< 30 %) aplica-se **apenas à categoria 2 mecânica**. O falso alerta percebido, isto é, as causas das categorias 3 e 4 que os revisores julgaram falsas, é reportado como **diagnóstico**, não como critério. A distinção existe porque o mecânico mede uma propriedade do output, e o percebido mede a experiência do revisor, que depende do briefing e das expectativas.
-- O diagnóstico é reportado por categoria, com as razões dadas pelos revisores.
-- Se um revisor julgar a não-cobertura (categoria 4) "falso alerta", isso indica que o briefing não explicou bem a diferença. O briefing pode ser ajustado antes do próximo estudo, mas isso não invalida o resultado atual.
+The false-alarm criterion (< 30 %) applies **only to the mechanical category 2**. The perceived false alarm, i.e. the causes in categories 3 and 4 that participants judged false, is reported as a **diagnostic**, not as a criterion. The distinction exists because the mechanical rate measures a property of the output, while the perceived one measures the participant's experience, which depends on the briefing and on expectations.
+- The diagnostic is reported per category, with the reasons given by the participants.
+- If a participant judges non-coverage (category 4) a "false alarm", this indicates that the briefing did not explain the difference well. The briefing can be adjusted before the next study, but this does not invalidate the current result.

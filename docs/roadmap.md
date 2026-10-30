@@ -1,120 +1,122 @@
 # Roadmap
 
-**A Fase 1 não começa antes da camada 2 da Fase 0 estar medida.** O critério de go/no-go da Fase 0 é a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1. Ver o README, seção "Status", e o roteiro em `docs/ci.md`.
+**Phase 1 does not start before layer 2 of Phase 0 has been measured.** The Phase 0 go/no-go criterion is layer 2 (GitHub Actions on real PRs in the Mathlib fork), not layer 1. See the README, section "Status", and the plan in `docs/ci.md`.
 
-## Fase 1 — prioridades P0 (instrução 22)
+"Instruction N" refers to the numbered decisions of the project's external reviewer.
 
-Antes de qualquer outro item da Fase 1, e antes de qualquer relaxamento de classificação ou de qualquer coisa que se pareça com "aumentar cobertura". Detalhes nas linhas correspondentes da tabela abaixo.
+## Phase 1 — P0 priorities (instruction 22)
 
-1. **`@[implemented_by]` gerado na elaboração.** O `ctorIdx` do PR #6 é gerado durante a elaboração, não escrito no fonte: a Etapa A não o vê; a Etapa B vê. Medir o alcance no Mathlib: quantos `@[implemented_by]` são gerados e quantos são escritos no fonte. Se for comum, a fronteira de TCB está sendo atravessada por código gerado, o que afeta a política de `implemented_by` (L-5) e a integridade da fronteira de TCB (L-13).
-2. **Taxa de fail-closed da Etapa A: 68 % dos 60 arquivos de maior fanout (41 de 60).** Hoje a ferramenta é inútil para a maior parte do núcleo do Mathlib.
-   - (a) Reduzir falsos positivos da Etapa A (`match … with`, `do`, `f!"…"` na coluna 0 são o começo; 41/60 indica que a lista real é maior). Medir por categoria antes de relaxar.
-   - (b) Relaxar comandos que derrubam o arquivo por motivo não sintático (`simproc_decl`, `register_linter_set`, `run_cmd` etc.), cada um com teste que demonstre ausência de efeito no ambiente que a Etapa B audita.
-   - (c) Depois de (a) e (b), medir de novo a taxa de fail-closed nos 60 maiores arquivos. **Se ainda for > 30 %, a ferramenta não está pronta para uso externo.**
+Before any other Phase 1 item, and before any relaxation of the classification or anything resembling "increasing coverage". Details in the corresponding rows of the table below.
 
-**Observação (não prioritária):** no cache `warm`, ~75 % do tempo do PR é preparação (checkout e desempacotamento do cache do Mathlib). A folga de ~160 s no orçamento de 300 s basta para a Fase 0; otimizar fica para quando o orçamento apertar.
+1. **`@[implemented_by]` generated during elaboration.** The `ctorIdx` of PR #6 is generated during elaboration, not written in source: Stage A does not see it; Stage B does. Measure the reach in Mathlib: how many `@[implemented_by]` are generated and how many are written in source. If it is common, the TCB boundary is being crossed by generated code, which affects the `implemented_by` policy (L-5) and the integrity of the TCB boundary (L-13).
+2. **Stage A fail-closed rate: 68 % of the 60 files with the highest fanout (41 of 60).** Today the tool is useless for most of Mathlib's core.
+   - (a) Reduce Stage A false positives (`match … with`, `do`, `f!"…"` at column 0 are the start; 41/60 suggests the real list is longer). Measure by category before relaxing.
+   - (b) Relax commands that bring down the file for a non-syntactic reason (`simproc_decl`, `register_linter_set`, `run_cmd`, etc.), each with a test that demonstrates no effect on the environment that Stage B audits.
+   - (c) After (a) and (b), measure the fail-closed rate on the 60 largest files again. **If it is still > 30 %, the tool is not ready for external use.**
 
-A pergunta de pesquisa da Fase 1 (se a hipótese semântica vale a pena) continua em aberto.
+**Note (not a priority):** with a `warm` cache, ~75 % of the PR time is preparation (checkout and unpacking the Mathlib cache). The ~160 s of slack in the 300 s budget is enough for Phase 0; optimizing is left for when the budget gets tight.
 
-## Fase 1 — L-33: defesa contra execução e contra adulteração (instrução 24)
+Phase 1's research question (whether the semantic hypothesis is worth pursuing) remains open.
 
-- **(a) Feito (L-33a):**
-  - fail-closed léxico de `run_tac`/`by_elab` (Rejeitada) e de `unsafe`;
-  - código executável definido no alvo, por ambiente (inspetor v5);
-  - dependência alterada com execução (`--changed`);
-  - `show_panel_widgets` reclassificado.
+## Phase 1 — L-33: defence against execution and against tampering (instruction 24)
 
-  Inventário: `docs/l33-inventory.md`.
-- **(b) A fazer, como defesa em profundidade, sem bloquear o (a):**
-  - o workflow calcula o SHA-256 do binário do inspetor e do pacote do auditor (`$RUNNER_TEMP/auditor-tool`) no início, roda o `lake build` do alvo e recalcula antes de invocar o inspetor;
-  - se mudou, `Não resolvida` com `toolchain_tampered`;
-  - **teste:** fixture com `run_tac` que tenta sobrescrever o inspetor deve sair `toolchain_tampered`; o fixture que só grava um marcador não muda o hash, e isso é o esperado.
+- **(a) Done (L-33a):**
+  - lexical fail-closed for `run_tac`/`by_elab` (`Rejeitada`, rejected) and for `unsafe`;
+  - executable code defined in the target, detected from the environment (inspector v5);
+  - a changed dependency that executes code (`--changed`);
+  - `show_panel_widgets` reclassified.
 
-  (a) defende contra execução, (b) contra adulteração; as duas são necessárias.
-- **Pendente da L-33a:**
-  - estender o cruzamento de dependências ao código registrado (atributo, `initialize`, `unsafe`) de arquivos alterados;
-  - inventariar as dependências externas do Mathlib (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph).
+  Inventory: `docs/l33-inventory.md`.
+- **(b) To do, as defence in depth, without blocking (a):**
+  - the workflow computes the SHA-256 of the inspector binary and of the auditor package (`$RUNNER_TEMP/auditor-tool`) at the start, runs the target's `lake build` and recomputes them before invoking the inspector;
+  - if anything changed, `Não resolvida` (unresolved) with `toolchain_tampered`;
+  - **test:** a fixture with `run_tac` that tries to overwrite the inspector must come out `toolchain_tampered`; the fixture that only writes a marker does not change the hash, and that is expected.
 
-## Fase 1 — ordem aprovada (instrução 25)
+  (a) defends against execution, (b) against tampering; both are needed.
+- **Pending from L-33a:**
+  - extend the dependency crossing to code registered (attribute, `initialize`, `unsafe`) by changed files;
+  - inventory Mathlib's external dependencies (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph).
 
-1. Atualizar o `AUDITOR_SHA` do fork para `a0e3387`, re-aquecer o cache (inspetor v5) e deixar o `auditor-prep` verde. É pré-requisito da 1b.
-2. **1b** (benchmark de enunciados trocados) começa depois do item 1. O caminho de sucesso vem do universo de arquivos que a Etapa A aceita na biblioteca inteira (85,2 %), não do top-60 (`docs/benchmark.md`).
-3. **Mitigação (b) da L-33** (`toolchain_tampered`) em paralelo com a 1b, como item independente.
-   **Implementada (instrução 25):**
-   - o inspetor é garantido ANTES do `lake build` do alvo;
-   - o hash do binário dele e do pacote do auditor é conferido depois do build; se mudou, o inspetor não roda e o arquivo sai `Não resolvida` (`toolchain_tampered`, exit 1);
-   - o `auditor-ci` confere de novo entre um arquivo e outro, porque cada `auditor check` é um processo novo; os arquivos seguintes ficam `not_audited_after_tampering`;
-   - cenário de conformidade 11.
+## Phase 1 — approved order (instruction 25)
 
-Item 1 feito (2026-10-22):
-- fork `auditor-base` = `713226a`, workflows no auditor `a0e3387`;
-- re-aquecimento com o inspetor v5, run 39858729968;
-- `auditor-prep` verde, run 39858970932: allow-list regenerada idêntica byte a byte à commitada, `gen_tcb_roots --check` exit 0, fumaça 20/20.
-4. **1c** (estudo de usuário) só depois da (b): o estudo usa PRs reais, e a (b) faz parte da configuração de produção.
-   **Opção (B), instrução 26:** a amostra exclui os casos de `ctorIdx` gerado e de `backward.*`. O resultado mede o valor da ferramenta no escopo que ela cobre, não na configuração de produção; a Fase 2 re-mede com a amostra completa (`docs/user-study.md`). O convite vai em `docs/user-study-invite.md`: o mantenedor envia depois da revisão.
-5. **1d** só depois da 1c.
+1. Update the fork's `AUDITOR_SHA` to `a0e3387`, re-warm the cache (inspector v5) and get `auditor-prep` green. It is a prerequisite of 1b.
+2. **1b** (swapped-statement benchmark) starts after item 1. The success path comes from the universe of files that Stage A accepts in the whole library (85.2 %), not from the top-60 (`docs/benchmark.md`).
+3. **L-33 mitigation (b)** (`toolchain_tampered`) in parallel with 1b, as an independent item.
+   **Implemented (instruction 25):**
+   - the inspector is ensured BEFORE the target's `lake build`;
+   - the hash of its binary and of the auditor package is checked after the build; if it changed, the inspector does not run and the file comes out `Não resolvida` (`toolchain_tampered`, exit 1);
+   - `auditor-ci` checks again between one file and the next, because each `auditor check` is a new process; the following files are `not_audited_after_tampering`;
+   - conformance scenario 11.
 
-## Fase 2 — P0 (instruções 25, 26 e 29)
+Item 1 done (2026-10-22):
+- fork `auditor-base` = `713226a`, workflows on auditor `a0e3387`;
+- re-warming with inspector v5, run 39858729968;
+- `auditor-prep` green, run 39858970932: allow-list regenerated byte-for-byte identical to the committed one, `gen_tcb_roots --check` exit 0, smoke test 20/20.
+4. **1c** (user study) only after (b): the study uses real PRs, and (b) is part of the production configuration.
+   **Option (B), instruction 26:** the sample excludes the cases of generated `ctorIdx` and of `backward.*`. The result measures the tool's value within the scope it covers, not in the production configuration; Phase 2 re-measures with the full sample (`docs/user-study.md`; refined by instruction 28 into a per-declaration exclusion). The invitation is in `docs/user-study-invite.md`: the maintainer sends it after review.
+5. **1d** only after 1c.
 
-A Fase 2 começa **depois da 1d**, não antes (instrução 26). Antes de qualquer expansão de cobertura, há três P0 (priorização corrigida na instrução 29):
+## Phase 2 — P0 (instructions 25, 26 and 29)
 
-1. **`ctorIdx` reconhecido pela forma** (`getObjTagNat` + `casesOn` dos índices), com teste de equivalência no toolchain fixado. 7,35 % das declarações do Mathlib caem só por isso (L-34), em áreas matemáticas (`CategoryTheory`, `Algebra`, `AlgebraicGeometry`). A Fase 2 começa por aí.
-2. **`dependency_registers_code`: lacuna de integridade da L-33a.**
-   - **O caso:** A está em `--changed` e registra código (`initialize`/`@[init]`, `register_option`, `register_*_attr`, `register_linter_set`, `simproc_decl`, handler de atributo). Então todo B no fecho de compilação do PR que importa A sai `Não resolvida` (`dependency_registers_code`).
-   - **Por que é lacuna:** hoje B sai `verified` embora o `initialize` de A tenha executado durante o build de B (cenário 10). É o mesmo padrão do `sorry` transitivo.
-   - **A defesa é o inspetor:** no ambiente de B, ele vê as constantes de A e as entradas de extensão que A registrou. A detecção é pelo ambiente, não pelo texto.
-   - **Relação com a (b):** a mitigação (b) continua como defesa em profundidade contra adulteração; ela não fecha esta lacuna.
-3. **`notation` na Etapa A reconhecida como TCB** (gerada pelo toolchain; mesma lógica do `ctorIdx`). É o maior ganho único de cobertura.
-   - **Aparece × recupera** (instrução 30): "aparece" conta os arquivos que têm `notation`; "recupera" conta os que deixariam de cair se `notation` fosse TCB. Só o segundo número mede o ganho.
-   - **Medição** (Etapa A v5, Mathlib `e1b2403b`, dados da run 39970204221):
-     - `notation` aparece em 553 arquivos; 444 caem só por ela;
-     - desses 444, 17 ainda cairiam pela L-33a;
-     - **recupera 427 arquivos (4,94 % dos 8 651)**, todos matemáticos.
-   - **Família de notação** (`notation`, `notation3`, `infix`/`infixl`/`infixr`, `prefix`, `postfix`): 762 arquivos caem só por ela. Desses, 108 ainda cairiam pela L-33a, e todo `notation3` cai junto, pelo delaborador gerado. Ficam **654 recuperados (7,56 %)**.
-   - A contagem em declarações ainda não foi medida: é uma execução, a fazer no início da Fase 2.
-   - **Consequência: delaborador gerado e L-35.** O delaborador gerado (`…_delab_app_…` de `notation`/`notation3`) entra como consequência deste item, não como item separado. **O item de delaborador gerado só rende junto com notation** (instrução 29): sozinho, o custo marginal recuperado é zero (L-35). Junto com `notation3`, ele recupera os arquivos que caem pelos dois.
-   - **A distinção continua obrigatória** (instrução 28):
-     - o `@[delab …]` escrito pelo usuário é código de usuário, e o fail-closed está correto;
-     - só o gerado pelo toolchain é candidato a TCB. Tratar todos como "causa conhecida" relaxaria a política sem teste.
+Phase 2 starts **after 1d**, not before (instruction 26). Before any coverage expansion, there are three P0 items (prioritization corrected in instruction 29):
 
-## Fase 2 — roadmap (não P0)
+1. **`ctorIdx` recognized by its shape** (`getObjTagNat` + `casesOn` over the indices), with an equivalence test on the pinned toolchain. 7.35 % of Mathlib's declarations fall only because of this (L-34), in mathematical areas (`CategoryTheory`, `Algebra`, `AlgebraicGeometry`). Phase 2 starts here.
+2. **`dependency_registers_code`: an integrity gap of L-33a.**
+   - **The case:** A is in `--changed` and registers code (`initialize`/`@[init]`, `register_option`, `register_*_attr`, `register_linter_set`, `simproc_decl`, an attribute handler). Then every B in the PR's compilation closure that imports A comes out `Não resolvida` (`dependency_registers_code`).
+   - **Why it is a gap:** today B comes out `verified` even though A's `initialize` ran during B's build (scenario 10). It is the same pattern as the transitive `sorry`.
+   - **The defence is the inspector:** in B's environment, it sees A's constants and the extension entries A registered. Detection is through the environment, not the text.
+   - **Relation to (b):** mitigation (b) remains as defence in depth against tampering; it does not close this gap.
+3. **`notation` in Stage A recognized as TCB** (generated by the toolchain; same logic as `ctorIdx`). It is the largest single coverage gain.
+   - **Appears × recovers** (instruction 30): "appears" counts the files that contain `notation`; "recovers" counts those that would no longer fall if `notation` were TCB. Only the second number measures the gain.
+   - **Measurement** (Stage A v5, Mathlib `e1b2403b`, data from run 39970204221):
+     - `notation` appears in 553 files; 444 fall only because of it;
+     - of those 444, 17 would still fall under L-33a;
+     - **it recovers 427 files (4.94 % of 8,651)**, all mathematical.
+   - **Notation family** (`notation`, `notation3`, `infix`/`infixl`/`infixr`, `prefix`, `postfix`): 762 files fall only because of it. Of those, 108 would still fall under L-33a, and every `notation3` file falls with them, because of the generated delaborator. That leaves **654 recovered (7.56 %)**.
+   - The count in declarations has not been measured yet: it is one run, to be done at the start of Phase 2.
+   - **Consequence: generated delaborators and L-35.** The generated delaborator (`…_delab_app_…` from `notation`/`notation3`) enters as a consequence of this item, not as a separate item. **The generated-delaborator item only pays off together with notation** (instruction 29): on its own, the marginal cost recovered is zero (L-35). Together with `notation3`, it recovers the files that fall for both reasons.
+   - **The distinction remains mandatory** (instruction 28):
+     - a user-written `@[delab …]` is user code, and fail-closed is correct;
+     - only the toolchain-generated one is a TCB candidate. Treating all of them as a "known cause" would relax the policy without a test.
 
-- **L-35** (delaboradores e extensões do `positivity` escritos à mão em arquivos matemáticos, 3,41 % das declarações): roadmap (instrução 29). Pela política atual, o fail-closed está correto. Recuperar exigiria outra política.
-- **Relaxamento das opções `backward.*`**, com teste de ausência de efeito. É a segunda causa dos falsos positivos da 1b (L-31), junto com o `ctorIdx`. As duas correções devem ser medidas, com a amostra completa do benchmark e do estudo de usuário, antes de qualquer alegação de cobertura do Mathlib a terceiros.
+## Phase 2 — roadmap (not P0)
 
-## Fase 2 — pergunta de produto (instrução 25)
+- **L-35** (hand-written delaborators and `positivity` extensions in mathematical files, 3.41 % of declarations): roadmap (instruction 29). Under the current policy, fail-closed is correct. Recovering them would require a different policy.
+- **Relaxing the `backward.*` options**, with a no-effect test. It is the second cause of 1b's false positives (L-31), together with `ctorIdx`. Both fixes must be measured, with the full sample of the benchmark and of the user study, before any claim of Mathlib coverage to third parties.
 
-- **Política de sintaxe e cobertura de fanout.** O top-60 por fanout é estruturalmente inauditável na configuração atual. 32 dos 60 declaram sintaxe por função, e o teto é 53,3 % de fail-closed relaxando todo o resto (L-30). A Fase 2 não pode prometer cobertura de fanout sem antes mudar a política de sintaxe.
-- **A decisão é de produto, não de engenharia:**
-  - ou relaxar `notation`/`macro` gerados pelo toolchain (553 arquivos com `notation`; 427 recuperáveis só por ela, ver P0 3 acima; com a mesma lógica do `ctorIdx`);
-  - ou aceitar que o fanout não é coberto.
+## Phase 2 — product question (instruction 25)
 
-## Fase 1 — revisão independente da classificação (regras aprovadas, instrução 23)
+- **Syntax policy and fanout coverage.** The top-60 by fanout is structurally unauditable in the current configuration. 32 of the 60 declare syntax by design, and the ceiling is 53.3 % fail-closed after relaxing everything else (L-30). Phase 2 cannot promise fanout coverage without first changing the syntax policy.
+- **The decision is a product decision, not an engineering one:**
+  - either relax toolchain-generated `notation`/`macro` (553 files contain `notation`; 427 recoverable through it alone, see P0 item 3 above; same logic as `ctorIdx`);
+  - or accept that fanout is not covered.
 
-Origem: a primeira tentativa de revisão independente foi descartada. Era outra IA, sem acesso ao código-fonte, e as citações vieram com linhas deslocadas (`proposed-improvements.md`). Regras, literalmente como aprovadas:
+## Phase 1 — independent review of the classification (approved rules, instruction 23)
 
-- revisor recebe o fonte no commit fixado, não descrições;
-- toda citação traz arquivo, linha e SHA;
-- citações conferidas mecanicamente contra o commit antes de aceitar a revisão;
-- revisor se identifica e declara grau de independência.
+Origin: the first attempt at an independent review was discarded. It was another AI, without access to the source code, and its citations came with shifted line numbers (`proposed-improvements.md`). The rules, literally as approved:
 
-## Fase 1 — fora do fechamento da Fase 0 (não bloqueiam)
+- the reviewer receives the source at the pinned commit, not descriptions;
+- every citation carries file, line and SHA;
+- citations are checked mechanically against the commit before the review is accepted;
+- the reviewer identifies themselves and declares their degree of independence.
 
-- Testar end-to-end um `@auditor report` de quem não tem acesso ao repositório (exige segunda conta; L-29).
-- Atualizar retroativamente, com a linha `classificação: … (L-26)`, os comentários do `@auditor report` já postados nos PRs de medição (legado; `proposed-improvements.md`).
+## Phase 1 — outside the Phase 0 closure (non-blocking)
 
-## Fase 1 — itens já decididos
+- Test end to end an `@auditor report` from someone without access to the repository (requires a second account; L-29).
+- Retroactively update, with the line `classificação: … (L-26)`, the `@auditor report` comments already posted on the measurement PRs (legacy; `proposed-improvements.md`).
 
-| Item | Origem | Decisão |
+## Phase 1 — items already decided
+
+| Item | Origin | Decision |
 |---|---|---|
-| Hash de declaração resistente a colisão | D-18, instrução 11 | Substituir o hash estrutural de 64 bits (`Expr.hash`) em `declaration_hash` por SHA-256 truncado a 128 bits ou BLAKE3-128, calculado sobre uma serialização canônica do tipo e do valor. 64 bits não resiste a colisão adversarial: quem forja uma colisão troca uma declaração sem mudar o hash. Aceito na Fase 0 só porque ainda não há alvo adversário (L-14). |
-| Revogação de selos | `docs/invalidation.md` | Implementar o modelo: selos imutáveis, eventos append-only, estado derivado, propagação. |
-| `depends_on` completo | `docs/invalidation.md` | Fecho de dependências locais emitido pelo inspetor, para a propagação de revogação. |
-| Timeout por arquivo medido | D-21, instrução 11 | Reajustar o default de 90 s pelo p95 por arquivo medido na camada 2 (`tools/layer2/timings.py`), não por intuição. |
-| Reavaliação de `native_decide` via kernel (pesquisa) | Q9 (d), instrução 13 | Item de **pesquisa**, não de entrega: reavaliar o axioma auxiliar `e = true` reduzindo `e` com o kernel, com limite de esforço, sem confiar no compilador. Condições: manter a D-39 (o auditor não executa código do PR) e produzir `verified` em **≥ 50 % dos casos justificados** (medidos num corpus fixado). Se a Fase 1 não atingir o critério, `native_decide` fica **fail-closed para sempre**, e isso é um resultado aceitável, não uma falha do projeto. Para as áreas onde o uso é alto (medido na camada 2, `tools/layer2/native_usage.py`), o relatório declara explicitamente "esta prova usa avaliação nativa; certificação fora de escopo", em vez de um `Não resolvido` sem contexto. **Medição de partida** (Mathlib `e1b2403b`): biblioteca `Mathlib`, 0 provas com avaliação nativa (0 de 256 505 declarações; as 2 detecções léxicas são metaprogramação); `MathlibTest`, 33 de 7 463 (0,44 %), com concentração em `MathlibTest/Algebra` (17 de 34). O corpus para o critério dos 50 % sai de `MathlibTest` e de projetos fora do Mathlib, porque a biblioteca principal não tem casos. A contagem exata, por compilação e por declaração, também é item da Fase 1 (D-51). |
-| Descoberta automática de raízes para alvos arbitrários | D-47, L-21, instrução 14 | `target_trusted_roots` hoje é o fecho do Mathlib fixado. Para alvos que não são o Mathlib: descobrir as raízes com o mesmo gerador (`tools/gen_tcb_roots.py`) a partir do projeto-alvo, com a mesma política de verificação: cada dependência conferida contra o `rev` do `lake-manifest.json`, SHA-256 do manifest gravado, drift → fail-closed. Inclui decidir onde fica o arquivo do alvo (no repositório do alvo, como a allow-list de comandos de projeto, ou no auditor) e quem o revisa. |
-| Relaxamento da classificação de comandos do Mathlib | L-25, instrução 17 | A classificação do Mathlib (`e1b2403b`) deixou fail-closed, por precaução, os comandos cujo efeito não foi possível determinar com certeza lendo a definição: os 9 ambíguos do rascunho (`#explode`, `#import_bumps`, `#deprecate`, `deprecate`, `#leansearch`, `#loogle`, `#search`, `suppress_compilation`, `#string_diagram`) e, da segunda revisão, `#lint` (executa linters definidos pelo arquivo; relaxável só restringindo-o aos linters do Mathlib fixado) e `unsuppress_compilation` (a forma `in cmd` reinstala o elaborador de `suppress_compilation`; sai junto com ele). `suppress_compilation` é a prioridade: aparece em 41 arquivos da biblioteca. Cada relaxamento exige um teste que demonstre, no commit fixado, a ausência de efeito no ambiente que a Etapa B audita. É agenda de semanas, e é o tipo de trabalho que a Fase 1 deve priorizar: reduz a taxa de `Não resolvida` sem relaxar o fail-closed. |
-| Relaxamento das opções `backward.*` | instrução 20 (PR de medição #3) | `backward.isDefEq.respectTransparency`, `backward.isDefEq.respectTransparency.types` e `backward.defeqAttrib.useBackward` aparecem como `set_option … in` no Mathlib real (11 ocorrências só em `Mathlib/Algebra/Homology/Embedding/Connect.lean`). Não estão na política, então as declarações que as usam saem `Não resolvida` (8 de 39 no PR médio; as outras 2 `Não resolvida` do arquivo são `implemented_by_candidate`, linha seguinte). Cada uma precisa de um teste que demonstre, no commit fixado, a ausência de efeito no ambiente que a Etapa B audita, antes de entrar na política. |
-| `@[implemented_by]` gerado pelo próprio Lean (**P0**) | instruções 21 e 22 (PR de medição #6) | `CategoryTheory.Limits.WalkingParallelPair.ctorIdx` chega ao fecho de 4 declarações de `Connect.lean` com `@[implemented_by]`, e 2 delas saem `Não resolvida` só por isso (`implemented_by_candidate`, L-5). O fonte do Mathlib não escreve esse atributo (`Equalizers.lean` não contém `implemented_by` nem `ctorIdx`): ele é gerado na elaboração (pelo Lean para o tipo indutivo ou pelo `deriving DecidableEq` da linha 64; mecanismo exato a confirmar), não escrito pelo autor. Pela L-5 o resultado é correto (fail-closed), mas a implementação gerada é do toolchain, não do autor. Fase 1: medir quantas declarações do Mathlib caem só por isso e decidir se implementações geradas pelo compilador para construções do próprio Lean entram na fronteira de TCB, com teste que demonstre a equivalência no toolchain fixado. |
-| Taxa de fail-closed da Etapa A no Mathlib real (**P0**) | instruções 21 e 22 (L-27) | **68 % dos 60 arquivos de maior fanout falham na Etapa A** (41 de 60; só 19 saem sem item não reconhecido). (a) Redução de falsos positivos da Etapa A: tokens de continuação na coluna 0 (`match … with`, `do`, `f!"…"`) já foram vistos em `Lean/Meta/Simp.lean`, `MkIffOfInductiveProp.lean` e `SplitIfs.lean`, mas 41/60 sugere que a lista é maior que a registrada; levantar por arquivo o motivo de cada um dos 41. (b) Relaxamento dos comandos que derrubam o arquivo por motivo não sintático (`simproc_decl`, `register_linter_set`, `run_cmd` etc.), com a mesma exigência da linha "Relaxamento da classificação": teste que demonstre a ausência de efeito no ambiente que a Etapa B audita. |
-| Toolchain Lean e dependências Python verificados por hash | L-18, D-35, instrução 12 | O CI só confere por hash as actions e o elan. O toolchain Lean (baixado pelo elan a partir de `lean-toolchain`) e as dependências Python (resolvidas pelo pip) passam a ser conferidos também: SHA-256 da release do toolchain fixado contra um valor versionado no repositório, e `pip install --require-hashes` com um arquivo de requisitos com hashes (incluindo o fecho de `jsonschema`). Sem isso, quem compromete o toolchain do Lean ou um pacote PyPI compromete o auditor inteiro — e o auditor é o que detecta comprometimento. |
+| Collision-resistant declaration hash | D-18, instruction 11 | Replace the 64-bit structural hash (`Expr.hash`) in `declaration_hash` with SHA-256 truncated to 128 bits or BLAKE3-128, computed over a canonical serialization of the type and value. 64 bits does not resist adversarial collisions: whoever forges a collision swaps a declaration without changing the hash. Accepted in Phase 0 only because there is no adversarial target yet (L-14). |
+| Seal revocation | `docs/invalidation.md` | Implement the model: immutable seals, append-only events, derived state, propagation. |
+| Complete `depends_on` | `docs/invalidation.md` | Closure of local dependencies emitted by the inspector, for revocation propagation. |
+| Measured per-file timeout | D-21, instruction 11 | Readjust the 90 s default by the per-file p95 measured in layer 2 (`tools/layer2/timings.py`), not by intuition. |
+| Re-evaluating `native_decide` through the kernel (research) | Q9 (d), instruction 13 | A **research** item, not a deliverable: re-evaluate the auxiliary axiom `e = true` by reducing `e` with the kernel, with an effort limit, without trusting the compiler. Conditions: keep D-39 (the auditor does not run PR code) and produce `verified` in **≥ 50 % of the justified cases** (measured on a pinned corpus). If Phase 1 does not meet the criterion, `native_decide` stays **fail-closed forever**, and that is an acceptable result, not a project failure. For areas where usage is high (measured in layer 2, `tools/layer2/native_usage.py`), the report explicitly states "this proof uses native evaluation; certification out of scope", instead of a context-free `Não resolvido`. **Baseline measurement** (Mathlib `e1b2403b`): the `Mathlib` library, 0 proofs with native evaluation (0 of 256,505 declarations; the 2 lexical detections are metaprogramming); `MathlibTest`, 33 of 7,463 (0.44 %), concentrated in `MathlibTest/Algebra` (17 of 34). The corpus for the 50 % criterion comes from `MathlibTest` and from projects outside Mathlib, because the main library has no cases. The exact count, by compilation and per declaration, is also a Phase 1 item (D-51). |
+| Automatic root discovery for arbitrary targets | D-47, L-21, instruction 14 | `target_trusted_roots` is today the closure of the pinned Mathlib. For targets other than Mathlib: discover the roots with the same generator (`tools/gen_tcb_roots.py`) from the target project, with the same verification policy: each dependency checked against the `rev` in `lake-manifest.json`, the manifest's SHA-256 recorded, drift → fail-closed. This includes deciding where the target's file lives (in the target's repository, like the project command allow-list, or in the auditor) and who reviews it. |
+| Relaxing the classification of Mathlib commands | L-25, instruction 17 | The Mathlib classification (`e1b2403b`) left fail-closed, as a precaution, the commands whose effect could not be determined with certainty by reading their definition: the 9 ambiguous ones of the draft (`#explode`, `#import_bumps`, `#deprecate`, `deprecate`, `#leansearch`, `#loogle`, `#search`, `suppress_compilation`, `#string_diagram`) and, from the second review, `#lint` (runs linters defined by the file; relaxable only by restricting it to the pinned Mathlib's linters) and `unsuppress_compilation` (the `in cmd` form reinstalls `suppress_compilation`'s elaborator; it goes together with it). `suppress_compilation` is the priority: it appears in 41 files of the library. Each relaxation requires a test that demonstrates, at the pinned commit, no effect on the environment that Stage B audits. It is weeks of work, and it is the kind of work Phase 1 should prioritize: it reduces the `Não resolvida` rate without relaxing fail-closed. |
+| Relaxing the `backward.*` options | instruction 20 (measurement PR #3) | `backward.isDefEq.respectTransparency`, `backward.isDefEq.respectTransparency.types` and `backward.defeqAttrib.useBackward` appear as `set_option … in` in real Mathlib (11 occurrences in `Mathlib/Algebra/Homology/Embedding/Connect.lean` alone). They are not in the policy, so the declarations that use them come out `Não resolvida` (8 of 39 in the medium PR; the other 2 `Não resolvida` of the file are `implemented_by_candidate`, next row). Each one needs a test that demonstrates, at the pinned commit, no effect on the environment that Stage B audits, before entering the policy. |
+| `@[implemented_by]` generated by Lean itself (**P0**) | instructions 21 and 22 (measurement PR #6) | `CategoryTheory.Limits.WalkingParallelPair.ctorIdx` reaches the closure of 4 declarations of `Connect.lean` with `@[implemented_by]`, and 2 of them come out `Não resolvida` only because of it (`implemented_by_candidate`, L-5). Mathlib's source does not write this attribute (`Equalizers.lean` contains neither `implemented_by` nor `ctorIdx`): it is generated during elaboration (by Lean for the inductive type, or by the `deriving DecidableEq` on line 64; exact mechanism to be confirmed), not written by the author. Under L-5 the result is correct (fail-closed), but the generated implementation belongs to the toolchain, not to the author. Phase 1: measure how many Mathlib declarations fall only because of this, and decide whether compiler-generated implementations for Lean's own constructs enter the TCB boundary, with a test that demonstrates equivalence on the pinned toolchain. |
+| Stage A fail-closed rate on real Mathlib (**P0**) | instructions 21 and 22 (L-27) | **68 % of the 60 highest-fanout files fail in Stage A** (41 of 60; only 19 come out without an unrecognized item). (a) Reducing Stage A false positives: continuation tokens at column 0 (`match … with`, `do`, `f!"…"`) have already been seen in `Lean/Meta/Simp.lean`, `MkIffOfInductiveProp.lean` and `SplitIfs.lean`, but 41/60 suggests the list is longer than recorded; establish, per file, the reason for each of the 41. (b) Relaxing the commands that bring down the file for a non-syntactic reason (`simproc_decl`, `register_linter_set`, `run_cmd`, etc.), with the same requirement as the "Relaxing the classification" row: a test that demonstrates no effect on the environment that Stage B audits. |
+| Lean toolchain and Python dependencies verified by hash | L-18, D-35, instruction 12 | CI only checks the actions and elan by hash. The Lean toolchain (downloaded by elan from `lean-toolchain`) and the Python dependencies (resolved by pip) are to be checked too: SHA-256 of the pinned toolchain release against a value versioned in the repository, and `pip install --require-hashes` with a requirements file with hashes (including the closure of `jsonschema`). Without this, whoever compromises the Lean toolchain or a PyPI package compromises the entire auditor — and the auditor is what detects compromise. |

@@ -1,246 +1,248 @@
 # Changelog
 
-Mudanças que afetam quem usa o auditor (CLI, `auditor-ci`, workflows, relatório). A Fase 0
-ainda não está em produção (a camada 2 não começou), então mudanças incompatíveis são feitas
-sem período de transição.
+Changes that affect auditor users (CLI, `auditor-ci`, workflows, report). Phase 0
+was not yet in production when most of these entries were written, so incompatible changes were
+made without a transition period.
 
-## Não lançado
+"Instruction N" refers to the numbered decisions of the project's external reviewer.
 
-### Fase 1b: benchmark de enunciados trocados (instrução 24/25)
-- `benchmark/` (manifesto + 92 arquivos Lean), `tools/phase1/benchmark_*.py` e o workflow `auditor-benchmark`.
-- **Resultado** (`docs/benchmark.md`):
-  - nenhum enunciado falso `verified`;
-  - trapaças que compilam 11/11, com razão certa;
-  - falsos positivos nas provas corretas difíceis 28,6 % (meta ≤ 10 %), registrado como L-31.
-- **Achado do benchmark, bug da Etapa A, corrigido na v5:** `set_option X in` seguido de `open … in`, ou de `instance` com nome, ficava vinculado ao arquivo inteiro e derrubava teoremas sem relação com a opção. Agora a opção se vincula à declaração certa; instância anônima continua sem vínculo (fail-closed). A política não muda.
-  - Teste de regressão permanente: `test_set_option_in_binds_through_open_in_and_named_instance`.
-  - Falso positivo das provas corretas: 34,3 % → 28,6 %.
-- **Medições** passam ao repositório próprio `Enzo47961/auditor-measurements`, porque o fork foi suspenso pelo GitHub por uso intenso (`maintenance.md`).
+## Unreleased
 
-### L-33 (b): adulteração detectada (Fase 1, instrução 25)
-- A Etapa B garante o inspetor **antes** do `lake build` do alvo e confere, depois do build, o hash do binário do inspetor e do pacote do auditor instalado. Se algo mudou, o inspetor não roda: `Não resolvida` (`toolchain_tampered`), exit 1, não infraestrutura.
-- O `auditor-ci` confere de novo entre arquivos. Depois de uma adulteração, os seguintes ficam `not_audited_after_tampering`, o `outcome.json` traz `toolchain_tampered: true` e o sumário avisa.
-- Cenário de conformidade 11 (adulteração do pacote do auditor; do binário do inspetor; execução sem adulteração, que sai `Rejeitada` pela L-33a).
+### Phase 1b: swapped-statement benchmark (instructions 24/25)
+- `benchmark/` (manifest + 92 Lean files), `tools/phase1/benchmark_*.py` and the `auditor-benchmark` workflow.
+- **Result** (`docs/benchmark.md`):
+  - no false statement comes out `verified`;
+  - cheats that compile: 11/11, with the right reason;
+  - false positives on hard correct proofs: 28.6 % (target ≤ 10 %), recorded as L-31.
+- **Benchmark finding, a Stage A bug, fixed in v5:** `set_option X in` followed by `open … in`, or by a named `instance`, was bound to the whole file and brought down theorems unrelated to the option. The option now binds to the right declaration; an anonymous instance still has no binding (fail-closed). The policy does not change.
+  - Permanent regression test: `test_set_option_in_binds_through_open_in_and_named_instance`.
+  - False positives on correct proofs: 34.3 % → 28.6 %.
+- **Measurements** move to their own repository, `Enzo47961/auditor-measurements`, because GitHub suspended the fork for heavy Actions usage (`maintenance.md`).
 
-### L-33a: código do usuário executado na elaboração (Fase 1, instrução 24)
-- **Etapa A v4.**
-  - `run_tac` e `by_elab`, em qualquer posição: achado `elaboration_code_execution`. Toda declaração do arquivo sai **Rejeitada** (`elaboration_executes_code`, em `policy_violations`).
-  - `unsafe` em qualquer posição: `Não resolvida` (`unsafe_code`).
-- **Inspetor v5:**
-  - `imports` (fecho de imports);
-  - `execution_capable`: constantes do módulo-alvo cujo tipo alcança `IO.RealWorld`, ou com `@[extern]`. Deixam o arquivo `Não resolvida` (`target_defines_executable_code`).
-- **`auditor check --changed <arquivo>`** (repetível) e o `auditor-ci`, que passa os arquivos alterados: uma dependência alterada e importada que executa código na elaboração deixa o alvo `Não resolvida` (`dependency_executes_code`).
-- **Classificação do core v5:** `show_panel_widgets` sai de `allowed` (avalia termos do arquivo). A classificação de risco do core vale sobre allow-lists de projeto geradas antes.
-- Cenários de conformidade 09 (execução na elaboração) e 10 (ground truth: `initialize` roda em quem importa). Inventário em `docs/l33-inventory.md`; L-17 emendada (L-33a); L-30 registrada; nota no `phase0-report.md`.
-- **Repositórios-alvo:** o inspetor muda de versão (o cache é refeito); a allow-list de projeto não precisa ser regenerada.
+### L-33 (b): tampering detected (Phase 1, instruction 25)
+- Stage B ensures the inspector **before** the target's `lake build` and checks, after the build, the hash of the inspector binary and of the installed auditor package. If anything changed, the inspector does not run: `Não resolvida` (unresolved; `toolchain_tampered`), exit 1, not infrastructure.
+- `auditor-ci` checks again between files. After tampering, the following files are `not_audited_after_tampering`, `outcome.json` carries `toolchain_tampered: true`, and the summary warns.
+- Conformance scenario 11 (tampering with the auditor package; with the inspector binary; a run without tampering, which comes out `Rejeitada` (rejected) under L-33a).
 
-### Etapa A versão 3 (Fase 1, P0-2 (a), instrução 24)
-- **Menos falsos positivos na coluna 0.** Termo continuado na coluna 0 deixa de ser
-  `unknown_command`. Exemplos: `{ … with }`, `(…)`, `⟨…⟩`, `[…]`, `match`, `let`, `fun`, `do`,
+### L-33a: user code executed during elaboration (Phase 1, instruction 24)
+- **Stage A v4.**
+  - `run_tac` and `by_elab`, in any position: finding `elaboration_code_execution`. Every declaration of the file comes out **`Rejeitada`** (`elaboration_executes_code`, in `policy_violations`).
+  - `unsafe` in any position: `Não resolvida` (`unsafe_code`).
+- **Inspector v5:**
+  - `imports` (import closure);
+  - `execution_capable`: constants of the target module whose type reaches `IO.RealWorld`, or that carry `@[extern]`. They leave the file `Não resolvida` (`target_defines_executable_code`).
+- **`auditor check --changed <file>`** (repeatable), and `auditor-ci`, which passes the changed files: a changed, imported dependency that executes code during elaboration leaves the target `Não resolvida` (`dependency_executes_code`).
+- **Core classification v5:** `show_panel_widgets` leaves `allowed` (it evaluates terms of the file). The core risk classification applies on top of project allow-lists generated earlier.
+- Conformance scenarios 09 (execution during elaboration) and 10 (ground truth: `initialize` runs in whoever imports it). Inventory in `docs/l33-inventory.md`; L-17 amended (L-33a); L-30 recorded; note in `phase0-report.md`.
+- **Target repositories:** the inspector changes version (the cache is rebuilt); the project allow-list does not need to be regenerated.
+
+### Stage A version 3 (Phase 1, P0-2 (a), instruction 24)
+- **Fewer false positives at column 0.** A term continued at column 0 is no longer
+  `unknown_command`. Examples: `{ … with }`, `(…)`, `⟨…⟩`, `[…]`, `match`, `let`, `fun`, `do`,
   `for`, `have`, `show`, `from`, `by`, `if`/`then`/`else`, `calc`, `f!`/`s!`/`m!`.
-  `add_decl_doc` é aceito na coluna 0 só logo depois de uma docstring `/--`. `cmd%` na coluna 0
-  sai pela classificação, não como desconhecido.
-- **Menos `declaration_name_unresolved` falsos:** `.abbrev`, `` `lemma ``, `(lemma := …)` e o
-  atributo `class` não são declarações.
-- **Guardas:** o gerador da allow-list (core e projeto) recusa (exit 2) uma continuação que seja
-  token inicial de comando no ambiente; a Etapa A descarta em tempo de execução qualquer
-  continuação que o projeto tenha como comando. As continuações do core valem também com uma
-  allow-list de projeto gerada antes (o fork não precisa ser regenerado).
-- Efeito medido (`docs/p0-2-fail-closed.md`): top-60 por fanout de 68,3 % para 65,0 % de
-  fail-closed; Mathlib inteiro de 15,4 % para 14,4 %.
-- **Achado registrado, sem correção (L-33):** `run_tac` e `by_elab` executam código do usuário na
-  elaboração sem que a Etapa A os detecte. Aguarda decisão do revisor.
+  `add_decl_doc` is accepted at column 0 only right after a `/--` docstring. `cmd%` at column 0
+  comes out through the classification, not as unknown.
+- **Fewer false `declaration_name_unresolved`:** `.abbrev`, `` `lemma ``, `(lemma := …)` and the
+  `class` attribute are not declarations.
+- **Guards:** the allow-list generator (core and project) refuses (exit 2) a continuation that is
+  a command's initial token in the environment; at run time, Stage A drops any continuation that
+  the project has as a command. The core continuations also apply with a project allow-list
+  generated earlier (the fork does not need to be regenerated).
+- Measured effect (`docs/p0-2-fail-closed.md`): top-60 by fanout from 68.3 % to 65.0 %
+  fail-closed; whole of Mathlib from 15.4 % to 14.4 %.
+- **Finding recorded, not fixed (L-33):** `run_tac` and `by_elab` execute user code during
+  elaboration without Stage A detecting them. Awaiting the reviewer's decision.
 
-### Fase 1 — P0-1 (instrução 24)
-- **Medição no Mathlib inteiro** (run 39845428621):
-  - 24 322 de 330 852 declarações (7,35 %) caem só por `ctorIdx` gerado pelo Lean;
-  - o Mathlib não escreve nenhum `implemented_by` no fonte;
-  - registrado como L-34, com a política de TCB para código gerado na Fase 2.
-- Cenário de conformidade `08-generated-implemented-by`: `@[implemented_by]` gerado pelo Lean
-  (`T.ctorIdx`, `deriving TypeName`) sai `implemented_by_candidate`, nunca `verified`.
-- Ferramentas de medição em `tools/phase1/` (P0-1 e P0-2) e o workflow `auditor-measure` do fork.
+### Phase 1 — P0-1 (instruction 24)
+- **Measurement over the whole of Mathlib** (run 39845428621):
+  - 24,322 of 330,852 declarations (7.35 %) fall only because of a Lean-generated `ctorIdx`;
+  - Mathlib does not write any `implemented_by` in source;
+  - recorded as L-34, with the TCB policy for generated code in Phase 2.
+- Conformance scenario `08-generated-implemented-by`: a Lean-generated `@[implemented_by]`
+  (`T.ctorIdx`, `deriving TypeName`) comes out `implemented_by_candidate`, never `verified`.
+- Measurement tools in `tools/phase1/` (P0-1 and P0-2) and the fork's `auditor-measure` workflow.
 
-### Fase 0 — closed unconditionally 2026-10-22 (auditor 69ed9cf)
-- Fechamento incondicional confirmado pelo revisor (instrução 24). Auditor `69ed9cf` executado no
-  fork, `auditor-base` = `018d7db`; suíte **674** passed, 0 failed (run 39825726718); mutação
-  **141/141** em 6 grupos, 0 sobreviventes (grupo `ci` 38/38, run 39826324751); passo 8 (timeout /
-  `auditor-failed-infra`, PR #9) e passo 9 (`@auditor report`, PR #8) executados, o passo 9 com o
-  sumário qualificado (run 39827471933); `auditor-prep` verde (run 39826330043);
-  `classification_review_status: author-self-review` (L-26) declarado em todos os artefatos.
-  Evidência em `docs/phase0-report.md`, seção "Evidência do fechamento incondicional".
-- Pendência da revisão externa descartada encerrada (`proposed-improvements.md`).
-- **Fase 1 autorizada** (ainda não iniciada); começa pelos dois P0 de `roadmap.md`. A entrada abaixo ("pending steps
-  8-9") fica como histórico, não como status.
+### Phase 0 — closed unconditionally 2026-10-22 (auditor 69ed9cf)
+- Unconditional closure confirmed by the reviewer (instruction 24). Auditor `69ed9cf` run in the
+  fork, `auditor-base` = `018d7db`; suite **674** passed, 0 failed (run 39825726718); mutation
+  **141/141** in 6 groups, 0 survivors (`ci` group 38/38, run 39826324751); step 8 (timeout /
+  `auditor-failed-infra`, PR #9) and step 9 (`@auditor report`, PR #8) executed, step 9 with the
+  qualified summary (run 39827471933); `auditor-prep` green (run 39826330043);
+  `classification_review_status: author-self-review` (L-26) declared in every artifact.
+  Evidence in `docs/phase0-report.md`, section "Evidence for the unconditional closure".
+- The pending item from the discarded external review is closed (`proposed-improvements.md`).
+- **Phase 1 authorized** (not yet started at the time); it starts with the two P0 items of `roadmap.md`. The entry below ("pending steps
+  8-9") remains as history, not as status.
 
-### Fase 0 — closed at layer 1 + layer 2 measurement level, author-self-review declared, pending steps 8-9 (2026-10-22)
-- Fechamento declarado pelo revisor (instrução 22). Evidência consolidada em `docs/phase0-report.md`:
-  3 PRs `warm` no caminho de sucesso abaixo de 5 min (126 s, 130 s, 138 s), sonda do fanout
-  `verified` (`Data/String/Defs.lean`, 9/9), caminho fail-closed reportado à parte (PR #7), 662
-  testes, mutação 135/135, allow-list idêntica byte a byte, todos os relatórios com
-  `classification_review_status: author-self-review` e `project_dirty: false`.
-- **Condições antes de a Fase 1 abrir:** passos 8 (timeout / `auditor-failed-infra`) e 9
-  (`@auditor report` a pedido humano) do checklist da camada 2; pendência da revisão externa
-  descartada fechada (respondida ou declarada como não respondida).
-- Prioridades P0 da Fase 1 em `roadmap.md`: `@[implemented_by]` gerado na elaboração; taxa de
-  fail-closed da Etapa A (68 % dos 60 arquivos de maior fanout).
+### Phase 0 — closed at layer 1 + layer 2 measurement level, author-self-review declared, pending steps 8-9 (2026-10-22)
+- Closure declared by the reviewer (instruction 22). Evidence consolidated in `docs/phase0-report.md`:
+  3 `warm` PRs on the success path under 5 min (126 s, 130 s, 138 s), fanout probe
+  `verified` (`Data/String/Defs.lean`, 9/9), fail-closed path reported separately (PR #7), 662
+  tests, mutation 135/135, allow-list byte-for-byte identical, every report with
+  `classification_review_status: author-self-review` and `project_dirty: false`.
+- **Conditions before Phase 1 opens:** steps 8 (timeout / `auditor-failed-infra`) and 9
+  (`@auditor report` on human request) of the layer-2 checklist; the pending item from the
+  discarded external review closed (answered or declared unanswered).
+- Phase 1 P0 priorities in `roadmap.md`: `@[implemented_by]` generated during elaboration; Stage A
+  fail-closed rate (68 % of the 60 files with the highest fanout).
 
-### `auditor-ci` (instrução 23)
-- **O sumário (Job Summary e comentário do `@auditor report`) declara a revisão da classificação:**
-  linha `classificação: <status> (L-26)`, com o `tcb.classification_review_status` dos relatórios
-  (por exemplo, `author-self-review`). Sem relatório legível, `indeterminada (nenhum relatório)`.
-  Cada arquivo do `outcome.json` ganha o campo `classification_review_status`.
+### `auditor-ci` (instruction 23)
+- **The summary (Job Summary and the `@auditor report` comment) declares the classification review:**
+  a line `classificação: <status> (L-26)`, with the reports' `tcb.classification_review_status`
+  (for example, `author-self-review`). With no readable report, `indeterminada (nenhum relatório)`
+  (undetermined, no report). Each file in `outcome.json` gains the `classification_review_status` field.
 
-### Workflows (instrução 22)
-- **Correção no `auditor-report`:** o `@auditor report` respondia "nenhuma execução" para um commit
-  já auditado (passo 9 da camada 2). O filtro `head_sha` da API de execuções do GitHub (usado por
-  `gh run list --commit`) não é determinístico. A busca agora lista as 100 execuções mais recentes
-  do `auditor-tier1` e seleciona o commit no cliente. Uma execução em andamento ganha mensagem
-  própria, em vez de "falha de infraestrutura". **Repositórios-alvo precisam recopiar o modelo**
+### Workflows (instruction 22)
+- **Fix in `auditor-report`:** `@auditor report` answered "no run" for an already-audited commit
+  (layer-2 step 9). The `head_sha` filter of GitHub's runs API (used by `gh run list --commit`)
+  is not deterministic. The lookup now lists the 100 most recent `auditor-tier1` runs and selects
+  the commit on the client. A run in progress gets its own message instead of "infrastructure
+  failure". **Target repositories must re-copy the template**
   `ci/templates/auditor-report.yml`.
 
-### Marco: validação completa antes da medição (2026-10-22)
-- Suíte no `ci.yml` (Linux) **633 passed, 0 failed** (`fe95112`). Mutação em 6 grupos **125/125**,
-  depois de pegar 1 sobrevivente real: `classification_review_status` trocado por uma constante.
-- `auditor-prep` todo verde, inclusive `gen_tcb_roots --check` no fork. A allow-list do Mathlib,
-  regenerada no CI, saiu **idêntica byte a byte** à commitada (run 39696176700).
-- Primeiro run (PR #1) e 3 PRs de medição, todos abaixo de 300 s. Ainda não é steady-state: todo
-  PR novo começava `cold` (D-61, abaixo). Relatórios com
+### Milestone: full validation before measurement (2026-10-22)
+- Suite in `ci.yml` (Linux) **633 passed, 0 failed** (`fe95112`). Mutation in 6 groups **125/125**,
+  after catching 1 real survivor: `classification_review_status` replaced by a constant.
+- `auditor-prep` all green, including `gen_tcb_roots --check` in the fork. The Mathlib allow-list,
+  regenerated in CI, came out **byte-for-byte identical** to the committed one (run 39696176700).
+- First run (PR #1) and 3 measurement PRs, all under 300 s. Not yet steady state: every new PR
+  started `cold` (D-61, below). Reports with
   `classification_review_status: author-self-review` (L-26).
 
-### Documentação (instrução 21)
-- **L-27 emendada:** o caminho de sucesso da medição de fanout usa o arquivo de maior fanout cuja
-  Etapa A não tem item não reconhecido ("sem sintaxe declarada" não basta). Arquivo escolhido:
+### Documentation (instruction 21)
+- **L-27 amended:** the success path of the fanout measurement uses the highest-fanout file whose
+  Stage A has no unrecognized item ("no declared syntax" is not enough). File chosen:
   `Mathlib/Data/String/Defs.lean`.
-- Pauta da Fase 1 (`roadmap.md`): 68 % dos 60 arquivos de maior fanout falham na Etapa A;
-  `@[implemented_by]` gerado na elaboração (`WalkingParallelPair.ctorIdx`) derruba declarações pela L-5.
-- **Correção do relatório da instrução 20:** as 10 `Não resolvida` do PR médio (#6) não são por
-  sintaxe declarada (o arquivo não tem item não reconhecido). São 8 por `set_option backward.*`
-  fora da política e 2 só por `implemented_by_candidate`; idênticas às do PR #3.
-- `maintenance.md`: teste de referência para workflows que salvam cache (apagar, re-rodar vermelho,
-  re-rodar, re-aquecer).
+- Phase 1 agenda (`roadmap.md`): 68 % of the 60 highest-fanout files fail in Stage A; an
+  `@[implemented_by]` generated during elaboration (`WalkingParallelPair.ctorIdx`) brings down declarations under L-5.
+- **Correction to the instruction-20 report:** the 10 `Não resolvida` declarations of the medium PR (#6) are not
+  due to declared syntax (the file has no unrecognized item). 8 are due to `set_option backward.*`
+  outside the policy and 2 only to `implemented_by_candidate`; identical to those of PR #3.
+- `maintenance.md`: reference test for workflows that save a cache (delete, re-run red,
+  re-run, re-warm).
 
-### Workflows e `auditor-ci` (instrução 20)
-- **D-61: novo workflow reutilizável `auditor-warm-cache`** (modelo
-  `ci/templates/auditor-warm-cache.yml`, disparado por `workflow_dispatch` e push no branch base).
-  Salva no branch base os caches do inspetor e do Mathlib, com as mesmas chaves do `auditor-tier1`.
-  Um PR só lê cache do próprio ref ou do base; sem isso, todo PR novo começava `cold`.
-- **`auditor-ci inspector [--project .] [--check] [--github-output]`:** compila o inspetor sem
-  auditar nada; com `--check`, só informa se está pronto (`built=true|false`). Exit 2 se não foi
-  possível ter o inspetor.
-- **A2: o `auditor-tier1` salva o cache do inspetor mesmo com o job vermelho**, desde que o build
-  tenha terminado (`actions/cache/restore` + `actions/cache/save` com `always()`). Antes, um PR que
-  saía `unresolved` nunca aquecia o próprio cache.
-- **D-62: o checkout do auditor sai do workspace depois de instalado** (`$RUNNER_TEMP/auditor-tool`).
-  Antes, todo relatório do CI saía com `project_dirty: true`. A política default passa a ser lida
-  de `$RUNNER_TEMP/auditor-tool/policy.toml`.
+### Workflows and `auditor-ci` (instruction 20)
+- **D-61: new reusable workflow `auditor-warm-cache`** (template
+  `ci/templates/auditor-warm-cache.yml`, triggered by `workflow_dispatch` and push to the base branch).
+  It saves the inspector and Mathlib caches on the base branch, with the same keys as `auditor-tier1`.
+  A PR only reads caches from its own ref or from the base; without this, every new PR started `cold`.
+- **`auditor-ci inspector [--project .] [--check] [--github-output]`:** compiles the inspector without
+  auditing anything; with `--check`, it only reports whether it is ready (`built=true|false`). Exit 2 if
+  the inspector could not be obtained.
+- **A2: `auditor-tier1` saves the inspector cache even when the job is red**, as long as the build
+  finished (`actions/cache/restore` + `actions/cache/save` with `always()`). Before, a PR that
+  came out `unresolved` never warmed its own cache.
+- **D-62: the auditor checkout leaves the workspace after installation** (`$RUNNER_TEMP/auditor-tool`).
+  Before, every CI report came out with `project_dirty: true`. The default policy is now read
+  from `$RUNNER_TEMP/auditor-tool/policy.toml`.
 
-### Marco: primeiro resultado ponta a ponta (2026-10-21)
-- **Teste de fumaça da camada 2 aprovado.** No fork `Enzo47961/mathlib4` (`auditor-base` sobre o
-  Mathlib `e1b2403b`), no GitHub Actions, `Mathlib/Logic/Hydra.lean` saiu com 20 de 20 declarações
-  `Validada`/`Conforme`/`verified`, `exit_code` 0, nenhum item não reconhecido, com a allow-list do
-  Mathlib sem comandos sem classificação (run 39680033069, auditor `6568835`). É o primeiro
-  resultado ponta a ponta do projeto num arquivo real do Mathlib.
-- **Estado da validação (referência para os PRs de medição):** suíte no `ci.yml` (Linux) 609 passed,
-  0 failed (`e6e9f62`); mutação em 6 grupos 118/118 detectadas, 0 sobreviventes, 0 puladas.
-- **Classificação dos comandos do Mathlib: auto-revisão (L-26).** Os relatórios declaram
+### Milestone: first end-to-end result (2026-10-21)
+- **Layer-2 smoke test passed.** In the fork `Enzo47961/mathlib4` (`auditor-base` on top of
+  Mathlib `e1b2403b`), on GitHub Actions, `Mathlib/Logic/Hydra.lean` came out with 20 of 20 declarations
+  `Validada`/`Conforme`/`verified`, `exit_code` 0, no unrecognized item, with the Mathlib
+  allow-list having no unclassified commands (run 39680033069, auditor `6568835`). It is the project's
+  first end-to-end result on a real Mathlib file.
+- **Validation state (reference for the measurement PRs):** suite in `ci.yml` (Linux) 609 passed,
+  0 failed (`e6e9f62`); mutation in 6 groups 118/118 detected, 0 survivors, 0 skipped.
+- **Classification of Mathlib commands: self-review (L-26).** The reports declare
   `classification_review_status: author-self-review`.
 
-### Incompatível
-- **Toolchain fixado: `leanprover/lean4:v4.22.0` → `leanprover/lean4:v4.36.0-rc1`** (a versão do
-  Mathlib `master` em 2026-10-20, commit `e1b2403b`; instrução 12, opção X). A allow-list do
-  core da v4.22.0 foi removida: projeto com outro toolchain → `allowlist_unavailable`
-  (fail-closed). Inspetor `4`; classificação de comandos `4`.
-- **`auditor check --timeout` removido** (D-36 rejeitada). O timeout por arquivo é só
+### Incompatible
+- **Pinned toolchain: `leanprover/lean4:v4.22.0` → `leanprover/lean4:v4.36.0-rc1`** (Mathlib
+  `master`'s version on 2026-10-20, commit `e1b2403b`; instruction 12, option X). The v4.22.0 core
+  allow-list was removed: a project with another toolchain → `allowlist_unavailable`
+  (fail-closed). Inspector `4`; command classification `4`.
+- **`auditor check --timeout` removed** (D-36 rejected). The per-file timeout is only
   `--timeout-file`.
-- **`auditor-ci run --budget` → `--timeout-total`**, e `--first-run-budget` →
-  `--timeout-total-first-run`. Entradas do workflow reutilizável: `budget-seconds` →
+- **`auditor-ci run --budget` → `--timeout-total`**, and `--first-run-budget` →
+  `--timeout-total-first-run`. Reusable workflow inputs: `budget-seconds` →
   `timeout-total-seconds`, `first-run-budget-seconds` → `timeout-total-first-run-seconds`.
-  Os nomes agora dizem o que medem: total do PR (`--timeout-total`) e por arquivo
+  The names now say what they measure: the PR total (`--timeout-total`) and per file
   (`--timeout-file`).
-  - `--timeout-total` (300 s) é **o** orçamento do PR: o SLA de 5 min, declarado para o
-    steady-state (`cache_state` `warm`/`delta`).
-  - `--timeout-total-first-run` (900 s) **não é um segundo orçamento permanente**. É o
-    orçamento estendido de um run com cache frio (`cache_state: cold`), que acontece no
-    primeiro run do fork ou depois de o cache ser despejado. Só vale com evidência positiva
-    de cache frio, e o run declara `first_run: true`. Um run que passa dos 300 s dentro dele
-    não falha: ganha `cache_cold_extension: true` e o label `auditor-first-run` (D-28;
-    `docs/ci.md`; `docs/maintenance.md`, "Orçamentos de tempo do CI").
-- **`native_decide` nunca sai `verified` na Fase 0** (Q9, opção a; D-43 confirmada). O
-  axioma auxiliar que a v4.36 cria por uso (`<dona>._native.<tática>.ax_…`) deixa as premissas
-  `Não resolvido` (`native_auxiliary_axiom`). A justificativa O-1 continua obrigatória (sem ela,
-  `Não conforme`), mas não basta.
-- **Raízes de TCB do toolchain viram `target_trusted_roots`** (D-42, D-47). Antes eram todos
-  os `.olean` de primeiro nível do toolchain. Agora são só as raízes que o projeto-alvo de fato
-  usa, medidas no fecho de imports do Mathlib no commit fixado (`e1b2403b`, conferido contra o
-  `lake-manifest.json`): `Init`, `Lake`, `Lean` e `Std`. `LakeMain`, `Leanc`, `LeanChecker`,
-  `LeanExport` e `LeanIR` deixam de ser TCB: um `@[extern]`/`@[implemented_by]` delas sai
-  `unresolved`. Arquivo: `src/auditor/data/target_trusted_roots/` ("raízes cujos módulos são
-  implicitamente confiáveis no fecho do projeto-alvo", não "todas as raízes da TCB do Lean");
-  gerador: `tools/gen_tcb_roots.py`. No relatório da Etapa B, `boundary.toolchain_roots` virou
-  `boundary.trusted_roots`, e `boundary.declared_roots` traz tudo o que o toolchain declara.
-  Projeto-alvo que não é o Mathlib gera o próprio arquivo (L-21).
+  - `--timeout-total` (300 s) is **the** PR budget: the 5-min SLA, declared for
+    steady state (`cache_state` `warm`/`delta`).
+  - `--timeout-total-first-run` (900 s) is **not a second permanent budget**. It is the
+    extended budget of a run with a cold cache (`cache_state: cold`), which happens on the
+    fork's first run or after the cache is evicted. It applies only with positive evidence
+    of a cold cache, and the run declares `first_run: true`. A run that goes past 300 s within it
+    does not fail: it gets `cache_cold_extension: true` and the `auditor-first-run` label (D-28;
+    `docs/ci.md`; `docs/maintenance.md`, "CI time budgets").
+- **`native_decide` never comes out `verified` in Phase 0** (Q9, option a; D-43 confirmed). The
+  auxiliary axiom that v4.36 creates per use (`<owner>._native.<tactic>.ax_…`) leaves the premises
+  `Não resolvido` (`native_auxiliary_axiom`). The O-1 justification remains mandatory (without it,
+  `Não conforme`), but it is not enough.
+- **The toolchain's TCB roots become `target_trusted_roots`** (D-42, D-47). Before, they were all
+  of the toolchain's top-level `.olean` files. Now they are only the roots the target project actually
+  uses, measured on Mathlib's import closure at the pinned commit (`e1b2403b`, checked against
+  `lake-manifest.json`): `Init`, `Lake`, `Lean` and `Std`. `LakeMain`, `Leanc`, `LeanChecker`,
+  `LeanExport` and `LeanIR` are no longer TCB: an `@[extern]`/`@[implemented_by]` from them comes out
+  `unresolved`. File: `src/auditor/data/target_trusted_roots/` ("roots whose modules are
+  implicitly trusted in the target project's closure", not "all roots of Lean's TCB");
+  generator: `tools/gen_tcb_roots.py`. In the Stage B report, `boundary.toolchain_roots` became
+  `boundary.trusted_roots`, and `boundary.declared_roots` lists everything the toolchain declares.
+  A target project other than Mathlib generates its own file (L-21).
 
-- **Allow-list de projeto: só as bibliotecas-alvo** (D-52). `auditor-gen-allowlist` extrai os
-  comandos só das `lean_lib` marcadas `@[default_target]` no lakefile (ou das indicadas com
-  `--lib`, repetível), e não mais de todo `.olean` do build. Sem nenhuma, erro (exit 2). O
-  arquivo gerado ganhou o campo `libraries`. Motivo: no Mathlib, o `lake exe cache get` compila a
-  biblioteca `Cache`, que define `Lean.Name.fromComponents` como `Mathlib.Lean.Name`; as duas não
-  podem ser importadas juntas, e o gerador falhava. `generator_version` `2` → `3`.
-- **Fim de linha normalizado nos hashes do `lake-manifest.json`** (D-53). `env_pin` (allow-list
-  de projeto), `tools/gen_tcb_roots.py` e `tools/layer2/fanout.py` calculam o hash com CRLF → LF:
-  o mesmo commit dá o mesmo valor num clone Windows (`core.autocrlf=true`) e no Linux. SHA-256 do
-  conteúdo normalizado, não o hash de blob do git (SHA-1, D-18). `ENV_PIN_VERSION` `1` → `2`:
-  allow-lists de projeto geradas antes ficam `allowlist_stale` e precisam ser regeneradas.
-  `target_trusted_roots` regenerado: `lake_manifest_sha256` `c9b51d72…` (clone CRLF) →
-  `f77f47db…` (o do repositório); o resto é idêntico.
-- **`gen_tcb_roots.py --check` aceita fork de medição** (D-54, L-24): `HEAD` ≠ commit gravado só
-  se o commit gravado for ancestral e a árvore só diferir em `.github/`, sem nenhum `.lean`.
-- **Runner fixado: `ubuntu-24.04`** (D-55) no workflow reutilizável, no `ci.yml` e nos templates
-  `auditor-label`/`auditor-report`. O GitHub migra `ubuntu-latest` para o Ubuntu 26 desde
-  2026-10-19, e a medição da camada 2 não pode trocar de imagem no meio. A atualização das actions
-  fixadas (Node 20, que o GitHub já força a rodar em Node 24) fica para uma rodada separada, fora
-  da camada 2, com registro aqui.
+- **Project allow-list: target libraries only** (D-52). `auditor-gen-allowlist` extracts the
+  commands only from the `lean_lib`s marked `@[default_target]` in the lakefile (or those given with
+  `--lib`, repeatable), and no longer from every `.olean` of the build. With none, an error (exit 2). The
+  generated file gained the `libraries` field. Reason: in Mathlib, `lake exe cache get` builds the
+  `Cache` library, which defines `Lean.Name.fromComponents` as `Mathlib.Lean.Name`; the two cannot
+  be imported together, and the generator failed. `generator_version` `2` → `3`.
+- **Line endings normalized in the `lake-manifest.json` hashes** (D-53). `env_pin` (project
+  allow-list), `tools/gen_tcb_roots.py` and `tools/layer2/fanout.py` compute the hash with CRLF → LF:
+  the same commit gives the same value in a Windows clone (`core.autocrlf=true`) and on Linux. SHA-256 of
+  the normalized content, not git's blob hash (SHA-1, D-18). `ENV_PIN_VERSION` `1` → `2`:
+  project allow-lists generated earlier become `allowlist_stale` and must be regenerated.
+  `target_trusted_roots` regenerated: `lake_manifest_sha256` `c9b51d72…` (CRLF clone) →
+  `f77f47db…` (the repository's); the rest is identical.
+- **`gen_tcb_roots.py --check` accepts a measurement fork** (D-54, L-24): `HEAD` ≠ recorded commit only
+  if the recorded commit is an ancestor and the tree differs only in `.github/`, with no `.lean` file.
+- **Pinned runner: `ubuntu-24.04`** (D-55) in the reusable workflow, in `ci.yml` and in the
+  `auditor-label`/`auditor-report` templates. GitHub has been migrating `ubuntu-latest` to Ubuntu 26 since
+  2026-10-19, and the layer-2 measurement cannot switch images midway. Updating the pinned
+  actions (Node 20, which GitHub already forces to run on Node 24) is left for a separate round, outside
+  layer 2, recorded here.
 
-- **Etapa A: `module` de cabeçalho e comandos-símbolo** (D-56, D-57; `stage_a_version` `2`).
-  `module` (sistema de módulos da v4.36, primeira linha de todo arquivo do Mathlib) é aceito como
-  primeiro token do arquivo; em outra posição, continua `unknown_command`. Os comandos de risco
-  cujo token é símbolo (`?`, `$`) só são procurados no início de comando: antes, todo `?_` de
-  `refine ⟨?_, ?_⟩` virava `syntax_extension_declared`. Palavras reservadas (`macro`, `#eval`, …)
-  continuam detectadas em qualquer posição. Fixture de conformidade novo: `07-module-header`.
+- **Stage A: header `module` and symbol commands** (D-56, D-57; `stage_a_version` `2`).
+  `module` (v4.36's module system, the first line of every Mathlib file) is accepted as the
+  file's first token; in any other position, it remains `unknown_command`. Risky commands
+  whose token is a symbol (`?`, `$`) are only looked for at the start of a command: before, every `?_` in
+  `refine ⟨?_, ?_⟩` became `syntax_extension_declared`. Reserved words (`macro`, `#eval`, …)
+  are still detected in any position. New conformance fixture: `07-module-header`.
 
-- **Relatório: schema `1.1.0`, campo obrigatório `tcb.classification_review_status`** (L-26).
-  Classificação de projeto (`.auditor/classification.toml`) passa a exigir `reviewed_by` e
-  `reviewer_independence` coerentes (`revision_note` opcional); sem eles, `auditor-gen-allowlist`
-  sai com exit 2. A allow-list gerada ganha `classification_review` (`generator_version` `4`). O
-  SHA-256 da classificação usa fim de linha normalizado, como o do manifesto (D-53).
-- **`gen_tcb_roots.py --check` em fork aceita também `.auditor/`** (D-59, L-24): a allow-list e a
-  classificação que o passo 3 do checklist commita no fork. Continua: nenhum `.lean`, ancestralidade.
+- **Report: schema `1.1.0`, mandatory field `tcb.classification_review_status`** (L-26).
+  A project classification (`.auditor/classification.toml`) now requires consistent `reviewed_by` and
+  `reviewer_independence` (`revision_note` optional); without them, `auditor-gen-allowlist`
+  exits with code 2. The generated allow-list gains `classification_review` (`generator_version` `4`). The
+  classification's SHA-256 uses normalized line endings, like the manifest's (D-53).
+- **`gen_tcb_roots.py --check` in a fork also accepts `.auditor/`** (D-59, L-24): the allow-list and the
+  classification that step 3 of the checklist commits in the fork. Still: no `.lean` file, ancestry.
 
-### Caminhos do Mathlib que mudaram
-- **`Mathlib/Logic/Basic.lean` não existe mais** no commit fixado (`e1b2403b`). O equivalente é
-  `Mathlib/Basic/Logic/Basic.lean` (8072 dependentes, posição 24 no fanout). Nenhum script,
-  fixture ou teste do auditor referencia o caminho antigo. Só `docs/ci.md` e o checklist da
-  camada 2 o citavam, e os dois foram atualizados. As ferramentas da camada 2 (`fanout.py`)
-  conferem o commit do checkout (`--expect-commit`), então não apontam para um arquivo de
-  outro commit.
-- **`auditor-ci-outcome/2`** (instrução 11): `exit_code`, `cache_state`, `first_run`,
-  `cache_cold_extension`, relógio desde o trigger. A versão 1 é rejeitada pelo
-  `label-decision` (resulta em `auditor-failed-infra`).
+### Mathlib paths that changed
+- **`Mathlib/Logic/Basic.lean` no longer exists** at the pinned commit (`e1b2403b`). The equivalent is
+  `Mathlib/Basic/Logic/Basic.lean` (8072 dependents, position 24 in fanout). No auditor script,
+  fixture or test references the old path. Only `docs/ci.md` and the layer-2 checklist
+  cited it, and both were updated. The layer-2 tools (`fanout.py`)
+  check the checkout's commit (`--expect-commit`), so they do not point to a file from
+  another commit.
+- **`auditor-ci-outcome/2`** (instruction 11): `exit_code`, `cache_state`, `first_run`,
+  `cache_cold_extension`, clock since the trigger. Version 1 is rejected by
+  `label-decision` (resulting in `auditor-failed-infra`).
 
-### Adicionado
-- Timeout por arquivo (`--timeout-file`, 90 s) que encerra a auditoria do PR (exit 2).
-- Orçamento wall-clock do PR desde o trigger, incluindo a preparação; `cache_state`;
-  orçamento estendido com cache cold; label `auditor-first-run`.
-- `tools/layer2/` (fanout e tempos por `cache_state`); `docs/layer2-checklist.md`.
-- `fanout.py` registra a procedência (commit do checkout, SHA-256 do `lake-manifest.json`,
-  `lean-toolchain`) e aceita `--expect-commit`. A saída JSON passou a ser
+### Added
+- Per-file timeout (`--timeout-file`, 90 s) that ends the PR's audit (exit 2).
+- PR wall-clock budget since the trigger, including preparation; `cache_state`;
+  extended budget with a cold cache; `auditor-first-run` label.
+- `tools/layer2/` (fanout and timings per `cache_state`); `docs/layer2-checklist.md`.
+- `fanout.py` records provenance (checkout commit, SHA-256 of `lake-manifest.json`,
+  `lean-toolchain`) and accepts `--expect-commit`. The JSON output became
   `{"provenance": …, "rows": […]}`.
-- `tools/layer2/native_usage.py`: proporção de declarações que usam avaliação nativa
-  (`native_decide`, `+native`, `native := …`, `bv_decide`), contada com o lexer da Etapa A.
-- Actions fixadas por SHA de commit; elan da release fixada com SHA-256 conferido.
+- `tools/layer2/native_usage.py`: the share of declarations that use native evaluation
+  (`native_decide`, `+native`, `native := …`, `bv_decide`), counted with Stage A's lexer.
+- Actions pinned by commit SHA; elan from a pinned release with a checked SHA-256.
 
-### Segurança
-- O inspetor importa o ambiente sem carregar extensões (`loadExts := false`): não executa
-  código dos módulos importados, inclusive do PR (D-39).
-- `unlock_limits` (novo na v4.36) é registrado pela Etapa A como os `set_option … 0` que aplica,
-  e a política de `set_option` decide (D-41).
+### Security
+- The inspector imports the environment without loading extensions (`loadExts := false`): it does not run
+  code from the imported modules, including the PR's (D-39).
+- `unlock_limits` (new in v4.36) is recorded by Stage A as the `set_option … 0`s it applies,
+  and the `set_option` policy decides (D-41).

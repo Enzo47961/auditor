@@ -1,99 +1,99 @@
-# Invalidação de selos — modelo de dados
+# Seal invalidation — data model
 
-**Estado: só modelo.** Na Fase 0 nada deste documento está implementado além do que o relatório já emite: fingerprint e TCB por declaração. Armazenamento de selos, log de eventos, propagação e assinatura são da Fase 1. Este documento fixa o modelo para que a Fase 1 não precise reinterpretar o relatório v1.
+**State: model only.** In Phase 0, nothing in this document is implemented beyond what the report already emits: a fingerprint and the TCB per declaration. Seal storage, the event log, propagation and signing belong to Phase 1. This document fixes the model so that Phase 1 does not need to reinterpret the v1 report.
 
-## Princípios
+## Principles
 
-1. **Selos são imutáveis.** Um selo nunca é editado nem apagado. A situação atual de um selo é **derivada**: selo + log de eventos + ambiente do consumidor.
-2. **Revogação é um evento, não uma edição.** Eventos são acrescentados a um log *append-only*; nenhum evento é removido. Um evento emitido por engano é neutralizado por outro evento (`retraction`), que também fica no log.
-3. **Obsoleto não é revogado.** Um selo emitido contra outro ambiente (fingerprint diferente do atual) é **obsoleto**: não se aplica ao ambiente do consumidor, mas também não foi refutado. Um selo **revogado** foi declarado inválido por um evento. As duas situações nunca são confundidas.
-4. **Na dúvida, não vale.** Se o consumidor não consegue decidir o estado de um selo (log inacessível, evento malformado, fingerprint ausente), o estado é `indeterminado`, nunca `válido` (fail-closed, princípio 3).
-5. **Humano no circuito.** Eventos de revogação são criados por pessoas identificadas (princípio 8). A ferramenta pode **detectar** mudanças de ambiente, mas não emite revogação por conta própria.
+1. **Seals are immutable.** A seal is never edited or deleted. A seal's current situation is **derived**: seal + event log + the consumer's environment.
+2. **Revocation is an event, not an edit.** Events are appended to an *append-only* log; no event is removed. An event issued by mistake is neutralized by another event (`retraction`), which also stays in the log.
+3. **Stale is not revoked.** A seal issued against another environment (a fingerprint different from the current one) is **stale**: it does not apply to the consumer's environment, but it has not been refuted either. A **revoked** seal was declared invalid by an event. The two situations are never confused.
+4. **When in doubt, it does not hold.** If the consumer cannot decide a seal's state (inaccessible log, malformed event, missing fingerprint), the state is `undetermined`, never `valid` (fail-closed, principle 3).
+5. **Human in the loop.** Revocation events are created by identified people (principle 8). The tool may **detect** environment changes, but it does not issue revocations on its own.
 
-## Entidades
+## Entities
 
-### Selo (`Seal`), imutável
+### Seal (`Seal`), immutable
 
-Derivado de uma entrada de `declarations` de um relatório v1. Todos os campos já existem no relatório (entre parênteses, o campo de origem).
+Derived from an entry of a v1 report's `declarations`. All fields already exist in the report (the source field in parentheses).
 
-| Campo | Origem no relatório v1 | Observação |
+| Field | Source in the v1 report | Note |
 |---|---|---|
-| `seal_id` | — | SHA-256 da forma canônica (JSON, chaves ordenadas) dos campos abaixo, exceto `issued_at` e `report_sha256` |
+| `seal_id` | — | SHA-256 of the canonical form (JSON, sorted keys) of the fields below, except `issued_at` and `report_sha256` |
 | `declaration_name` | `declaration_name` | |
-| `declaration_hash` | `declaration_hash` | identidade do conteúdo elaborado (D-18) |
+| `declaration_hash` | `declaration_hash` | identity of the elaborated content (D-18) |
 | `module` | `target.module` | |
-| `proof_status`, `premises_status`, `overall_status` | idem | o selo registra o resultado, inclusive os negativos |
-| `correspondence_status` | idem | sempre `Não auditada` na Fase 0 |
-| `fingerprint` | `tcb.fingerprint` | ambiente contra o qual o selo vale |
-| `tcb` | `tcb` | componentes enumerados (kernel, toolchain, dependências, inspetor, agregador, parser, política, metadados) |
-| `depends_on_rejected` | idem | |
-| `local_dependencies` | (Fase 1: `depends_on` completo do inspetor) | declarações do mesmo módulo no fecho; dependências de outros módulos são cobertas pelo fingerprint (imports fixados pelo manifest) |
+| `proof_status`, `premises_status`, `overall_status` | same | the seal records the result, including negative ones |
+| `correspondence_status` | same | always `Não auditada` (not audited) in Phase 0 |
+| `fingerprint` | `tcb.fingerprint` | the environment against which the seal holds |
+| `tcb` | `tcb` | enumerated components (kernel, toolchain, dependencies, inspector, aggregator, parser, policy, metadata) |
+| `depends_on_rejected` | same | |
+| `local_dependencies` | (Phase 1: the inspector's complete `depends_on`) | declarations of the same module in the closure; dependencies in other modules are covered by the fingerprint (imports pinned by the manifest) |
 | `issued_at` | `execution_metadata.timestamp` | |
-| `report_sha256` | — | hash do relatório de onde o selo foi extraído (rastreabilidade) |
+| `report_sha256` | — | hash of the report the seal was extracted from (traceability) |
 
-Selo com `fingerprint: null` (TCB incompleta) não é armazenável como selo: o relatório já garante que essa declaração não é `Validada`.
+A seal with `fingerprint: null` (incomplete TCB) cannot be stored as a seal: the report already guarantees that such a declaration is not `Validada`.
 
-### Evento (`Event`), append-only
+### Event (`Event`), append-only
 
-| Campo | Tipo | Observação |
+| Field | Type | Note |
 |---|---|---|
-| `event_id` | SHA-256 da forma canônica do evento sem `event_id` | |
-| `kind` | enum, abaixo | |
-| `selector` | objeto, abaixo | **quais** selos o evento atinge |
-| `reason` | texto | obrigatório |
-| `evidence` | lista de referências (URL, commit, issue, relatório) | obrigatório para `revocation` |
-| `author` | identidade humana | princípio 8; nunca uma conta de automação |
+| `event_id` | SHA-256 of the canonical form of the event without `event_id` | |
+| `kind` | enum, below | |
+| `selector` | object, below | **which** seals the event affects |
+| `reason` | text | mandatory |
+| `evidence` | list of references (URL, commit, issue, report) | mandatory for `revocation` |
+| `author` | human identity | principle 8; never an automation account |
 | `created_at` | timestamp | |
-| `supersedes` | `event_id` ou nulo | só para `retraction` |
+| `supersedes` | `event_id` or null | only for `retraction` |
 
-**Tipos (`kind`):**
+**Kinds (`kind`):**
 
-| `kind` | Efeito nos selos selecionados | Exemplo |
+| `kind` | Effect on the selected seals | Example |
 |---|---|---|
-| `revocation` | `revogado` | bug no kernel 4.36.0-rc1; defeito no inspetor v2 que omitia axiomas; política v1 tinha regra errada |
-| `retraction` | anula o efeito de um evento anterior (`supersedes`) | revogação emitida para a versão errada |
-| `advisory` | nenhum efeito no estado; o aviso aparece para o consumidor | regra de política reconsiderada, sem erro demonstrado |
+| `revocation` | `revoked` | a bug in kernel 4.36.0-rc1; a defect in inspector v2 that omitted axioms; policy v1 had a wrong rule |
+| `retraction` | cancels the effect of an earlier event (`supersedes`) | a revocation issued for the wrong version |
+| `advisory` | no effect on the state; the notice is shown to the consumer | a policy rule reconsidered, with no demonstrated error |
 
-**Seletor (`selector`):** conjunção de condições sobre campos do selo. Exemplos:
+**Selector (`selector`):** a conjunction of conditions on seal fields. Examples:
 - `{"tcb.kernel.lean_version": "4.36.0-rc1"}`
 - `{"tcb.inspector.source_sha256": "sha256:…"}`
 - `{"tcb.policy.sha256": "sha256:…", "declaration_name": "foo"}`
 - `{"fingerprint": "sha256:…"}`
 
-Um seletor vazio é inválido (não existe revogação de "tudo" por omissão).
+An empty selector is invalid (there is no revocation of "everything" by omission).
 
-## Estado derivado de um selo
+## Derived state of a seal
 
-Entrada: o selo `S`, o log `L` e o fingerprint do ambiente atual do consumidor `F` (calculado pela mesma função de `src/auditor/fingerprint`).
+Input: the seal `S`, the log `L` and the fingerprint `F` of the consumer's current environment (computed by the same function as `src/auditor/fingerprint`).
 
-1. Se `L` não pôde ser lido ou contém evento malformado → `indeterminado`.
-2. Remover de `L` os eventos anulados por `retraction` válidas.
-3. Se algum `revocation` restante seleciona `S` → `revogado`.
-4. Se algum selo **do qual `S` depende** está `revogado` (propagação, abaixo) → `revogado` (causa: `propagated`, com o caminho).
-5. Se `S.fingerprint ≠ F` → `obsoleto`.
-6. Se `S.overall_status ≠ verified` → `negativo` (o selo registra rejeição ou não resolução; continua imutável e consultável).
-7. Senão → `válido`.
+1. If `L` could not be read or contains a malformed event → `undetermined`.
+2. Remove from `L` the events cancelled by valid `retraction`s.
+3. If any remaining `revocation` selects `S` → `revoked`.
+4. If any seal **that `S` depends on** is `revoked` (propagation, below) → `revoked` (cause: `propagated`, with the path).
+5. If `S.fingerprint ≠ F` → `stale`.
+6. If `S.overall_status ≠ verified` → `negative` (the seal records a rejection or non-resolution; it remains immutable and queryable).
+7. Otherwise → `valid`.
 
-A ordem importa: revogação prevalece sobre obsolescência. Um selo revogado continua revogado mesmo quando o ambiente muda.
+The order matters: revocation prevails over staleness. A revoked seal remains revoked even when the environment changes.
 
-## Propagação
+## Propagation
 
-Revogar um selo pode invalidar outros que dependem dele.
+Revoking a seal may invalidate others that depend on it.
 
-- **Mesmo módulo:** se `S` lista `T` em `local_dependencies` e `T` está revogado, então `S` está revogado (transitivamente, até ponto fixo).
-- **Outros módulos:** não há aresta explícita. Uma dependência importada é fixada pelo manifest e pelos commits, que entram no fingerprint. Revogar algo de uma dependência é expresso por seletor sobre os componentes do fingerprint (por exemplo, `tcb.dependencies.mathlib_commit`), e não por arestas entre selos. Isso evita que o modelo dependa de um grafo global de declarações que a Fase 0 não constrói.
-- **Componentes da TCB:** revogar um componente (kernel, inspetor, agregador, política) é um seletor sobre `tcb.*`, que atinge diretamente todos os selos emitidos com ele. Não precisa de propagação.
-- **Ciclos:** o fecho de dependências do Lean é acíclico para declarações elaboradas; a propagação itera até ponto fixo e termina.
+- **Same module:** if `S` lists `T` in `local_dependencies` and `T` is revoked, then `S` is revoked (transitively, up to a fixed point).
+- **Other modules:** there is no explicit edge. An imported dependency is pinned by the manifest and the commits, which enter the fingerprint. Revoking something in a dependency is expressed by a selector on the fingerprint's components (for example, `tcb.dependencies.mathlib_commit`), not by edges between seals. This keeps the model from depending on a global declaration graph that Phase 0 does not build.
+- **TCB components:** revoking a component (kernel, inspector, aggregator, policy) is a selector on `tcb.*`, which directly hits every seal issued with it. No propagation is needed.
+- **Cycles:** Lean's dependency closure is acyclic for elaborated declarations; propagation iterates to a fixed point and terminates.
 
-## O que a Fase 0 já garante
+## What Phase 0 already guarantees
 
-- O relatório declara `fingerprint` e a TCB completa em cada declaração; `Validada` exige TCB completa (schema v1).
-- `declaration_hash`, `depends_on_rejected` e os estados ortogonais têm os campos necessários para extrair selos sem reinterpretação.
-- Comparar o fingerprint com o ambiente atual é responsabilidade do consumidor (L-10).
+- The report declares `fingerprint` and the complete TCB in each declaration; `Validada` requires a complete TCB (schema v1).
+- `declaration_hash`, `depends_on_rejected` and the orthogonal states have the fields needed to extract seals without reinterpretation.
+- Comparing the fingerprint with the current environment is the consumer's responsibility (L-10).
 
-## Fora do modelo (Fase 1+)
+## Outside the model (Phase 1+)
 
-- Assinatura criptográfica de selos e eventos, e identidade verificável do autor.
-- Onde o log é guardado e como é distribuído.
-- `local_dependencies` completo no relatório (hoje só `depends_on_rejected` é emitido).
-- Revogação automática a partir de detecção de mudança de ambiente. Isso não está previsto: a detecção é automática, mas a revogação é humana.
+- Cryptographic signing of seals and events, and verifiable author identity.
+- Where the log is stored and how it is distributed.
+- A complete `local_dependencies` in the report (today only `depends_on_rejected` is emitted).
+- Automatic revocation from detected environment changes. This is not planned: detection is automatic, but revocation is human.

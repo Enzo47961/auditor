@@ -1,270 +1,272 @@
-# Limitações (Fase 0, Tier 1)
+# Limitations (Phase 0, Tier 1)
 
-Referência normativa dos testes: cada limitação tem um identificador `L-n`, citado pelos testes que dela dependem. Uma limitação aqui é algo que a ferramenta **sabidamente não cobre**; nunca é motivo para emitir `Validada`.
+Normative reference for the tests: each limitation has an identifier `L-n`, cited by the tests that depend on it. A limitation here is something the tool **knowingly does not cover**; it is never a reason to emit `Validada` (validated).
 
-## L-1. O kernel e o compilador estão na TCB, não são auditados
-O kernel do Lean é âncora de confiança. Com `native_decide`, a confiança se estende ao compilador e a toda implementação alcançada por `@[implemented_by]`. O cenário 04 demonstra o risco: uma implementação mentirosa permite derivar `False` (`tests/conformance/04-implemented-by/GroundTruth.lean`). Por isso o padrão combinado é `Rejeitada`.
+"Instruction N" refers to the numbered decisions of the project's external reviewer. Status values (`Validada`, `Rejeitada`, `Não resolvida`, `Conforme`, `Não conforme`, `Não resolvido`, `Não auditada`) are quoted as the tool prints them; see the README for their meaning.
 
-## L-2. A Etapa A é varredura léxica, não parsing
-A sintaxe do Lean é extensível e o parser depende de notações importadas. A Etapa A:
-- **só vê o texto do arquivo-alvo**. Um `sorry` transitivo (cenário 02) e um ciclo de imports são invisíveis para ela; quem cobre isso é a Etapa B;
-- **checa comandos só na coluna 0**. Um token na coluna 0 que não esteja na allow-list nem entre os tokens de continuação (`|`, `where`, …) resulta em `unknown_command` (fail-closed). Consequência: uma continuação legítima escrita na coluna 0 gera falso "não reconhecido" (inconveniente, nunca selo falso). Comandos indentados não passam por essa checagem;
-- **detecta comandos de risco em qualquer posição** (`macro`, `notation`, `run_cmd`, `#eval`, …). São tokens reservados do Lean e não podem ser identificadores, exceto entre `«»`. Comandos de risco cujo token é **símbolo** (`?`, `$`) só são detectados no início de comando (coluna 0): o símbolo aparece em termos (`?_`, `?m`, `f $ x`) e não é reservado (D-56);
-- **aceita `module` só como primeiro token do arquivo** (cabeçalho do sistema de módulos da v4.36, antes dos `import`). Em qualquer outra posição, `module` é `unknown_command` (D-57);
-- **só conhece comandos de projeto com allow-list de projeto** (Q5). Sem `<projeto>/.auditor/allowlist.json`, comandos do Mathlib (`lemma` e outros) resultam em `unknown_command`. A allow-list do Mathlib é evidência da camada 2, gerada no fork (ver `docs/maintenance.md`) e não bloqueia a camada 1;
-- vê `decide +native` e `native := …` só como candidatos. A evidência é a Etapa B (`Lean.ofReduceBool`, ou o axioma auxiliar nativo da v4.36);
-- não inspeciona o conteúdo de strings interpoladas (`s!"{…}"`).
+## L-1. The kernel and the compiler are in the TCB, not audited
+The Lean kernel is a trust anchor. With `native_decide`, trust extends to the compiler and to every implementation reached through `@[implemented_by]`. Scenario 04 demonstrates the risk: a lying implementation makes it possible to derive `False` (`tests/conformance/04-implemented-by/GroundTruth.lean`). That is why the combined pattern is `Rejeitada` (rejected).
 
-A allow-list é versionada por toolchain e testada contra ele (ver `docs/maintenance.md`).
+## L-2. Stage A is a lexical scan, not parsing
+Lean's syntax is extensible, and the parser depends on imported notations. Stage A:
+- **only sees the text of the target file**. A transitive `sorry` (scenario 02) and an import cycle are invisible to it; Stage B covers them;
+- **checks commands only at column 0**. A token at column 0 that is neither on the allow-list nor among the continuation tokens (`|`, `where`, …) results in `unknown_command` (fail-closed). Consequence: a legitimate continuation written at column 0 produces a false "unrecognized" (an inconvenience, never a false seal). Indented commands do not go through this check;
+- **detects risky commands in any position** (`macro`, `notation`, `run_cmd`, `#eval`, …). They are reserved Lean tokens and cannot be identifiers, except between `«»`. Risky commands whose token is a **symbol** (`?`, `$`) are only detected at the start of a command (column 0): the symbol appears in terms (`?_`, `?m`, `f $ x`) and is not reserved (D-56);
+- **accepts `module` only as the file's first token** (the v4.36 module-system header, before the `import`s). In any other position, `module` is `unknown_command` (D-57);
+- **only knows project commands with a project allow-list** (Q5). Without `<project>/.auditor/allowlist.json`, Mathlib commands (`lemma` and others) result in `unknown_command`. The Mathlib allow-list is layer-2 evidence, generated in the fork (see `docs/maintenance.md`), and does not block layer 1;
+- sees `decide +native` and `native := …` only as candidates. The evidence is Stage B (`Lean.ofReduceBool`, or v4.36's native auxiliary axiom);
+- does not inspect the contents of interpolated strings (`s!"{…}"`).
 
-## L-3. `set_option` e comentários só são visíveis na Etapa A
-Não são registrados no ambiente elaborado. A isenção de `maxHeartbeats 0` só é reconhecida na forma `set_option maxHeartbeats 0 in <declaração>`.
+The allow-list is versioned per toolchain and tested against it (see `docs/maintenance.md`).
 
-## L-4. Justificativa de `native_decide` por docstring (O-1, opção B)
-- **Gramática estrita.** Exatamente uma linha na docstring da declaração dona, no formato
-  `auditor_justified: reason="<texto>" reviewer="@<handle>"`.
-  Sem escape (`\` ou `"` dentro de `reason` é proibido), sem continuação em várias linhas, sem duplicata. `<handle>` usa letras, dígitos e hífen. Qualquer desvio resulta em `native_decide_justification_malformed`. A única normalização é remover espaços em branco no fim da linha, porque o Lean armazena a docstring com o espaço que antecede `-/` (verificado na investigação O-1).
-- **Atribuição por nome, dependente de convenção interna.** A declaração dona é obtida removendo os componentes internos do nome da constante que referencia o axioma de avaliação nativa diretamente (`Lean.ofReduceBool`/`Lean.ofReduceNat`, ou o auxiliar `…._native.native_decide.ax_N` da v4.36; ex.: `nd_justified._proof_1_3` → `nd_justified`). Essa convenção é detalhe do compilador e pode mudar entre versões do Lean. Se a dona não for resolvida, o resultado é `Não resolvida` com razão `native_decide_owner_unresolved`.
-- **Justificativa não é autenticação.** Qualquer autor pode escrever a linha. A aprovação do revisor designado é humana e está fora do escopo.
-- **Auxiliares `where`.** Na v4.22, o `native_decide` de um auxiliar `where` (ex.: `outer.aux`) passava por `outer._proof_N`, e a dona era `outer`. Na v4.36.0-rc1, o axioma auxiliar se chama `outer._native.native_decide.ax_1_1` (nome derivado da declaração de topo), mas quem o referencia é o próprio `outer.aux`: a dona passa a ser `outer.aux`, que é onde o `native_decide` está escrito. Comportamento observado no toolchain fixado e travado por teste (`tests/stage_b`, fixture `edges`).
-- **Visibilidade.** A linha aparece na documentação gerada a partir das docstrings.
-- **Fallback registrado, não adotado.** Se o Mathlib objetar concretamente à linha estruturada em docstrings, a alternativa é a opção (C): comentário estruturado, arquivo externo `justifications.toml`, ou `native_decide` sempre violação na Fase 0. Não há migração preventiva.
+## L-3. `set_option` and comments are only visible to Stage A
+They are not recorded in the elaborated environment. The `maxHeartbeats 0` exemption is only recognized in the form `set_option maxHeartbeats 0 in <declaration>`.
 
-## L-5. `@[implemented_by]` sozinho é só candidato
-A ferramenta não verifica equivalência entre a definição e sua implementação. O atributo sem avaliação nativa no caminho do kernel resulta em `Não resolvida` (`implemented_by_candidate`), não em `Rejeitada`.
+## L-4. `native_decide` justification by docstring (O-1, option B)
+- **Strict grammar.** Exactly one line in the docstring of the owning declaration, in the format
+  `auditor_justified: reason="<text>" reviewer="@<handle>"`.
+  No escaping (`\` or `"` inside `reason` is forbidden), no multi-line continuation, no duplicate. `<handle>` uses letters, digits and hyphens. Any deviation results in `native_decide_justification_malformed`. The only normalization is removing trailing whitespace, because Lean stores the docstring with the space before `-/` (checked in the O-1 investigation).
+- **Attribution by name, dependent on an internal convention.** The owning declaration is obtained by removing the internal components from the name of the constant that references the native-evaluation axiom directly (`Lean.ofReduceBool`/`Lean.ofReduceNat`, or v4.36's auxiliary `…._native.native_decide.ax_N`; e.g. `nd_justified._proof_1_3` → `nd_justified`). This convention is a compiler detail and may change between Lean versions. If the owner is not resolved, the result is `Não resolvida` (unresolved) with reason `native_decide_owner_unresolved`.
+- **A justification is not authentication.** Any author can write the line. Approval by the designated reviewer is human and out of scope.
+- **`where` auxiliaries.** On v4.22, the `native_decide` of a `where` auxiliary (e.g. `outer.aux`) went through `outer._proof_N`, and the owner was `outer`. On v4.36.0-rc1, the auxiliary axiom is named `outer._native.native_decide.ax_1_1` (a name derived from the top-level declaration), but what references it is `outer.aux` itself: the owner becomes `outer.aux`, which is where the `native_decide` is written. Behaviour observed on the pinned toolchain and locked by a test (`tests/stage_b`, fixture `edges`).
+- **Visibility.** The line appears in documentation generated from docstrings.
+- **Fallback recorded, not adopted.** If Mathlib objects concretely to the structured line in docstrings, the alternative is option (C): a structured comment, an external `justifications.toml` file, or `native_decide` always a violation in Phase 0. There is no preventive migration.
 
-## L-6. Unicode: confusables são só aviso
-Controles bidirecionais e caracteres de largura zero são fail-closed em qualquer posição, inclusive comentários, strings e nomes `«»`. O Lean aceita zero-width dentro de `«»` e o kernel valida a declaração sem axiomas (fixture `tests/fail-closed/namespace-unicode`).
+## L-5. `@[implemented_by]` alone is only a candidate
+The tool does not check equivalence between a definition and its implementation. The attribute without native evaluation on the kernel's path results in `Não resolvida` (`implemented_by_candidate`), not in `Rejeitada`.
 
-Confusables (TR39 16.0.0) geram warning, nunca falha, em dois casos:
-- dois identificadores **do mesmo arquivo** com o mesmo esqueleto e grafias diferentes (ex.: `hi` e `hι`). Componentes de um caractere são ignorados, porque `a`/`α` é convenção matemática;
-- um nome `«»` não-ASCII cujo esqueleto é ASCII.
+## L-6. Unicode: confusables are only a warning
+Bidirectional controls and zero-width characters are fail-closed in any position, including comments, strings and `«»` names. Lean accepts zero-width characters inside `«»`, and the kernel validates the declaration without axioms (fixture `tests/fail-closed/namespace-unicode`).
 
-Identificadores importados não entram na comparação. O Lean não aceita Cirílico em identificadores sem `«»` (verificado), então a superfície prática é Grego e nomes entre `«»`.
+Confusables (TR39 16.0.0) produce a warning, never a failure, in two cases:
+- two identifiers **in the same file** with the same skeleton and different spellings (e.g. `hi` and `hι`). Single-character components are ignored, because `a`/`α` is a mathematical convention;
+- a non-ASCII `«»` name whose skeleton is ASCII.
 
-## L-7. `Classical.choice` é permitido
-Contextos construtivos são assunto da Fase 3+. Decisão explícita, não omissão.
+Imported identifiers are not compared. Lean does not accept Cyrillic in identifiers without `«»` (checked), so the practical surface is Greek and `«»` names.
 
-## L-8. `maxHeartbeats 0` é higiene, não integridade
-Invalida apenas a declaração que o usa. Declarações que dependem dela mantêm o próprio estado; a dependência aparece em `depends_on_rejected`. Veja a objeção O-3.
+## L-7. `Classical.choice` is allowed
+Constructive contexts are a Phase 3+ topic. An explicit decision, not an omission.
 
-## L-9. Correspondência não é auditada
-`correspondence_status` é sempre `"Não auditada"`. Um teorema que prova a coisa errada pode receber `Validada` + `Conforme`.
+## L-8. `maxHeartbeats 0` is hygiene, not integrity
+It invalidates only the declaration that uses it. Declarations that depend on it keep their own state; the dependency appears in `depends_on_rejected`. See objection O-3.
 
-## L-10. Fingerprint não é revogação
-O relatório declara o fingerprint; comparar com o ambiente atual é responsabilidade do consumidor. Revogação é Fase 1.
+## L-9. Correspondence is not audited
+`correspondence_status` is always `"Não auditada"` (not audited). A theorem that proves the wrong thing can receive `Validada` + `Conforme`.
 
-## L-11. Teste de timeout é artificial
-O caminho `auditor-failed-infra` é testado com limite reduzido e declara `timeout_test: artificial` no relatório. Latência real só vem das medições em PRs do Mathlib (camada 2 do Done). O timeout por arquivo de 90 s e o orçamento estendido de 15 min são valores iniciais, não medidos: o p95 por arquivo da camada 2 decide o default (instrução 11).
+## L-10. A fingerprint is not revocation
+The report states the fingerprint; comparing it with the current environment is the consumer's responsibility. Revocation is Phase 1.
 
-## L-12. Cobertura do ambiente do builder
-Sem acesso ao cache do Mathlib, o ambiente de desenvolvimento só verifica fixtures sem Mathlib. Medições reais e o teste da Action em fork são evidência trazida pelo mantenedor.
+## L-11. The timeout test is artificial
+The `auditor-failed-infra` path is tested with a reduced limit and declares `timeout_test: artificial` in the report. Real latency only comes from measurements on Mathlib PRs (layer 2 of Done). The 90 s per-file timeout and the 15 min extended budget are initial values, not measured: the layer-2 per-file p95 decides the default (instruction 11).
 
-## L-13. `@[extern]` e implementações do toolchain
-O-5 aceito: `@[extern]` entra na mesma categoria de `@[implemented_by]`, com cenário próprio (`04b-extern`). O ground truth confirma o risco: um `@[extern "lean_nat_add"]` de usuário sobre uma definição que multiplica deixa `native_decide` provar `myF 2 3 = 5`, e o kernel prova a negação sem axiomas (`False`).
+## L-12. Coverage of the builder's environment
+Without access to the Mathlib cache, the development environment only checks fixtures without Mathlib. Real measurements and the test of the Action in a fork are evidence brought by the maintainer.
 
-Funções do próprio toolchain também usam esses atributos: todo `native_decide` sobre `Nat` passa por `@[extern]` do core (`Nat.add`, `Nat.decLt`, `Nat.ble`), e todo `sorry` puxa `@[implemented_by]` do core (`Lean.Name.str`). Pela Q7 (opção a), essas implementações são TCB e não disparam as regras; só as user-level disparam. A fronteira é declarada pelo toolchain, restrita à allow-list de raízes usadas pelo projeto-alvo (D-42), e pelo `lake-manifest.json` (`docs/tcb.md`). O canário é o cenário `06-tcb-boundary`, com uma declaração por raiz da allow-list.
+## L-13. `@[extern]` and toolchain implementations
+O-5 accepted: `@[extern]` goes in the same category as `@[implemented_by]`, with its own scenario (`04b-extern`). The ground truth confirms the risk: a user `@[extern "lean_nat_add"]` on a definition that multiplies lets `native_decide` prove `myF 2 3 = 5`, and the kernel proves the negation without axioms (`False`).
 
-`partial def` não aparece como `@[implemented_by]` no toolchain fixado (verificado no fixture `edges`).
+The toolchain's own functions also use these attributes: every `native_decide` on `Nat` goes through the core's `@[extern]` (`Nat.add`, `Nat.decLt`, `Nat.ble`), and every `sorry` pulls in the core's `@[implemented_by]` (`Lean.Name.str`). Under Q7 (option a), these implementations are TCB and do not trigger the rules; only user-level ones do. The boundary is declared by the toolchain, restricted to the allow-list of roots used by the target project (D-42), and by `lake-manifest.json` (`docs/tcb.md`). The canary is scenario `06-tcb-boundary`, with one declaration per root of the allow-list.
 
-## L-14. O inspetor está na TCB
-O inspetor (`src/auditor/lean/Inspect.lean`) é código confiado: se ele omitir uma declaração ou um axioma, o agregador não tem como saber. Mitigações:
-- o fecho de dependências próprio é comparado com `Lean.collectAxioms` (o algoritmo de `#print axioms`); divergência vira `inspector_disagreement` (fail-closed);
-- constantes referenciadas e ausentes do ambiente, que o algoritmo oficial ignora em silêncio, viram `missing_constants`;
-- os testes da Etapa B comparam os resultados com `#print axioms` rodado pelo próprio Lean, num processo separado;
-- hash do fonte e do binário entram na TCB e no fingerprint.
+`partial def` does not appear as `@[implemented_by]` on the pinned toolchain (checked in the `edges` fixture).
 
-`type_hash` e `value_hash` usam `Expr.hash` do Lean: hash estrutural de 64 bits, determinístico, mas não criptográfico. A composição do `declaration_hash` do relatório será fixada na etapa de Schema.
+## L-14. The inspector is in the TCB
+The inspector (`src/auditor/lean/Inspect.lean`) is trusted code: if it omits a declaration or an axiom, the aggregator has no way of knowing. Mitigations:
+- its own dependency closure is compared with `Lean.collectAxioms` (the `#print axioms` algorithm); a disagreement becomes `inspector_disagreement` (fail-closed);
+- referenced constants missing from the environment, which the official algorithm silently ignores, become `missing_constants`;
+- the Stage B tests compare the results with `#print axioms` run by Lean itself, in a separate process;
+- the hashes of the source and of the binary enter the TCB and the fingerprint.
 
-## L-15. Seleção das declarações reportadas
-O relatório cobre as constantes do módulo-alvo que têm faixa de declaração no fonte e nome de usuário (privadas incluídas). Auxiliares gerados (`match_N`, `_proof_N`, recursores, `noConfusion`, equações) ficam de fora, mas aparecem nos fechos de quem os usa. Constantes geradas com faixa no fonte entram: construtor e projeções de `structure`, instâncias anônimas, e o parser criado por `macro` (`tacticObviously`).
+`type_hash` and `value_hash` use Lean's `Expr.hash`: a 64-bit structural hash, deterministic but not cryptographic. The composition of the report's `declaration_hash` will be fixed in the Schema step.
 
-## L-16. A allow-list de projeto só é verificada contra o pino
-A Fase 0 verifica que a allow-list de projeto corresponde ao ambiente fixado (`env_pin` = `lean-toolchain` + bytes do `lake-manifest.json`), não que a classificação de cada comando é semanticamente correta para o alvo. Correção semântica da allow-list é Fase 1+.
+## L-15. Selection of the reported declarations
+The report covers the constants of the target module that have a declaration range in the source and a user name (private ones included). Generated auxiliaries (`match_N`, `_proof_N`, recursors, `noConfusion`, equations) are left out, but appear in the closures of those that use them. Generated constants with a range in the source are included: a `structure`'s constructor and projections, anonymous instances, and the parser created by `macro` (`tacticObviously`).
 
-O pino não cobre o código-fonte do próprio projeto. Um comando que o projeto redefina entre a geração e a auditoria mantém a classificação antiga. Um comando novo do projeto cai em `unknown_command` (fail-closed). A sintaxe vinda de import é coberta pela Etapa B (L-2).
+## L-16. The project allow-list is only checked against the pin
+Phase 0 checks that the project allow-list corresponds to the pinned environment (`env_pin` = `lean-toolchain` + bytes of `lake-manifest.json`), not that the classification of each command is semantically correct for the target. Semantic correctness of the allow-list is Phase 1+.
 
-## L-17. Critério para comandos `#…` e outros comandos de elaboração (Q8)
-**Emendado pela L-33a (Fase 1):** o critério vale para comando, tática, termo ou atributo. Texto original, para histórico:
+The pin does not cover the project's own source code. A command that the project redefines between generation and audit keeps the old classification. A new project command falls into `unknown_command` (fail-closed). Syntax coming from imports is covered by Stage B (L-2).
 
-**Critério normativo:** um comando é fail-closed na Etapa A se **pode executar código compilado em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente**. Decisões futuras sobre comandos devem ser derivadas deste critério, não de pesquisa caso a caso.
+## L-17. Criterion for `#…` commands and other elaboration commands (Q8)
+**Amended by L-33a (Phase 1):** the criterion applies to a command, tactic, term or attribute. Original text, for the record:
 
-**Por que este critério.** Um `@[extern]` ou `@[implemented_by]` malicioso em código de usuário pode executar I/O durante a elaboração, antes de qualquer auditoria. Bloquear esses comandos é defesa em profundidade contra **execução pré-auditoria**. A corrupção de axiomas não é o alvo aqui: ela é coberta pela Etapa B, que inspeciona o ambiente elaborado.
+**Normative criterion:** a command is fail-closed in Stage A if it **can execute compiled code at elaboration time, before Stage B can inspect the environment**. Future decisions about commands must be derived from this criterion, not from case-by-case research.
 
-Aplicação no toolchain fixado (`classification_version = "3"`):
+**Why this criterion.** A malicious `@[extern]` or `@[implemented_by]` in user code can perform I/O during elaboration, before any audit. Blocking these commands is defence in depth against **pre-audit execution**. Axiom corruption is not the target here: it is covered by Stage B, which inspects the elaborated environment.
 
-| Comando | Decisão | Razão |
+Application on the pinned toolchain (`classification_version = "3"`):
+
+| Command | Decision | Reason |
 |---|---|---|
-| `#eval`, `#eval!` | fail-closed | executa código compilado |
-| `#reduce` | fail-closed | equiparado a `#eval` pelo revisor (D-1) |
-| `#guard`, `#widget` | fail-closed | chamam `evalExpr` (verificado no fonte do toolchain) |
-| `#guard_expr` | fail-closed | avalia a expressão em tempo de elaboração |
-| `#check_tactic`, `#check_tactic_failure` | fail-closed | rodam tática do usuário, que pode chamar `evalExpr`: contornam o bloqueio de `#eval` |
-| `#check` | permitido | só checa tipo; não executa nada |
-| `#synth` | permitido | síntese de typeclass é unificação; não executa `@[extern]` |
-| `#check_simp` | permitido, **revisado** | diagnóstico de `simp`: reduz termos, não executa `@[extern]` compilado |
+| `#eval`, `#eval!` | fail-closed | executes compiled code |
+| `#reduce` | fail-closed | treated like `#eval` by the reviewer (D-1) |
+| `#guard`, `#widget` | fail-closed | call `evalExpr` (checked in the toolchain's source) |
+| `#guard_expr` | fail-closed | evaluates the expression at elaboration time |
+| `#check_tactic`, `#check_tactic_failure` | fail-closed | run user tactics, which can call `evalExpr`: they bypass the `#eval` block |
+| `#check` | allowed | only checks a type; executes nothing |
+| `#synth` | allowed | typeclass synthesis is unification; does not execute `@[extern]` |
+| `#check_simp` | allowed, **reviewed** | a `simp` diagnostic: reduces terms, does not execute compiled `@[extern]` |
 
-`#check_tactic_failure` não foi citado na decisão Q8. Foi incluído por derivação direta do critério, porque roda tática do usuário exatamente como `#check_tactic`.
+`#check_tactic_failure` was not mentioned in decision Q8. It was included by direct derivation from the criterion, because it runs a user tactic exactly like `#check_tactic`.
 
-Limite: o critério cobre comandos que **aparecem no arquivo-alvo**. Código executado na elaboração de **dependências** (por exemplo, `initialize` num módulo importado) roda quando o `lake build` compila essas dependências, e isso está fora do alcance da Etapa A do alvo (L-2).
+Limit: the criterion covers commands that **appear in the target file**. Code executed during the elaboration of **dependencies** (for example, `initialize` in an imported module) runs when `lake build` compiles those dependencies, and that is outside the reach of the target's Stage A (L-2).
 
-## L-18. Relógio e `cache_state` do CI são medidas do runner
-- O relógio do PR começa em `pull_request.updated_at`, o carimbo do evento no GitHub, e é comparado com o relógio do runner; diferença de relógio entre os dois entra na medida. Numa re-execução, o relógio começa no início do job (D-30), e a fila anterior não é contada.
-- `cache_state` depende de dois sinais (restauração de `~/.cache/mathlib` e binário do inspetor). Um cache restaurado mas inútil (por exemplo, `.ltar` de outro toolchain) conta como quente; o orçamento estendido nunca é concedido sem sinal frio (D-31).
-- Fixação por hash no CI cobre as actions e o elan. O toolchain Lean baixado pelo elan e as dependências Python resolvidas pelo pip não são conferidos por hash no job; suas versões efetivas ficam registradas na TCB do relatório (D-35).
+## L-18. The CI clock and `cache_state` are runner measurements
+- The PR clock starts at `pull_request.updated_at`, the event's timestamp on GitHub, and is compared with the runner's clock; clock skew between the two enters the measurement. On a re-run, the clock starts at the beginning of the job (D-30), and the earlier queue time is not counted.
+- `cache_state` depends on two signals (restoration of `~/.cache/mathlib` and of the inspector binary). A cache that is restored but useless (for example, `.ltar` files from another toolchain) counts as warm; the extended budget is never granted without a cold signal (D-31).
+- Hash pinning in CI covers the actions and elan. The Lean toolchain downloaded by elan and the Python dependencies resolved by pip are not hash-checked in the job; their effective versions are recorded in the report's TCB (D-35).
 
-## L-19. Axioma auxiliar de avaliação nativa reconhecido só pela forma (v4.36, Q9)
-No `leanprover/lean4:v4.36.0-rc1`, `native_decide` não produz mais `Lean.ofReduceBool`: ele adiciona, por uso, um axioma auxiliar `<dona>._native.native_decide.ax_N : e = true` (`Lean.Meta.nativeEqTrue`), que o kernel não reconfere. O inspetor o reconhece pela forma (`native_auxiliary`); a política o trata como avaliação nativa para as regras de justificativa e do padrão combinado, e **além disso** deixa as premissas `Não resolvido` (`native_auxiliary_axiom`), porque a forma não prova a origem. Um `axiom` escrito à mão com o mesmo nome e o mesmo tipo é indistinguível no ambiente (demonstrado no fixture `edges`: `uses_spoof`). Uma tática importada (de outro arquivo do PR, ou de uma dependência) também pode adicionar um axioma com essa forma sem que a Etapa A do arquivo-alvo veja nada. Por isso o reconhecimento só serve para dar a razão precisa e aplicar as regras mais estritas (justificativa, padrão combinado); nunca leva a `Validada`/`Conforme`.
+## L-19. The native-evaluation auxiliary axiom is recognized only by its shape (v4.36, Q9)
+On `leanprover/lean4:v4.36.0-rc1`, `native_decide` no longer produces `Lean.ofReduceBool`: it adds, per use, an auxiliary axiom `<owner>._native.native_decide.ax_N : e = true` (`Lean.Meta.nativeEqTrue`), which the kernel does not re-check. The inspector recognizes it by its shape (`native_auxiliary`); the policy treats it as native evaluation for the justification rules and for the combined pattern, and **additionally** leaves the premises `Não resolvido` (`native_auxiliary_axiom`), because the shape does not prove the origin. A hand-written `axiom` with the same name and type is indistinguishable in the environment (demonstrated in the `edges` fixture: `uses_spoof`). An imported tactic (from another file of the PR, or from a dependency) can also add an axiom of this shape without the target file's Stage A seeing anything. That is why the recognition only serves to give the precise reason and to apply the stricter rules (justification, combined pattern); it never leads to `Validada`/`Conforme`.
 
-**Decisão (Q9, opção a, instrução 13): permanente na Fase 0.** `native_decide` nunca sai `verified` na Fase 0. A v4.36 mostrou que certificá-lo dependeria de detalhes internos do compilador que mudam entre versões, e a Fase 0 é desenhada para ser estável contra bumps de toolchain. A reavaliação pelo kernel é item de pesquisa da Fase 1 (`docs/roadmap.md`). Impacto medido no Mathlib fixado (`e1b2403b`): nenhuma prova da biblioteca `Mathlib` usa avaliação nativa, que o linter do próprio Mathlib proíbe; o uso fica em `MathlibTest`. A tática `inclusion` do Mathlib chama `nativeEqTrue` com `+native`, e o axioma que ela gera (`…._native.inclusion.ax_…`) é tratado do mesmo jeito. A medição por PR está na camada 2 (`tools/layer2/native_usage.py`).
+**Decision (Q9, option a, instruction 13): permanent in Phase 0.** `native_decide` never comes out `verified` in Phase 0. v4.36 showed that certifying it would depend on internal compiler details that change between versions, and Phase 0 is designed to be stable across toolchain bumps. Re-evaluation by the kernel is a Phase 1 research item (`docs/roadmap.md`). Impact measured on the pinned Mathlib (`e1b2403b`): no proof in the `Mathlib` library uses native evaluation, which Mathlib's own linter forbids; usage is confined to `MathlibTest`. Mathlib's `inclusion` tactic calls `nativeEqTrue` with `+native`, and the axiom it generates (`…._native.inclusion.ax_…`) is treated the same way. The per-PR measurement is in layer 2 (`tools/layer2/native_usage.py`).
 
-## L-20. Axiomas pré-calculados nos `.olean` não são conferidos
-Desde a v4.36, o `#print axioms` que um humano roda usa, para declarações importadas, um resumo de axiomas gravado em cada `.olean` na compilação. O auditor não usa esse resumo (D-39): percorre os corpos. Ele também não o compara com o próprio percurso, porque o estado da extensão é privado ao módulo do Lean. Um resumo divergente (`.olean` adulterado ou velho) não é detectado como divergência; não afeta o resultado do auditor, mas pode fazer o `#print axioms` de um humano discordar do relatório.
+## L-20. Axioms precomputed in `.olean` files are not checked
+Since v4.36, the `#print axioms` that a human runs uses, for imported declarations, an axiom summary recorded in each `.olean` at compile time. The auditor does not use this summary (D-39): it walks the bodies. Nor does it compare the summary with its own walk, because the extension state is private to Lean's module. A divergent summary (a tampered or stale `.olean`) is not detected as a divergence; it does not affect the auditor's result, but it can make a human's `#print axioms` disagree with the report.
 
-## L-21. A Fase 0 é voltada ao Mathlib: `target_trusted_roots` vem do fecho do Mathlib
-A Fase 0 é voltada ao Mathlib. `src/auditor/data/target_trusted_roots/<toolchain>.json` é o fecho de imports do Mathlib fixado (`e1b2403b`: `Init`, `Lake`, `Lean`, `Std`). Projetos Lean que não são o Mathlib devem gerar o próprio `target_trusted_roots` com `tools/gen_tcb_roots.py`. Módulos de raízes não usadas pelo alvo são classificados como user-level e disparam as regras de `@[extern]`/`@[implemented_by]`. Esse é o comportamento fail-closed correto, mas pode gerar falsos positivos em alvos que não são o Mathlib (por exemplo, um projeto que usa `LeanIR` legitimamente). A descoberta automática de raízes para alvos arbitrários está no roadmap da Fase 1.
+## L-21. Phase 0 is Mathlib-oriented: `target_trusted_roots` comes from Mathlib's closure
+Phase 0 is Mathlib-oriented. `src/auditor/data/target_trusted_roots/<toolchain>.json` is the import closure of the pinned Mathlib (`e1b2403b`: `Init`, `Lake`, `Lean`, `Std`). Lean projects other than Mathlib must generate their own `target_trusted_roots` with `tools/gen_tcb_roots.py`. Modules from roots not used by the target are classified as user-level and trigger the `@[extern]`/`@[implemented_by]` rules. This is the correct fail-closed behaviour, but it may produce false positives on targets other than Mathlib (for example, a project that legitimately uses `LeanIR`). Automatic root discovery for arbitrary targets is on the Phase 1 roadmap.
 
-## L-22. `fanout.py` não é testado contra o Mathlib na suíte
-A suíte não baixa o Mathlib. Por isso `tools/layer2/fanout.py` (D-38) é testado só com grafos sintéticos (`tests/maintenance/test_layer2_tools.py`), e não contra o Mathlib real. A escolha do arquivo de maior fanout é conferida contra o commit fixado no momento da medição, com `--expect-commit` (checklist da camada 2, passo 6), e a saída registra a procedência (commit, SHA-256 do `lake-manifest.json`, `lean-toolchain`). O mesmo vale para `tools/layer2/native_usage.py` e para o `--check` de `tools/gen_tcb_roots.py` (checklist, passo 3).
+## L-22. `fanout.py` is not tested against Mathlib in the suite
+The suite does not download Mathlib. That is why `tools/layer2/fanout.py` (D-38) is tested only with synthetic graphs (`tests/maintenance/test_layer2_tools.py`), not against the real Mathlib. The choice of the highest-fanout file is checked against the pinned commit at measurement time, with `--expect-commit` (layer-2 checklist, step 6), and the output records its provenance (commit, SHA-256 of `lake-manifest.json`, `lean-toolchain`). The same holds for `tools/layer2/native_usage.py` and for the `--check` of `tools/gen_tcb_roots.py` (checklist, step 3).
 
-## L-23. A camada 1 roda no ambiente do autor; bugs entre ambientes só aparecem na camada 2
-Os testes da camada 1 rodam no ambiente do autor. Bugs que só aparecem ao cruzar ambientes (fim de linha CRLF/LF, colisão entre bibliotecas do mesmo build, estado de cache, checkout raso do runner) só aparecem na camada 2. Foi o que aconteceu no primeiro `auditor-prep` (instrução 15): D-52 (a extração importava a biblioteca `Cache` do Mathlib junto com a `Mathlib`), D-53 (hash do `lake-manifest.json` calculado num clone CRLF) e D-54 (`--check` sem caso de fork). Nenhum dos três era detectável na camada 1: os fixtures tinham uma biblioteca só, a suíte rodava só no Windows, e o `--check` nunca tinha visto um fork. **A camada 2 não é opcional para considerar o trabalho pronto: é uma categoria distinta de teste.**
+## L-23. Layer 1 runs in the author's environment; cross-environment bugs only show up in layer 2
+The layer-1 tests run in the author's environment. Bugs that only appear when crossing environments (CRLF/LF line endings, collisions between libraries of the same build, cache state, the runner's shallow checkout) only show up in layer 2. That is what happened on the first `auditor-prep` (instruction 15): D-52 (the extraction imported Mathlib's `Cache` library together with `Mathlib`), D-53 (the `lake-manifest.json` hash computed in a CRLF clone) and D-54 (`--check` without a fork case). None of the three was detectable in layer 1: the fixtures had a single library, the suite ran only on Windows, and `--check` had never seen a fork. **Layer 2 is not optional for considering the work done: it is a distinct category of test.**
 
-## L-24. `gen_tcb_roots.py --check` aceita um fork de medição (relaxamento da camada 2)
-O `--check` aceita um `HEAD` diferente do commit gravado em `target_trusted_roots` (D-54) quando, e só quando: (a) o commit gravado é ancestral do `HEAD`; (b) a árvore de trabalho só difere dele em `.github/` e `.auditor/`; e (c) nenhum arquivo `.lean` mudou, nem dentro desses dois prefixos. O invariante que importa é "nenhum `.lean` muda"; restringir aos dois prefixos é o proxy estrito. `.auditor/` entra porque o passo 3 do checklist commita ali a allow-list e a classificação de comandos (D-59): é só configuração do auditor, que não entra no fecho de imports. O relaxamento existe para a medição no fork (`auditor-base` = `e1b2403b` + workflows e configuração do auditor). Fora desse caso, o check continua estrito: mesmo commit, e os dados (raízes, fecho, pacotes, hash do manifesto) comparados byte a byte. No repositório real, em produção, vale o check estrito. Num checkout raso, o commit gravado precisa estar presente (no CI do fork: `fetch-depth: 20`); se não estiver, a ancestralidade não é provada e o check falha.
+## L-24. `gen_tcb_roots.py --check` accepts a measurement fork (a layer-2 relaxation)
+`--check` accepts a `HEAD` different from the commit recorded in `target_trusted_roots` (D-54) when, and only when: (a) the recorded commit is an ancestor of `HEAD`; (b) the working tree differs from it only in `.github/` and `.auditor/`; and (c) no `.lean` file changed, not even inside those two prefixes. The invariant that matters is "no `.lean` changes"; restricting to the two prefixes is the strict proxy. `.auditor/` is included because step 3 of the checklist commits the allow-list and the command classification there (D-59): it is only auditor configuration, which does not enter the import closure. The relaxation exists for the measurement in the fork (`auditor-base` = `e1b2403b` + the auditor's workflows and configuration). Outside that case, the check remains strict: same commit, and the data (roots, closure, packages, manifest hash) compared byte for byte. In the real repository, in production, the strict check applies. In a shallow checkout, the recorded commit must be present (in the fork's CI: `fetch-depth: 20`); if it is not, ancestry is not proven and the check fails.
 
-## L-25. Classificação dos comandos do Mathlib: fail-closed nos casos ambíguos
-A classificação dos 98 comandos do Mathlib (`.auditor/classification.toml` do fork, Mathlib `e1b2403b`) marca como fail-closed todo comando cujo efeito não foi possível determinar com certeza lendo a definição: comandos com IO de rede (`#leansearch`, `#loogle`, `#search`), embrulhos que reescrevem o comando (`#deprecate`, `deprecate`), macros que injetam opções escondidas (`#import_bumps`), o registro de elaborador local de `suppress_compilation` e diagnósticos que exibem provas arbitrárias (`#explode`). A classificação pode ser relaxada na Fase 1 com evidência (leitura revisada da implementação no commit fixado e teste que demonstre a ausência de efeito no ambiente que a Etapa B audita). Até lá, arquivos que usam esses comandos não saem `verified`.
+## L-25. Classification of Mathlib commands: fail-closed in ambiguous cases
+The classification of Mathlib's 98 commands (the fork's `.auditor/classification.toml`, Mathlib `e1b2403b`) marks as fail-closed every command whose effect could not be determined with certainty by reading its definition: commands with network IO (`#leansearch`, `#loogle`, `#search`), wrappers that rewrite the command (`#deprecate`, `deprecate`), macros that inject hidden options (`#import_bumps`), the local elaborator registration of `suppress_compilation`, and diagnostics that display arbitrary proofs (`#explode`). The classification may be relaxed in Phase 1 with evidence (a reviewed reading of the implementation at the pinned commit, and a test that demonstrates no effect on the environment that Stage B audits). Until then, files that use these commands do not come out `verified`.
 
-Na segunda revisão, entraram também em fail-closed: `#lint`, que executa linters definidos pelo próprio arquivo (`@[env_linter]`); `unsuppress_compilation`, cuja forma `in cmd` reinstala o elaborador de `suppress_compilation`; e `#string_diagram`, por ser ambíguo. Resultado: 60 `allowed`, 35 `metaprogramming`, 3 `syntax_extension`.
+In the second review, the following also became fail-closed: `#lint`, which runs linters defined by the file itself (`@[env_linter]`); `unsuppress_compilation`, whose `in cmd` form reinstalls `suppress_compilation`'s elaborator; and `#string_diagram`, for being ambiguous. Result: 60 `allowed`, 35 `metaprogramming`, 3 `syntax_extension`.
 
-## L-26. Revisão da classificação é auto-revisão na Fase 0
-A classificação dos 98 comandos do Mathlib foi elaborada e revisada pelo mesmo autor. A revisão externa foi tentada e descartada por falta de identificação e citações de linha divergentes. Qualquer relatório, PR de medição, ou alegação pública de cobertura deve declarar `classification_review_status: author-self-review`. A Fase 1 deve incluir revisão independente antes de qualquer alegação de cobertura do Mathlib em contexto externo.
+## L-26. The classification review is a self-review in Phase 0
+The classification of Mathlib's 98 commands was written and reviewed by the same author. An external review was attempted and discarded for lack of identification and for divergent line citations. Any report, measurement PR or public coverage claim must declare `classification_review_status: author-self-review`. Phase 1 must include an independent review before any claim of Mathlib coverage in an external context.
 
-Mecânica (instrução 19): o `classification.toml` de projeto exige `reviewed_by` (`author-self-review`, `human-reviewed` ou `independent-ai-reviewed`) e `reviewer_independence` coerente (`none` para auto-revisão, `independent` para as outras), mais `revision_note` opcional; sem isso, o gerador recusa (exit 2). A allow-list gerada guarda a declaração (`classification_review`), e todo relatório a repete em `tcb.classification_review_status` (campo obrigatório do schema 1.1.0, incluído no fingerprint). Sem allow-list de projeto o valor é `core-only`; com allow-list de projeto sem classificação, `no-project-classification`; com allow-list de gerador antigo, sem declaração, `undeclared`. A auto-revisão permite os PRs de medição e alegações internas acompanhadas da declaração; não permite apresentar a cobertura do Mathlib a terceiros (Zulip, artigo, blog) sem qualificá-la como auto-revisada.
+Mechanics (instruction 19): the project `classification.toml` requires `reviewed_by` (`author-self-review`, `human-reviewed` or `independent-ai-reviewed`) and a consistent `reviewer_independence` (`none` for self-review, `independent` for the others), plus an optional `revision_note`; without them, the generator refuses (exit 2). The generated allow-list keeps the declaration (`classification_review`), and every report repeats it in `tcb.classification_review_status` (a mandatory field of schema 1.1.0, included in the fingerprint). Without a project allow-list the value is `core-only`; with a project allow-list without a classification, `no-project-classification`; with an allow-list from an old generator, without the declaration, `undeclared`. Self-review allows measurement PRs and internal claims accompanied by the declaration; it does not allow presenting Mathlib coverage to third parties (Zulip, paper, blog) without qualifying it as self-reviewed.
 
-## L-27. Medição de fanout: caminho de sucesso e caminho fail-closed são categorias separadas
-**L-27.** A medição de fanout no caminho de sucesso usa o arquivo de maior fanout cuja Etapa A não tem item não reconhecido. O critério "sem sintaxe declarada" é insuficiente: arquivos como Basic/Logic/Basic.lean usam simproc_decl, Init.lean usa register_linter_set e run_cmd, e ambos falham em fail-closed por motivo diferente de sintaxe. O critério "Etapa A limpa" é o único que garante o caminho de sucesso, e é reproduzível na Fase 1 (mesmo algoritmo de verificação).
+## L-27. Fanout measurement: the success path and the fail-closed path are separate categories
+**L-27.** The fanout measurement on the success path uses the highest-fanout file whose Stage A has no unrecognized item. The criterion "no declared syntax" is insufficient: files such as Basic/Logic/Basic.lean use simproc_decl, Init.lean uses register_linter_set and run_cmd, and both fail closed for a reason other than syntax. The criterion "clean Stage A" is the only one that guarantees the success path, and it is reproducible in Phase 1 (the same verification algorithm).
 
-Arquivos que a Etapa A não aceita são medidos no caminho fail-closed, categoria separada. A distinção é da arquitetura, não da ferramenta.
+Files that Stage A does not accept are measured on the fail-closed path, a separate category. The distinction comes from the architecture, not from the tool.
 
-Redação anterior (instrução 20), substituída por esta na instrução 21: "A medição de fanout no caminho de sucesso usa o arquivo de maior fanout entre os que não declaram sintaxe. Arquivos que declaram sintaxe são medidos no caminho fail-closed, categoria separada."
+Earlier wording (instruction 20), replaced by this one in instruction 21: "The fanout measurement on the success path uses the highest-fanout file among those that do not declare syntax. Files that declare syntax are measured on the fail-closed path, a separate category."
 
-Origem (instrução 20): o arquivo de maior fanout sugerido, `Mathlib/Data/Set/Defs.lean` (posição 20, 8092 dependentes), declara `syntax`, `macro` e `prefix`. Pela L-17, toda declaração do arquivo sai fail-closed, inclusive o lema de sonda. Ele continua medido, como "fanout, caminho fail-closed" (PR #4: `unresolved` 37/37, auditoria 6,5 s).
+Origin (instruction 20): the suggested highest-fanout file, `Mathlib/Data/Set/Defs.lean` (position 20, 8092 dependents), declares `syntax`, `macro` and `prefix`. Under L-17, every declaration of the file comes out fail-closed, including the probe lemma. It is still measured, as "fanout, fail-closed path" (PR #4: `unresolved` 37/37, audit 6.5 s).
 
-**Achado na aplicação da redação anterior (motivou a emenda):** "não declarar sintaxe" não basta para o caminho de sucesso. Os dois arquivos indicados também saem fail-closed na Etapa A, por metaprogramação:
-- `Mathlib/Basic/Logic/Basic.lean` (posição 24): sem sintaxe, mas com `simproc_decl` nas linhas 42 e 75;
-- `Mathlib/Init.lean` (posição 1): `register_linter_set` e `run_cmd`.
+**Finding when applying the earlier wording (it motivated the amendment):** "not declaring syntax" is not enough for the success path. The two files indicated also come out fail-closed in Stage A, because of metaprogramming:
+- `Mathlib/Basic/Logic/Basic.lean` (position 24): no syntax, but `simproc_decl` on lines 42 and 75;
+- `Mathlib/Init.lean` (position 1): `register_linter_set` and `run_cmd`.
 
-Varredura das 60 primeiras posições do ranking com a Etapa A e a allow-list do fork: 19 arquivos sem nenhum item não reconhecido. O primeiro é `Mathlib/Lean/Name.lean` (posição 3, 8153 dependentes); o primeiro fora de `Tactic/`, `Lean/` e `Util/` é `Mathlib/Data/String/Defs.lean` (posição 4, 8147). Ou seja, 41 dos 60 (68 %) saem fail-closed na Etapa A (pauta da Fase 1 em `roadmap.md`).
+A scan of the top 60 positions of the ranking with Stage A and the fork's allow-list: 19 files with no unrecognized item. The first is `Mathlib/Lean/Name.lean` (position 3, 8153 dependents); the first outside `Tactic/`, `Lean/` and `Util/` is `Mathlib/Data/String/Defs.lean` (position 4, 8147). That is, 41 of the 60 (68 %) come out fail-closed in Stage A (Phase 1 agenda in `roadmap.md`).
 
-**Escolha (revisor, instrução 21):** `Mathlib/Data/String/Defs.lean` (posição 4, 8147 dependentes). É o primeiro arquivo limpo fora de `Tactic/`, `Lean/` e `Util/`, o mesmo critério de exclusão do PR médio. `Mathlib/Lean/Name.lean` (posição 3) é meta-ferramenta do Lean: só entra como medida adicional de "maior fanout estrito limpo", nunca em substituição.
+**Choice (reviewer, instruction 21):** `Mathlib/Data/String/Defs.lean` (position 4, 8147 dependents). It is the first clean file outside `Tactic/`, `Lean/` and `Util/`, the same exclusion criterion as the medium PR. `Mathlib/Lean/Name.lean` (position 3) is a Lean meta-tool: it only enters as an additional measure of "strictly highest clean fanout", never as a substitute.
 
-## L-28. A busca lexical por avaliação nativa superestima
-A busca lexical por `native_decide` superestima: casa texto dentro de metaprogramação. A medição real requer inspeção semântica (Etapa B), que é o que a ferramenta faz. Resultado: 0 usos reais em Mathlib@e1b2403b.
+## L-28. A lexical search for native evaluation overestimates
+A lexical search for `native_decide` overestimates: it matches text inside metaprogramming. The real measurement requires semantic inspection (Stage B), which is what the tool does. Result: 0 real uses in Mathlib@e1b2403b.
 
-Dados (instrução 20): `tools/layer2/native_usage.py` marcou 2 de 256 505 declarações da biblioteca `Mathlib` (0,0008 %), as duas em `Mathlib/Tactic`, e as duas são falsos positivos conferidos à mão:
-- o linter que proíbe `+native` e `native_decide` (`Mathlib/Tactic/Linter/DeprecatedSyntaxLinter.lean`, padrões de sintaxe nas linhas 138 a 145);
-- a cópia de um campo de configuração, `native := options.native`, na tática `inclusion` (`Mathlib/Tactic/Inclusion/Core/Elab.lean:348`).
+Data (instruction 20): `tools/layer2/native_usage.py` flagged 2 of 256,505 declarations of the `Mathlib` library (0.0008 %), both in `Mathlib/Tactic`, and both are false positives checked by hand:
+- the linter that forbids `+native` and `native_decide` (`Mathlib/Tactic/Linter/DeprecatedSyntaxLinter.lean`, syntax patterns on lines 138 to 145);
+- the copy of a configuration field, `native := options.native`, in the `inclusion` tactic (`Mathlib/Tactic/Inclusion/Core/Elab.lean:348`).
 
-Nos 7 relatórios da camada 2 (primeiro run e PRs de medição), nenhuma declaração tem `native_auxiliary_axiom` entre as razões. A medição valida a Q9 retroativamente: o fail-closed permanente de `native_decide` quase não custa cobertura na biblioteca principal, porque o construto não é usado ali.
+In the 7 layer-2 reports (first run and measurement PRs), no declaration has `native_auxiliary_axiom` among its reasons. The measurement validates Q9 retroactively: the permanent fail-closed of `native_decide` costs almost no coverage in the main library, because the construct is not used there.
 
-## L-29. `@auditor report` de quem não tem acesso: não testado end-to-end
-O passo 9 testou o fluxo @auditor report acionado por OWNER. Não testou o caminho de um comentário de quem não tem acesso — a garantia é a condição author_association, travada por teste unitário, não testada end-to-end na camada 2. Requer segunda conta para teste end-to-end; fica como pendência de informação, não bloqueante.
+## L-29. `@auditor report` from someone without access: not tested end to end
+Step 9 tested the @auditor report flow triggered by an OWNER. It did not test the path of a comment from someone without access — the guarantee is the author_association condition, locked by a unit test, not tested end to end in layer 2. An end-to-end test requires a second account; it remains an information gap, non-blocking.
 
-Origem: instrução 23. A condição está em `ci/templates/auditor-report.yml` (`author_association` em OWNER, MEMBER ou COLLABORATOR) e é travada por `test_report_workflow_requires_explicit_human_request`. O teste end-to-end está na pauta da Fase 1 (não bloqueia).
+Origin: instruction 23. The condition is in `ci/templates/auditor-report.yml` (`author_association` in OWNER, MEMBER or COLLABORATOR) and is locked by `test_report_workflow_requires_explicit_human_request`. The end-to-end test is on the Phase 1 agenda (non-blocking).
 
-## L-33. Código do usuário executado na elaboração por tática ou termo não era detectado pela Etapa A
-**Achado da Fase 1 (P0-2, 2026-10-22).** A L-17 tornava fail-closed só os *comandos* que podem executar código na elaboração, antes da Etapa B.
+## L-33. User code executed during elaboration by a tactic or term was not detected by Stage A
+**Phase 1 finding (P0-2, 2026-10-22).** L-17 made fail-closed only the *commands* that can execute code during elaboration, before Stage B.
 
-**Demonstração**, no toolchain fixado (`leanprover/lean4:v4.36.0-rc1`):
-- `run_tac do (IO.FS.writeFile "marker" "x" : IO Unit)` (tática) e `by_elab do …` (termo) gravaram um arquivo durante o `lake build` do arquivo;
-- a Etapa A não registrava nada;
-- o auditor dava `verified`, exit 0.
+**Demonstration**, on the pinned toolchain (`leanprover/lean4:v4.36.0-rc1`):
+- `run_tac do (IO.FS.writeFile "marker" "x" : IO Unit)` (tactic) and `by_elab do …` (term) wrote a file during the file's `lake build`;
+- Stage A recorded nothing;
+- the auditor gave `verified`, exit 0.
 
-**Natureza da lacuna:** de integridade, não de cobertura (revisor, instrução 24). O código do PR roda no runner, no mesmo usuário que tem o inspetor em cache e o auditor instalado, e a Etapa B não vê a execução: o ambiente Lean não muda, só o sistema de arquivos.
+**Nature of the gap:** integrity, not coverage (reviewer, instruction 24). The PR's code runs on the runner, as the same user that has the cached inspector and the installed auditor, and Stage B does not see the execution: the Lean environment does not change, only the file system.
 
-**Resposta: emenda L-33a, implementada na Etapa A v4 e no inspetor v5.** Inventário com fonte em `docs/l33-inventory.md`.
+**Response: amendment L-33a, implemented in Stage A v4 and inspector v5.** Inventory with sources in `docs/l33-inventory.md`.
 
-## L-33a. Emenda da L-17: comando, tática, termo ou atributo
-**Critério normativo emendado (instrução 24):** um comando, tática, termo ou atributo é fail-closed se pode executar código do usuário em tempo de elaboração, antes que a Etapa B possa inspecionar o ambiente. A L-17 original cobria só comandos.
+## L-33a. Amendment of L-17: command, tactic, term or attribute
+**Amended normative criterion (instruction 24):** a command, tactic, term or attribute is fail-closed if it can execute user code at elaboration time, before Stage B can inspect the environment. The original L-17 covered only commands.
 
-**Aplicação** (`docs/l33-inventory.md`):
-- **Execução no ponto, léxica:** `run_tac` e `by_elab`, em qualquer posição.
-  - Resultado **`Rejeitada`** (`elaboration_executes_code`, em `policy_violations`): a execução é violação concreta, não ambiguidade.
-  - Vale para todas as declarações do arquivo, porque a execução aconteceu no build que a Etapa B audita.
-- **`unsafe`, léxico:** em qualquer posição, `Não resolvida` (`unsafe_code`). Esconde IO num tipo puro, executado se um termo for avaliado na elaboração (configuração de tática, `include_str`, `eval%`).
-- **Por ambiente** (inspetor v5): toda constante do módulo-alvo cujo **tipo** alcança `IO.RealWorld` (elaborador, tática, simproc, handler de atributo, procedimento de `initialize`), ou com `@[extern]`, deixa o arquivo `Não resolvida` (`target_defines_executable_code`).
-  - Registrar não prova que executou.
-  - Não há lista de nomes de atributo: o tipo decide.
-- **Dependência alterada no PR:** o alvo que importa (fecho de imports do inspetor) um arquivo alterado com `run_tac`/`by_elab` (ou ilegível) sai `Não resolvida` (`dependency_executes_code`). O `auditor-ci` passa os arquivos alterados a cada auditoria (`--changed`).
-- **`show_panel_widgets`** passou de `allowed` a `metaprogramming` (classificação do core v5): avalia termos do arquivo, como `#widget`. A classificação de risco do core passa a valer sobre uma allow-list de projeto gerada antes.
+**Application** (`docs/l33-inventory.md`):
+- **Execution on the spot, lexical:** `run_tac` and `by_elab`, in any position.
+  - Result **`Rejeitada`** (`elaboration_executes_code`, in `policy_violations`): the execution is a concrete violation, not an ambiguity.
+  - It applies to every declaration of the file, because the execution happened in the build that Stage B audits.
+- **`unsafe`, lexical:** in any position, `Não resolvida` (`unsafe_code`). It hides IO in a pure type, executed if a term is evaluated during elaboration (tactic configuration, `include_str`, `eval%`).
+- **From the environment** (inspector v5): every constant of the target module whose **type** reaches `IO.RealWorld` (an elaborator, tactic, simproc, attribute handler, `initialize` procedure), or that carries `@[extern]`, leaves the file `Não resolvida` (`target_defines_executable_code`).
+  - Registering does not prove that it executed.
+  - There is no list of attribute names: the type decides.
+- **A dependency changed in the PR:** a target that imports (the inspector's import closure) a changed file with `run_tac`/`by_elab` (or an unreadable one) comes out `Não resolvida` (`dependency_executes_code`). `auditor-ci` passes the changed files to each audit (`--changed`).
+- **`show_panel_widgets`** moved from `allowed` to `metaprogramming` (core classification v5): it evaluates terms of the file, like `#widget`. The core risk classification now applies on top of a project allow-list generated earlier.
 
-**Limites declarados:**
-- **Lacuna de integridade (instrução 25), não de cobertura: dependência alterada que só registra código** (via atributo, `initialize`, `unsafe`), sem `run_tac`/`by_elab`.
-  - Ela mesma sai `Não resolvida` como alvo, mas o alvo que a importa **sai `verified`** embora o código registrado tenha executado durante o build dele (o `initialize` de uma dependência executa quando o alvo é compilado: cenário 10).
-  - É o mesmo padrão do `sorry` transitivo. A correção, `dependency_registers_code`, detecta no ambiente do alvo o código registrado por dependência alterada.
-  - É **P0 da Fase 2** (`roadmap.md`). A mitigação (b) não a fecha: detecta adulteração, não execução.
-- **CLI sem `--changed`:** não cruza dependências (`auditor check` sozinho). O `auditor-ci` sempre passa a lista.
-- **Dependências externas do Mathlib** (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph) não foram inventariadas. A defesa por ambiente vale para o código do alvo, onde quer que o atributo tenha sido definido.
-- **`lakefile.lean` alterado no PR** executa código no `lake build`: fora do alcance da Etapa A.
-- Para todos esses casos, e para qualquer mecanismo fora do inventário, a defesa é a **mitigação estrutural (b)**: hash do inspetor e do auditor antes e depois do `lake build`, `toolchain_tampered`. Ela detecta adulteração, não execução: (a) e (b) são defesas diferentes, e as duas são necessárias.
-- **(b) implementada** (instrução 25, cenário 11) e **aprovada** (instrução 26). A primeira versão tinha 3 erros, pegos pela suíte antes de qualquer mutação (orçamento consumido pelo hash, teste da ordem antiga, variável vazia no controle): evidência de que a suíte funciona (`maintenance.md`). O que ela **não** cobre:
-  - adulteração do toolchain Lean (`~/.elan`), do Python ou de outras dependências do runner;
-  - adulteração que se desfaz antes da conferência;
-  - leitura ou exfiltração (o hash detecta escrita, não leitura).
+**Declared limits:**
+- **An integrity gap (instruction 25), not a coverage gap: a changed dependency that only registers code** (through an attribute, `initialize`, `unsafe`), without `run_tac`/`by_elab`.
+  - It itself comes out `Não resolvida` as a target, but the target that imports it **comes out `verified`** even though the registered code ran during its build (a dependency's `initialize` runs when the target is compiled: scenario 10).
+  - It is the same pattern as the transitive `sorry`. The fix, `dependency_registers_code`, detects in the target's environment the code registered by a changed dependency.
+  - It is a **Phase 2 P0 item** (`roadmap.md`). Mitigation (b) does not close it: it detects tampering, not execution.
+- **CLI without `--changed`:** it does not cross dependencies (`auditor check` on its own). `auditor-ci` always passes the list.
+- **Mathlib's external dependencies** (Batteries, Aesop, Qq, ProofWidgets, Plausible, LeanSearchClient, importGraph) have not been inventoried. The environment-based defence applies to the target's code, wherever the attribute was defined.
+- **A `lakefile.lean` changed in the PR** executes code during `lake build`: outside Stage A's reach.
+- For all these cases, and for any mechanism outside the inventory, the defence is the **structural mitigation (b)**: hashing the inspector and the auditor before and after `lake build`, `toolchain_tampered`. It detects tampering, not execution: (a) and (b) are different defences, and both are needed.
+- **(b) implemented** (instruction 25, scenario 11) and **approved** (instruction 26). The first version had 3 errors, caught by the suite before any mutation (budget consumed by hashing, a test of the old order, an empty variable in the control): evidence that the suite works (`maintenance.md`). What it does **not** cover:
+  - tampering with the Lean toolchain (`~/.elan`), with Python or with other runner dependencies;
+  - tampering that is undone before the check;
+  - reading or exfiltration (the hash detects writes, not reads).
 
-## L-30. Taxa de fail-closed da Etapa A no top-60 por fanout (P0-2)
-Taxa de fail-closed da Etapa A no top-60 é 65,0% após (a); teto de 53,3% mesmo relaxando tudo; a cobertura do Mathlib fica bloqueada até a Fase 2.
-- 39 dos 60 falham: 18 só por sintaxe, 7 só por comando não sintático, 14 pelas duas causas. 32 declaram sintaxe genuína, que a instrução 24 mantém fail-closed.
-- Sem relaxar `run_cmd`, o teto é 56,7 %.
-- O kill criterion do P0-2 (> 50 % depois de (a) e (b)) está atingido.
-- **Medida adicional, que não substitui o gate:** na biblioteca `Mathlib` inteira, a taxa é 14,4 % (1244 de 8651). A causa dominante é `notation` (553 arquivos), uma macro gerada pelo toolchain. Se `notation` gerada pelo toolchain puder ser reconhecida como TCB (a mesma lógica do `ctorIdx` do P0-1), a taxa cai muito. Pergunta para a Fase 2 (`roadmap.md`).
-- Remedição oficial com a Etapa A v4 (L-33a), run 39849624202: top-60 inalterado (65,0 %); Mathlib inteiro 14,8 % (`unsafe` léxico em 74 arquivos). A detecção por ambiente da L-33a não está nesses números (`docs/p0-2-fail-closed.md`, seção 8).
+## L-30. Stage A fail-closed rate on the top-60 by fanout (P0-2)
+The Stage A fail-closed rate on the top-60 is 65.0% after (a); a ceiling of 53.3% even relaxing everything; Mathlib coverage is blocked until Phase 2.
+- 39 of the 60 fail: 18 only because of syntax, 7 only because of a non-syntactic command, 14 for both reasons. 32 declare genuine syntax, which instruction 24 keeps fail-closed.
+- Without relaxing `run_cmd`, the ceiling is 56.7 %.
+- The P0-2 kill criterion (> 50 % after (a) and (b)) is met.
+- **Additional measure, which does not replace the gate:** over the whole `Mathlib` library, the rate is 14.4 % (1244 of 8651). The dominant cause is `notation` (553 files), a toolchain-generated macro. If toolchain-generated `notation` can be recognized as TCB (the same logic as P0-1's `ctorIdx`), the rate drops a lot. A question for Phase 2 (`roadmap.md`).
+- Official re-measurement with Stage A v4 (L-33a), run 39849624202: top-60 unchanged (65.0 %); whole of Mathlib 14.8 % (lexical `unsafe` in 74 files). L-33a's environment-based detection is not in these numbers (`docs/p0-2-fail-closed.md`, section 8).
 
-## L-35. Custo de cobertura da L-33a: delaboradores e extensões de tática em arquivos matemáticos
-A regra por ambiente da L-33a (`target_defines_executable_code`) deixa `Não resolvida` o arquivo inteiro quando o módulo-alvo define código capaz de rodar na elaboração. Em arquivos matemáticos, isso atinge delaboradores e extensões do `positivity`. **O fail-closed está correto:** esse código roda durante a elaboração. Mas tem um custo de cobertura, que a 1b não pegou (nenhum dos 35 arquivos sorteados tinha delaborador). Achado na seleção da 1c (`docs/user-study.md`, seção 8).
+## L-35. Coverage cost of L-33a: delaborators and tactic extensions in mathematical files
+L-33a's environment rule (`target_defines_executable_code`) leaves the whole file `Não resolvida` when the target module defines code capable of running during elaboration. In mathematical files, this hits delaborators and `positivity` extensions. **Fail-closed is correct:** this code runs during elaboration. But it has a coverage cost, which 1b did not catch (none of the 35 sampled files had a delaborator). Found during the 1c selection (`docs/user-study.md`, section 8).
 
-**Medição** (`auditor-measure`, opção `l35`, run 39970204221; Mathlib `e1b2403b`, mesmo critério do inspetor v5; dados por módulo em `docs/l35-measure.json`):
+**Measurement** (`auditor-measure`, option `l35`, run 39970204221; Mathlib `e1b2403b`, same criterion as inspector v5; per-module data in `docs/l35-measure.json`):
 
-| Recorte | Módulos | Declarações reportáveis |
+| Slice | Modules | Reportable declarations |
 |---|---|---|
-| Marcados pela regra (bruto) | 686 (7,93 %) | 30 252 (9,14 %) |
-| … com constante escrita à mão (`@[delab]`, `@[positivity]`, `elab`…) | 550 | 21 337 |
-| … só com delaborador gerado (`_aux_…_delab_app_…` de `notation`) | 136 | 8 915 |
-| **Custo marginal** (a Etapa A aceita o arquivo; cai só pela L-33a) | **242 (2,80 %)** | **11 269 (3,41 %)** |
-| … dos quais em arquivos matemáticos (fora de `Tactic`/`Util`/`Lean`/`Linter`) | 122 | 9 037 (2,73 %) |
-| …… delaborador | 74 | 4 691 |
-| …… extensão do `positivity` | 35 | 3 618 |
-| …… outros (`norm_num`, elaboradores, `evalX` de `match`) | 13 | 728 |
+| Flagged by the rule (gross) | 686 (7.93 %) | 30,252 (9.14 %) |
+| … with a hand-written constant (`@[delab]`, `@[positivity]`, `elab`…) | 550 | 21,337 |
+| … with only a generated delaborator (`_aux_…_delab_app_…` from `notation`) | 136 | 8,915 |
+| **Marginal cost** (Stage A accepts the file; it falls only because of L-33a) | **242 (2.80 %)** | **11,269 (3.41 %)** |
+| … of which in mathematical files (outside `Tactic`/`Util`/`Lean`/`Linter`) | 122 | 9,037 (2.73 %) |
+| …… delaborator | 74 | 4,691 |
+| …… `positivity` extension | 35 | 3,618 |
+| …… others (`norm_num`, elaborators, `evalX` from `match`) | 13 | 728 |
 
-Três leituras:
-- **O custo que a L-33a acrescenta é o marginal, 3,41 %** das declarações; o bruto (9,14 %) inclui arquivos que a Etapa A já deixa `Não resolvida`. É menos da metade do `ctorIdx` (L-34, 7,35 %).
-- **Delaborador gerado: custo marginal zero.** Os 136 módulos que só têm delaborador gerado já caem na Etapa A pelo próprio comando `notation` (`syntax_extension_declared`). Reconhecer o delaborador gerado como TCB, sozinho, não recupera nenhuma declaração. Só recupera junto com o tratamento de `notation` na Etapa A.
-- **Todo o custo marginal vem de código escrito à mão** (delaborador, extensão do `positivity`, elaborador). Pela nuance (iii) da instrução 28, o delaborador escrito à mão é código de usuário, e o fail-closed está correto. Recuperar essa cobertura exigiria outra política, que o projeto ainda não decidiu.
+Three readings:
+- **The cost that L-33a adds is the marginal one, 3.41 %** of declarations; the gross figure (9.14 %) includes files that Stage A already leaves `Não resolvida`. It is less than half of `ctorIdx` (L-34, 7.35 %).
+- **Generated delaborators: zero marginal cost.** The 136 modules that have only a generated delaborator already fall in Stage A because of the `notation` command itself (`syntax_extension_declared`). Recognizing the generated delaborator as TCB, on its own, recovers no declaration. It only recovers them together with the treatment of `notation` in Stage A.
+- **All of the marginal cost comes from hand-written code** (delaborators, `positivity` extensions, elaborators). Under nuance (iii) of instruction 28, a hand-written delaborator is user code, and fail-closed is correct. Recovering this coverage would require a different policy, which the project has not decided yet.
 
-**Na 1c:** é causa conhecida (instrução 28, Q2 (ii)), com tempo medido à parte. **Classificação:** roadmap (instrução 29). O delaborador gerado entra como consequência do P0 "`notation` na Etapa A" (`roadmap.md`).
+**In 1c:** it is a known cause (instruction 28, Q2 (ii)), with its time measured separately. **Classification:** roadmap (instruction 29). The generated delaborator enters as a consequence of the P0 item "`notation` in Stage A" (`roadmap.md`).
 
-## L-34. Atributo gerado na elaboração derruba 7,35 % das declarações do Mathlib (P0-1)
-Atributo gerado na elaboração é causa de fail-closed em 7,35% das declarações; a política de TCB para gerado precisa de revisão na Fase 2.
+## L-34. An attribute generated during elaboration brings down 7.35 % of Mathlib's declarations (P0-1)
+An attribute generated during elaboration causes fail-closed in 7.35% of declarations; the TCB policy for generated code needs revision in Phase 2.
 
-**Medição** (`auditor-measure`, run 39845428621; `docs/p0-1-implemented-by.md`): das 330 852 declarações reportáveis do Mathlib `e1b2403b`, 24 322 (7,351 %) saem `Não resolvida` só porque o fecho alcança um `T.ctorIdx` gerado pelo Lean (`@[implemented_by T.ctorIdx._impl]`, `CtorIdx.lean:139`). Pela Q7, a constante é de usuário, por estar num módulo do Mathlib.
-- O Mathlib não escreve nenhum `implemented_by` no fonte.
-- As áreas mais atingidas são `CategoryTheory`, `Algebra` e `AlgebraicGeometry`.
-- É perda de cobertura, não de integridade: nenhuma dessas declarações sai `verified`.
-- O reconhecimento estrutural do `ctorIdx` (corpo `getObjTagNat`, valor `casesOn` dos índices) é item da Fase 2, com teste de equivalência no toolchain fixado.
+**Measurement** (`auditor-measure`, run 39845428621; `docs/p0-1-implemented-by.md`): of the 330,852 reportable declarations of Mathlib `e1b2403b`, 24,322 (7.351 %) come out `Não resolvida` only because their closure reaches a Lean-generated `T.ctorIdx` (`@[implemented_by T.ctorIdx._impl]`, `CtorIdx.lean:139`). Under Q7, the constant is user-level, because it is in a Mathlib module.
+- Mathlib does not write any `implemented_by` in source.
+- The most affected areas are `CategoryTheory`, `Algebra` and `AlgebraicGeometry`.
+- It is a loss of coverage, not of integrity: none of these declarations comes out `verified`.
+- Structural recognition of `ctorIdx` (body `getObjTagNat`, value `casesOn` over the indices) is a Phase 2 item, with an equivalence test on the pinned toolchain.
 
-## L-31. Benchmark de enunciados trocados (sub-fase 1b)
-Falso positivo nas provas corretas difíceis é 28,6% (meta: 10%). Causas: ctorIdx gerado (L-34, P0 da Fase 2) e opções backward.* (roadmap, com teste de ausência de efeito). Ambas são fail-closed — o erro é de cobertura, não de integridade. A correção dessas duas causas é P0 da Fase 2 e deve ser medida antes de qualquer alegação de cobertura do Mathlib a terceiros.
+## L-31. Swapped-statement benchmark (sub-phase 1b)
+The false-positive rate on hard correct proofs is 28.6% (target: 10%). Causes: generated ctorIdx (L-34, Phase 2 P0) and backward.* options (roadmap, with a no-effect test). Both are fail-closed — the error is one of coverage, not of integrity. Fixing these two causes is a Phase 2 P0 item and must be measured before any claim of Mathlib coverage to third parties.
 
-**Decomposição dos 10 casos** (instrução 26): 2 só por `ctorIdx` gerado; 4 só por `backward.*` (uma delas é instância anônima, sem vínculo de propósito); 4 pelas duas causas. Ou seja, 8 dos 10 vêm de duas causas conhecidas e corrigíveis.
+**Breakdown of the 10 cases** (instruction 26): 2 only because of a generated `ctorIdx`; 4 only because of `backward.*` (one of them is an anonymous instance, with no binding by design); 4 for both reasons. That is, 8 of the 10 come from two known, fixable causes.
 
-**Detecção.** 100 % dos enunciados trocados, por construção: enunciado falso com a prova original não compila. O número que mede o auditor é **11/11 nas trapaças que compilam**, com a razão certa e zero falso negativo.
+**Detection.** 100 % of the swapped statements, by construction: a false statement with the original proof does not compile. The number that measures the auditor is **11/11 on the cheats that compile**, with the right reason and zero false negatives.
 
-**Medição:** `docs/benchmark.md`; 5ª execução, run 39879879325, auditor `81457ac`, Mathlib `e1b2403b` oficial; 100 casos válidos.
-- **Trapaças que compilam** sobre enunciados falsos (`sorry`, `axiom`, `implemented_by` + `native_decide`, `run_tac`, `sorry` transitivo): 11/11 detectadas, razão certa 11/11, 0 falso negativo.
-- **Falsos positivos:** 10 de 35 provas corretas difíceis do Mathlib.
-  - **Causas:** `ctorIdx` gerado (L-34) e `set_option` `backward.*` fora da política, aplicadas ao próprio teorema; uma instância anônima fica sem vínculo de propósito.
-  - **Antes da Etapa A v5:** 34,3 %.
-- **Controles** (enunciados originais com prova simples): 0/24 falsos positivos.
-- **Limites da amostra:** os negativos são lemas elementares (ground truth formal por instância concreta); "difícil" é aproximado por comprimento de prova; 35 teoremas de 23 áreas.
+**Measurement:** `docs/benchmark.md`; 5th run, run 39879879325, auditor `81457ac`, official Mathlib `e1b2403b`; 100 valid cases.
+- **Cheats that compile** on false statements (`sorry`, `axiom`, `implemented_by` + `native_decide`, `run_tac`, transitive `sorry`): 11/11 detected, right reason 11/11, 0 false negatives.
+- **False positives:** 10 of 35 hard correct Mathlib proofs.
+  - **Causes:** generated `ctorIdx` (L-34) and `set_option` `backward.*` outside the policy, applied to the theorem itself; an anonymous instance has no binding by design.
+  - **Before Stage A v5:** 34.3 %.
+- **Controls** (original statements with a simple proof): 0/24 false positives.
+- **Sample limits:** the negatives are elementary lemmas (formal ground truth by concrete instance); "hard" is approximated by proof length; 35 theorems from 23 areas.

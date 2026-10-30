@@ -1,17 +1,17 @@
-# Convite para o estudo de usuário (sub-fase 1c)
+# Invitation to the user study (sub-phase 1c)
 
 ```
-status: aprovado (instrução 27), com a frase sobre causas conhecidas da instrução 28; o texto final volta para revisão antes do envio
+status: approved (instructions 27, 30 and 31), including the sentence on known causes from instruction 28
 ```
 
-**Resumo em português.** O texto abaixo vai em inglês, a língua da comunidade do Mathlib (Zulip, contato direto). Ele declara o que a instrução 26 exige:
-- (a) a classificação é auto-revisada (L-26);
-- (b) o estudo mede o valor da ferramenta no escopo que ela cobre, não a cobertura do Mathlib;
-- (c) os alertas de causa conhecida (`ctorIdx` gerado, `backward.*`, delaborador/`positivity`) são contados à parte, com o tempo gasto neles (instrução 28; antes: exclusão da amostra);
-- (d) a participação é voluntária e o tempo estimado é de 2 a 3 horas;
-- (e) o resultado será publicado com a qualificação.
+**Summary.** The text below is sent to the Mathlib community (Zulip, direct contact). It states what instruction 26 requires:
+- (a) the classification is self-reviewed (L-26);
+- (b) the study measures the tool's value within the scope it covers, not Mathlib coverage;
+- (c) alerts from known causes (generated `ctorIdx`, `backward.*`, delaborators/`positivity`) are counted separately, together with the time spent on them (instruction 28; previously: excluded from the sample);
+- (d) participation is voluntary, and the estimated time is 2 to 3 hours;
+- (e) the result will be published with the qualifications.
 
-Os defeitos plantados foram aprovados (instrução 27) e conferidos com o auditor (run 39973055204).
+The planted defects were approved (instruction 27) and checked with the auditor (runs 39973055204 and 39977153820).
 
 ---
 

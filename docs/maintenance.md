@@ -1,301 +1,303 @@
-# Manutenção
+# Maintenance
 
-Allow-list da Etapa A, inspetor, testes de mutação e fixação de versões dos workflows.
+The Stage A allow-list, the inspector, mutation tests and version pinning in the workflows.
 
-## O que é mantido e por quem
+"Instruction N" refers to the numbered decisions of the project's external reviewer.
 
-A allow-list tem duas partes de origem diferente:
+## What is maintained, and by whom
 
-| Parte | Origem | Arquivo |
+The allow-list has two parts of different origin:
+
+| Part | Origin | File |
 |---|---|---|
-| Lista de comandos | **extraída mecanicamente** do toolchain (categoria `command` do parser, via `src/auditor/lean/Dump.lean`) | gerada em `src/auditor/data/allowlist/<toolchain>.json` |
-| Classificação de risco (`syntax_extension`, `metaprogramming`) e tokens de continuação | **mantida à mão**, com critério escrito | `tools/gen_allowlist/classification.toml` |
+| Command list | **extracted mechanically** from the toolchain (the parser's `command` category, via `src/auditor/lean/Dump.lean`) | generated in `src/auditor/data/allowlist/<toolchain>.json` |
+| Risk classification (`syntax_extension`, `metaprogramming`) and continuation tokens | **maintained by hand**, with a written criterion | `tools/gen_allowlist/classification.toml` |
 
-Comando extraído que não está classificado cai em `allowed`. Por isso, **ao subir o toolchain, todo comando novo precisa de revisão humana**: o gerador lista o que mudou, mas não julga o risco.
+An extracted command that is not classified falls into `allowed`. That is why, **when bumping the toolchain, every new command needs human review**: the generator lists what changed, but it does not judge the risk.
 
-## Teste de defasagem
+## Staleness test
 
-`tests/maintenance/test_allowlist_fresh.py` roda `gen.py --check`: roda o extrator com o `lean-toolchain` fixado e falha se o arquivo versionado não corresponder exatamente. O gerador também falha se `classification.toml` citar um comando que não existe no toolchain, para que a classificação não apodreça quando o Lean remover sintaxe.
+`tests/maintenance/test_allowlist_fresh.py` runs `gen.py --check`: it runs the extractor with the pinned `lean-toolchain` and fails if the versioned file does not match exactly. The generator also fails if `classification.toml` cites a command that does not exist in the toolchain, so that the classification does not rot when Lean removes syntax.
 
-Em tempo de execução, a Etapa A seleciona a allow-list pelo `lean-toolchain` **do projeto-alvo**. Sem arquivo para aquele toolchain, o resultado é `allowlist_unavailable` (fail-closed). Allow-list cujo conteúdo declara outro toolchain é rejeitada.
+At run time, Stage A selects the allow-list by the **target project's** `lean-toolchain`. Without a file for that toolchain, the result is `allowlist_unavailable` (fail-closed). An allow-list whose content declares another toolchain is rejected.
 
-## Procedimento ao subir o toolchain
+## Procedure when bumping the toolchain
 
-É o procedimento de cada bump do Mathlib. Foi executado de ponta a ponta na subida
-`v4.22.0 → v4.36.0-rc1` (instrução 12); as notas "Na subida para a v4.36" registram o que cada
-passo encontrou.
+It is the procedure for every Mathlib bump. It was executed end to end in the bump
+`v4.22.0 → v4.36.0-rc1` (instruction 12); the notes "On the bump to v4.36" record what each
+step found.
 
-1. **Fixar a versão alvo.** Ler o `lean-toolchain` do Mathlib no commit escolhido e anotar o
-   commit. Instalar: `elan toolchain install <toolchain>`.
-2. **Atualizar `lean-toolchain`** na raiz e em todos os fixtures (`git ls-files | grep lean-toolchain$`;
-   `test_fixture_toolchain_matches_root` aponta cópias divergentes).
-3. **Extrator da allow-list.** Rodar `python tools/gen_allowlist/gen.py`. Se `Dump.lean` não
-   compilar, ajustar à API nova. *Na v4.36: `String.trim` → `trimAscii`; `importModules
-   (loadExts := true)` passou a exigir `enableInitializersExecution` (aceito só no gerador; ver
+1. **Pin the target version.** Read Mathlib's `lean-toolchain` at the chosen commit and note the
+   commit. Install: `elan toolchain install <toolchain>`.
+2. **Update `lean-toolchain`** at the root and in every fixture (`git ls-files | grep lean-toolchain$`;
+   `test_fixture_toolchain_matches_root` points out divergent copies).
+3. **Allow-list extractor.** Run `python tools/gen_allowlist/gen.py`. If `Dump.lean` does not
+   compile, adapt it to the new API. *On v4.36: `String.trim` → `trimAscii`; `importModules
+   (loadExts := true)` started requiring `enableInitializersExecution` (accepted only in the generator; see
    `docs/tcb.md`, D-39).*
-4. **Classificar os comandos novos.** O gerador lista o que mudou e recusa classificação que cite
-   comando inexistente. Comando novo não classificado cai em `allowed`, então **cada um** passa pelo
-   critério de `classification.toml` (L-17), lendo a definição no fonte do toolchain. Na dúvida,
-   fail-closed. Comando com efeito equivalente a uma opção da política (ex.: `unlock_limits`) é
-   registrado pela Etapa A como essa opção. Subir `classification_version`. *Na v4.36: 40 comandos
-   novos e 1 removido (`set_premise_selector`); classificação `4` (D-40, D-41).*
-5. **Remover a allow-list do toolchain anterior.** O auditor só suporta o toolchain testado; uma
-   allow-list sem inspetor e suíte correspondentes seria promessa não verificada.
-6. **Inspetor.** Compilar (`stage_b.ensure_inspector`) e ajustar à API nova. Comparar
-   `src/lean/Lean/Util/CollectAxioms.lean` do toolchain novo com `directDeps` em `Inspect.lean`
-   (o fecho independente precisa espelhar o percurso oficial). Conferir que o inspetor continua
-   sem executar código importado (`loadExts := false`). Subir `inspectorVersion` e
-   `INSPECTOR_VERSION` juntos. *Na v4.36: `CollectAxioms.collect` virou privado e passou a usar
-   axiomas pré-calculados nos `.olean`; o tipo de um axioma passou a ser percorrido; docstrings
-   lidas com `findInternalDocString?` (texto bruto); `@[simp]`/`@[ext]` lidos das entradas dos
-   módulos.*
-7. **Rodar a suíte inteira** e tratar cada falha como sinal de que a Etapa A ou B dependia de um
-   detalhe da versão. Separar o que é mudança mecânica (nomes, API) do que muda o significado de um
-   resultado: o segundo tipo é decisão de política, vai para o revisor, e enquanto isso o
-   comportamento é fail-closed. *Na v4.36: `native_decide` passou a adicionar um axioma por uso
-   (L-19, Q9); a convenção da dona de `where` mudou (L-4).*
-8. **Fronteira de TCB.** As raízes de TCB são o `target_trusted_roots` de cada toolchain
-   (`src/auditor/data/target_trusted_roots/<toolchain>.json`): as raízes que o projeto-alvo de fato usa,
-   **não** todas as que o toolchain declara (D-42). Regenerar com o Mathlib no commit fixado
-   e as dependências nas revisões exatas do seu `lake-manifest.json`:
+4. **Classify the new commands.** The generator lists what changed and refuses a classification that cites
+   a nonexistent command. A new unclassified command falls into `allowed`, so **each one** goes through the
+   criterion of `classification.toml` (L-17), reading its definition in the toolchain's source. When in doubt,
+   fail-closed. A command whose effect is equivalent to a policy option (e.g. `unlock_limits`) is
+   recorded by Stage A as that option. Bump `classification_version`. *On v4.36: 40 new
+   commands and 1 removed (`set_premise_selector`); classification `4` (D-40, D-41).*
+5. **Remove the previous toolchain's allow-list.** The auditor only supports the tested toolchain; an
+   allow-list without a matching inspector and suite would be an unverified promise.
+6. **Inspector.** Compile it (`stage_b.ensure_inspector`) and adapt it to the new API. Compare
+   the new toolchain's `src/lean/Lean/Util/CollectAxioms.lean` with `directDeps` in `Inspect.lean`
+   (the independent closure must mirror the official walk). Check that the inspector still
+   does not run imported code (`loadExts := false`). Bump `inspectorVersion` and
+   `INSPECTOR_VERSION` together. *On v4.36: `CollectAxioms.collect` became private and started using
+   axioms precomputed in the `.olean` files; an axiom's type started being walked; docstrings
+   read with `findInternalDocString?` (raw text); `@[simp]`/`@[ext]` read from the modules'
+   entries.*
+7. **Run the whole suite** and treat each failure as a sign that Stage A or B depended on a
+   version detail. Separate what is a mechanical change (names, API) from what changes the meaning of a
+   result: the second kind is a policy decision, goes to the reviewer, and in the meantime the
+   behaviour is fail-closed. *On v4.36: `native_decide` started adding one axiom per use
+   (L-19, Q9); the owner convention for `where` changed (L-4).*
+8. **TCB boundary.** The TCB roots are each toolchain's `target_trusted_roots`
+   (`src/auditor/data/target_trusted_roots/<toolchain>.json`): the roots the target project actually uses,
+   **not** all the ones the toolchain declares (D-42). Regenerate with Mathlib at the pinned commit
+   and the dependencies at the exact revisions of its `lake-manifest.json`:
    `python tools/gen_tcb_roots.py --sysroot <sysroot> --project <mathlib> --root Mathlib`.
-   O gerador confere cada pacote contra o manifest (commit = `rev`) e recusa se não bater. O
-   canário `test_06_tcb_boundary_canary` confere a lista declarada pelo toolchain, e o cenário
-   `06-tcb-boundary` tem uma declaração por raiz da allow-list (`uses_<raiz>`) que precisa sair
-   TCB. Raiz nova ou removida vai para revisão por quem não é o autor (`docs/tcb.md`, (ii)).
-   *Na v4.36: o toolchain passou a declarar `LeanChecker`, `LeanExport` e `LeanIR`; o fecho do
-   Mathlib usa só `Init`, `Lake`, `Lean` e `Std` (D-42, D-47).*
-9. **Ground truth.** `tests/conformance/test_ground_truth.py` roda `#print axioms` do próprio Lean
-   nos fixtures. Atualizar só o que o Lean passou a imprimir de outro jeito, nunca o veredito dos
-   enunciados falsos (as negações continuam compilando).
-10. **Mutação.** Rodar `python tools/mutation/run.py <grupo>` **um grupo por vez**, nesta ordem:
-    `stage_a`, `allowlist`, `stage_b`, `policy`, `ci`. Conferir 0 sobreviventes e fazer commit
-    entre os grupos. Se o processo for interrompido no meio, `git status` mostra o arquivo que
-    ficou mutado: restaurar com `git checkout -- <arquivo>` antes de qualquer outra coisa. O
-    grupo `policy` é o mais pesado, porque roda a conformance a cada mutação.
-11. **Registrar.** `CHANGELOG.md` (incompatível: toolchain fixado), README ("Ambientes"),
-    `docs/tcb.md` (raízes), e as decisões novas em `docs/proposed-improvements.md`.
-12. **Revisão.** Classificação de comandos, fronteira de TCB e qualquer mudança de veredito exigem
-    revisão por alguém que não é o autor.
+   The generator checks each package against the manifest (commit = `rev`) and refuses on a mismatch. The
+   canary `test_06_tcb_boundary_canary` checks the list declared by the toolchain, and scenario
+   `06-tcb-boundary` has one declaration per root of the allow-list (`uses_<root>`) that must come out
+   TCB. A new or removed root goes to review by someone other than the author (`docs/tcb.md`, (ii)).
+   *On v4.36: the toolchain started declaring `LeanChecker`, `LeanExport` and `LeanIR`; Mathlib's
+   closure uses only `Init`, `Lake`, `Lean` and `Std` (D-42, D-47).*
+9. **Ground truth.** `tests/conformance/test_ground_truth.py` runs Lean's own `#print axioms`
+   on the fixtures. Update only what Lean now prints differently, never the verdict on the
+   false statements (the negations still compile).
+10. **Mutation.** Run `python tools/mutation/run.py <group>` **one group at a time**, in this order:
+    `stage_a`, `allowlist`, `stage_b`, `policy`, `ci`. Check for 0 survivors and commit
+    between groups. If the process is interrupted midway, `git status` shows the file that
+    was left mutated: restore it with `git checkout -- <file>` before anything else. The
+    `policy` group is the heaviest, because it runs the conformance suite for each mutation.
+11. **Record.** `CHANGELOG.md` (incompatible: pinned toolchain), README ("Environments"),
+    `docs/tcb.md` (roots), and the new decisions in `docs/proposed-improvements.md`.
+12. **Review.** Command classification, the TCB boundary and any change of verdict require
+    review by someone other than the author.
 
-## Orçamentos de tempo do CI (D-21, D-28, D-36)
+## CI time budgets (D-21, D-28, D-36)
 
-Três limites, com nomes que dizem o que medem (D-36):
+Three limits, with names that say what they measure (D-36):
 
-| Limite | CLI | Entrada do workflow | Padrão | O que é |
+| Limit | CLI | Workflow input | Default | What it is |
 |---|---|---|---|---|
-| Total do PR | `auditor-ci run --timeout-total` | `timeout-total-seconds` | 300 s | **O** orçamento: o SLA de 5 min, em steady-state (`cache_state` `warm`/`delta`). Relógio desde o trigger, preparação incluída. |
-| Total do PR com cache frio | `auditor-ci run --timeout-total-first-run` | `timeout-total-first-run-seconds` | 900 s | **Orçamento estendido de um run com cache frio**, não segundo orçamento permanente. Só vale com evidência positiva de `cache_state: cold`, o que acontece no primeiro run do fork ou depois de o cache ser despejado. Sinal ausente conta como cache quente. |
-| Por arquivo | `auditor check --timeout-file` / `auditor-ci run --timeout-file` | `timeout-file-seconds` | 90 s | Limite de um arquivo; estourar encerra a auditoria do PR (exit 2). |
+| PR total | `auditor-ci run --timeout-total` | `timeout-total-seconds` | 300 s | **The** budget: the 5-min SLA, in steady state (`cache_state` `warm`/`delta`). Clock from the trigger, preparation included. |
+| PR total with a cold cache | `auditor-ci run --timeout-total-first-run` | `timeout-total-first-run-seconds` | 900 s | **The extended budget of a run with a cold cache**, not a second permanent budget. It only applies with positive evidence of `cache_state: cold`, which happens on the fork's first run or after the cache is evicted. A missing signal counts as a warm cache. |
+| Per file | `auditor check --timeout-file` / `auditor-ci run --timeout-file` | `timeout-file-seconds` | 90 s | The limit for one file; exceeding it ends the PR's audit (exit 2). |
 
-O run com cache frio declara `first_run: true`. Se passar dos 300 s sem estourar os 900 s, não
-falha: ganha `cache_cold_extension: true` e o label `auditor-first-run`. Medições da camada 2
-nunca usam um run `cold` como steady-state (`docs/layer2-checklist.md`, passo 7). Mudar um
-padrão é mudança de SLA: vai para o revisor e para o `CHANGELOG.md`.
+A run with a cold cache declares `first_run: true`. If it goes past 300 s without exceeding 900 s, it does not
+fail: it gets `cache_cold_extension: true` and the `auditor-first-run` label. Layer-2 measurements
+never use a `cold` run as steady state (`docs/layer2-checklist.md`, step 7). Changing a
+default is an SLA change: it goes to the reviewer and into `CHANGELOG.md`.
 
-## Tabela de confusables (TR39)
+## Confusables table (TR39)
 
-`src/auditor/data/unicode/confusables-16.0.0.txt` é cópia versionada do Unicode TR39 16.0.0 (termos de uso no cabeçalho do arquivo). Atualizar a versão é mudança explícita: novo arquivo com a nova versão no nome, e o caminho atualizado em `stage_a.py`.
+`src/auditor/data/unicode/confusables-16.0.0.txt` is a versioned copy of Unicode TR39 16.0.0 (terms of use in the file's header). Updating the version is an explicit change: a new file with the new version in its name, and the path updated in `stage_a.py`.
 
-## Allow-list de projeto (Mathlib e outros)
+## Project allow-list (Mathlib and others)
 
-Comandos definidos por um projeto ou por suas dependências (o Mathlib define `lemma`, `alias`, `assert_not_exists`, …) não estão na allow-list do core. Para auditar arquivos desse projeto:
+Commands defined by a project or by its dependencies (Mathlib defines `lemma`, `alias`, `assert_not_exists`, …) are not in the core allow-list. To audit files of such a project:
 
-1. No projeto já compilado (no Mathlib: `lake exe cache get`), rodar `auditor-gen-allowlist --project <dir>`. O gerador roda `lake build` nas bibliotecas-alvo (as `lean_lib` `@[default_target]` do lakefile, ou as de `--lib`; D-52), importa todos os módulos delas, extrai os comandos e grava `<dir>/.auditor/allowlist.json` com o `env_pin` (`lean-toolchain` + `lake-manifest.json`).
-2. Ler a lista `unclassified` do arquivo gerado: são os comandos novos do projeto. Enquanto estiverem ali, são fail-closed.
-3. Classificar cada um em `<dir>/.auditor/classification.toml` (chaves `classification_version`, `allowed`, `syntax_extension`, `metaprogramming`), com o mesmo critério de `tools/gen_allowlist/classification.toml`. A classificação não pode citar comandos do core nem comandos inexistentes; o gerador recusa.
-4. Regenerar. `--check` falha se o arquivo não corresponder ao ambiente atual.
-5. Classificação é política: exige revisão por alguém que não é o autor.
+1. In the already-built project (in Mathlib: `lake exe cache get`), run `auditor-gen-allowlist --project <dir>`. The generator runs `lake build` on the target libraries (the lakefile's `@[default_target]` `lean_lib`s, or those given with `--lib`; D-52), imports all their modules, extracts the commands and writes `<dir>/.auditor/allowlist.json` with the `env_pin` (`lean-toolchain` + `lake-manifest.json`).
+2. Read the `unclassified` list of the generated file: these are the project's new commands. While they are there, they are fail-closed.
+3. Classify each one in `<dir>/.auditor/classification.toml` (keys `classification_version`, `allowed`, `syntax_extension`, `metaprogramming`), with the same criterion as `tools/gen_allowlist/classification.toml`. The classification may not cite core commands or nonexistent commands; the generator refuses.
+4. Regenerate. `--check` fails if the file does not match the current environment.
+5. Classification is policy: it requires review by someone other than the author.
 
-O `env_pin` usa o `lake-manifest.json` com fim de linha normalizado (D-53): um clone CRLF e um LF do mesmo commit dão o mesmo pino. Ao mudar o `lake-manifest.json` ou o `lean-toolchain`, a allow-list fica obsoleta e a Etapa A falha fechada (`allowlist_stale`) até ser regenerada.
+`env_pin` uses `lake-manifest.json` with normalized line endings (D-53): a CRLF clone and an LF clone of the same commit give the same pin. When `lake-manifest.json` or `lean-toolchain` changes, the allow-list becomes stale and Stage A fails closed (`allowlist_stale`) until it is regenerated.
 
-**A allow-list do Mathlib é evidência da camada 2**, gerada no fork do mantenedor. Ela não bloqueia a camada 1, cujo requisito é o gerador testado contra um projeto Lake arbitrário (`tests/allowlist`). A Fase 0 não verifica a correção semântica da classificação, só a correspondência com o pino (L-16).
+**The Mathlib allow-list is layer-2 evidence**, generated in the maintainer's fork. It does not block layer 1, whose requirement is the generator tested against an arbitrary Lake project (`tests/allowlist`). Phase 0 does not check the semantic correctness of the classification, only the match with the pin (L-16).
 
-## Inspetor da Etapa B
+## Stage B inspector
 
-O inspetor (`src/auditor/lean/Inspect.lean`) é compilado com o toolchain do projeto-alvo e guardado em cache (`%LOCALAPPDATA%\auditor\inspector` no Windows, `$XDG_CACHE_HOME/auditor` ou `~/.cache/auditor` nos demais; `AUDITOR_CACHE` sobrescreve). A chave do cache é o hash do fonte + toolchain, então qualquer mudança no inspetor gera um binário novo.
+The inspector (`src/auditor/lean/Inspect.lean`) is compiled with the target project's toolchain and cached (`%LOCALAPPDATA%\auditor\inspector` on Windows, `$XDG_CACHE_HOME/auditor` or `~/.cache/auditor` elsewhere; `AUDITOR_CACHE` overrides). The cache key is the hash of source + toolchain, so any change to the inspector produces a new binary.
 
-Ao mudar `Inspect.lean`, subir `inspectorVersion` e `INSPECTOR_VERSION` (`stage_b.py`) juntos; um teste trava a divergência.
+When changing `Inspect.lean`, bump `inspectorVersion` and `INSPECTOR_VERSION` (`stage_b.py`) together; a test locks against divergence.
 
-O percurso de dependências espelha `Lean.CollectAxioms.collect` do toolchain fixado. Ao subir o toolchain:
-1. comparar `src/lean/Lean/Util/CollectAxioms.lean` do novo toolchain com `directDeps` em `Inspect.lean`;
-2. rodar `tests/stage_b`. Os testes comparam o inspetor com `#print axioms` e travam as convenções de que a atribuição depende.
+The dependency walk mirrors the pinned toolchain's `Lean.CollectAxioms.collect`. When bumping the toolchain:
+1. compare the new toolchain's `src/lean/Lean/Util/CollectAxioms.lean` with `directDeps` in `Inspect.lean`;
+2. run `tests/stage_b`. The tests compare the inspector with `#print axioms` and lock the conventions on which attribution depends.
 
-## Convenção de nomes auxiliares de `native_decide`
+## Naming convention for `native_decide` auxiliaries
 
-A atribuição de `native_decide` à declaração dona depende da convenção `X._proof_N` do compilador (L-4). Ela está travada por testes de regressão em `tests/stage_b` (`test_05_owner_attribution`, `test_edges_where_auxiliary_owned_by_top_level_declaration`, `test_edges_private_declaration_reported_and_owned`). A subida do toolchain precisa passar por eles.
+Attributing `native_decide` to the owning declaration depends on the compiler's `X._proof_N` convention (L-4). It is locked by regression tests in `tests/stage_b` (`test_05_owner_attribution`, `test_edges_where_auxiliary_owned_by_top_level_declaration`, `test_edges_private_declaration_reported_and_owned`). A toolchain bump must pass them.
 
-## Testes de mutação
+## Mutation tests
 
-Um teste verde só é evidência se ficar vermelho quando o código está errado. Esta disciplina já encontrou falhas reais duas vezes: um falso resultado de mutação causado pelo `pythonpath` do pytest (Etapa A) e 4 buracos de teste na Policy, todos corrigidos. Ela não depende de memória: o catálogo e o executor estão versionados.
+A green test is only evidence if it turns red when the code is wrong. This discipline has already found real failures twice: a false mutation result caused by pytest's `pythonpath` (Stage A) and 4 test holes in the Policy, all fixed. It does not depend on memory: the catalog and the runner are versioned.
 
-- **Catálogo:** `tools/mutation/catalog.py`. Grupos `stage_a`, `allowlist`, `stage_b`, `policy`, `ci` e `gen_tcb_roots` (este desde a instrução 15); cada mutação é (arquivo, trecho original, trecho mutado), e cada grupo declara os testes que precisam acusá-la.
-- **Executor:** `python tools/mutation/run.py [grupo ...]`. Aplica cada mutação, roda os testes do grupo com `-x` e restaura o arquivo a partir de uma cópia em memória, também em caso de erro. Termina com exit 1 se alguma mutação **sobreviveu** (buraco nos testes) ou foi **pulada** (padrão não encontrado).
-- **Integridade do catálogo:** `tests/maintenance/test_mutation_catalog.py`, rápido e parte da suíte normal, falha se algum padrão deixar de ocorrer exatamente uma vez no código. Assim, refatorar uma checagem obriga a atualizar a mutação correspondente, em vez de ela virar uma mutação "pulada" sem ninguém notar.
+- **Catalog:** `tools/mutation/catalog.py`. Groups `stage_a`, `allowlist`, `stage_b`, `policy`, `ci` and `gen_tcb_roots` (the latter since instruction 15); each mutation is (file, original snippet, mutated snippet), and each group declares the tests that must catch it.
+- **Runner:** `python tools/mutation/run.py [group ...]`. It applies each mutation, runs the group's tests with `-x`, and restores the file from an in-memory copy, also on error. It ends with exit 1 if any mutation **survived** (a hole in the tests) or was **skipped** (pattern not found).
+- **Catalog integrity:** `tests/maintenance/test_mutation_catalog.py`, fast and part of the normal suite, fails if any pattern stops occurring exactly once in the code. That way, refactoring a check forces updating the corresponding mutation, instead of it silently becoming a "skipped" mutation.
 
-**Quando rodar:**
-1. ao fechar cada etapa;
-2. ao mudar qualquer regra de política (a mudança de regra exige auditoria por outra pessoa, e o resultado da mutação é parte da evidência dessa auditoria);
-3. ao subir o toolchain.
+**When to run:**
+1. when closing each stage;
+2. when changing any policy rule (a rule change requires an audit by another person, and the mutation result is part of that audit's evidence);
+3. when bumping the toolchain.
 
-**Ao adicionar uma checagem nova,** acrescente ao menos uma mutação que a desligue e confirme que ela é detectada. Uma mutação sobrevivente se resolve escrevendo o teste que falta, nunca removendo a mutação.
+**When adding a new check,** add at least one mutation that turns it off and confirm that it is detected. A surviving mutation is resolved by writing the missing test, never by removing the mutation.
 
-**Armadilhas já encontradas:**
-- O pytest com `pythonpath = ["src"]` importa o código do repositório. Mutar uma cópia em outro diretório faz toda mutação "sobreviver" falsamente; o executor muta no lugar.
-- Strings com barra invertida em scripts gerados via heredoc do shell perdem o escape; o catálogo usa strings *raw* num arquivo Python.
-- **Processo morto de fora não restaura o arquivo.** A restauração em caso de erro cobre exceções, não um processo encerrado pelo sistema (falta de memória, instrução 12). Depois de uma interrupção, `git status` mostra o arquivo mutado; conferir o diff (deve ser exatamente uma mutação do catálogo) e restaurar com `git checkout -- <arquivo>`. Por isso a mutação roda um grupo por vez, com commit entre os grupos.
+**Pitfalls already encountered:**
+- pytest with `pythonpath = ["src"]` imports the repository's code. Mutating a copy in another directory makes every mutation falsely "survive"; the runner mutates in place.
+- Strings with backslashes in scripts generated through a shell heredoc lose their escaping; the catalog uses *raw* strings in a Python file.
+- **A process killed from outside does not restore the file.** Restoration on error covers exceptions, not a process terminated by the system (out of memory, instruction 12). After an interruption, `git status` shows the mutated file; check the diff (it must be exactly one catalog mutation) and restore it with `git checkout -- <file>`. That is why mutation runs one group at a time, with a commit between groups.
 
-**Registro de execuções** (uma linha por grupo; commit entre grupos):
+**Run log** (one line per group; commit between groups):
 
-| Data | Commit do código | Grupo | Detectadas | Sobreviventes / puladas |
+| Date | Code commit | Group | Detected | Survivors / skipped |
 |---|---|---|---|---|
 | 2026-10-20 | `0b9d2bc` (v4.36.0-rc1) | `stage_a` | 9/9 | 0 |
 | 2026-10-20 | `0b9d2bc` | `allowlist` | 9/9 | 0 |
-| 2026-10-21 | `0b9d2bc` | `stage_b` | 16/17 | **1 sobrevivente**: `.axiomInfo v => v.type.getUsedConstants` → `#[]` (o fecho não percorria o tipo de axioma em nenhum fixture). Teste novo: `edges`, `via_axiom_type` (chega a `sorryAx` só pelo tipo de `ax_over_sorry`). A mutação re-rodada sozinha foi detectada (`inspector_disagreement`). Resultado: 17/17. |
-| 2026-10-21 | `064f170` | `policy` | 45/45 (36 anteriores + 9 da allow-list de raízes, D-42) | 0 |
+| 2026-10-21 | `0b9d2bc` | `stage_b` | 16/17 | **1 survivor**: `.axiomInfo v => v.type.getUsedConstants` → `#[]` (the closure did not walk an axiom's type in any fixture). New test: `edges`, `via_axiom_type` (reaches `sorryAx` only through the type of `ax_over_sorry`). The mutation, re-run alone, was detected (`inspector_disagreement`). Result: 17/17. |
+| 2026-10-21 | `064f170` | `policy` | 45/45 (36 earlier + 9 from the roots allow-list, D-42) | 0 |
 | 2026-10-21 | `6532f5e` | `ci` | 22/22 | 0 |
-| 2026-10-21 | `6532f5e` | `stage_b` (re-rodado sobre o código final) | 17/17 | 0 |
+| 2026-10-21 | `6532f5e` | `stage_b` (re-run on the final code) | 17/17 | 0 |
 
-| 2026-10-21 | `b73bc6d` (renome `target_trusted_roots`) | `policy` | 45/45 | 0 |
+| 2026-10-21 | `b73bc6d` (rename to `target_trusted_roots`) | `policy` | 45/45 | 0 |
 | 2026-10-21 | `b73bc6d` | `stage_b` | 17/17 | 0 |
 
-Depois do renome (`b73bc6d`), a suíte inteira deu 558 passed. O `ci` não mudou desde o `6532f5e`.
+After the rename (`b73bc6d`), the whole suite gave 558 passed. `ci` has not changed since `6532f5e`.
 
-Os grupos `stage_a` e `allowlist` foram rodados no `0b9d2bc`. O código e os testes deles não mudaram até o `6532f5e` (`git diff --stat` vazio), então o resultado vale para o código final. **Estado em 2026-10-21: 5 grupos, 115/115 detectadas, 0 sobreviventes, 0 puladas.** A suíte inteira, rodada por partes, deu 558 passed e 0 falhas.
+The `stage_a` and `allowlist` groups were run on `0b9d2bc`. Their code and tests did not change up to `6532f5e` (empty `git diff --stat`), so the result holds for the final code. **State on 2026-10-21: 5 groups, 115/115 detected, 0 survivors, 0 skipped.** The whole suite, run in parts, gave 558 passed and 0 failures.
 
-**Instrução 15 (camada 2: D-52, D-53, D-54).** A partir daqui, a mutação e a suíte rodam no GitHub Actions (Linux, `ubuntu-24.04`), não na máquina do mantenedor. A mutação usa o workflow `auditor-mutation` do fork de medição; a suíte usa o `ci.yml` deste repositório, em todo push.
+**Instruction 15 (layer 2: D-52, D-53, D-54).** From here on, mutation and the suite run on GitHub Actions (Linux, `ubuntu-24.04`), not on the maintainer's machine. Mutation uses the measurement fork's `auditor-mutation` workflow; the suite uses this repository's `ci.yml`, on every push.
 
-| Data | Commit do código | Grupo | Detectadas | Sobreviventes / puladas |
+| Date | Code commit | Group | Detected | Survivors / skipped |
 |---|---|---|---|---|
-| 2026-10-21 | `2a4306b` | `allowlist` (9 anteriores + 4: D-52 e D-53) | 13/13 | 0 |
-| 2026-10-21 | `2a4306b` | `gen_tcb_roots` (grupo novo: D-53 e D-54) | 8/8 | 0 |
+| 2026-10-21 | `2a4306b` | `allowlist` (9 earlier + 4: D-52 and D-53) | 13/13 | 0 |
+| 2026-10-21 | `2a4306b` | `gen_tcb_roots` (new group: D-53 and D-54) | 8/8 | 0 |
 
-Execução da mutação: `Enzo47961/mathlib4`, run 39665194703 (5 min 21 s). Os grupos `stage_a`, `stage_b`, `policy` e `ci` não foram re-rodados: o código deles não mudou desde os commits registrados acima.
+Mutation run: `Enzo47961/mathlib4`, run 39665194703 (5 min 21 s). The `stage_a`, `stage_b`, `policy` and `ci` groups were not re-run: their code has not changed since the commits recorded above.
 
-**Suíte no Linux** (`ci.yml`, run 39664969425 sobre `2a4306b`): 585 passed, **3 failed**. As 3 falhas já aconteciam no `bcdccc6` (run 39655475487: 555 passed, 3 failed), o primeiro run da suíte fora do Windows, e não vêm das mudanças da instrução 15. São testes que dependem da máquina (L-23):
-- `tests/stage_b/test_stage_b.py::test_timeout_is_not_success` e `tests/cli/test_cli.py::test_artificial_timeout_never_success` pedem um timeout de 0,01 s, mas a Etapa B aplica um piso de 1 s (`max(1.0, …)` em `stage_b.analyze`). No runner, o fixture compila em menos de 1 s, e o timeout não dispara (`success`). Não é fail-open: o build terminou dentro do limite efetivo.
-- `tests/ci/test_ci.py::test_all_pass` espera `cache_state: warm`, mas, num runner sem cache do inspetor, o primeiro run sai `cold`.
+**Suite on Linux** (`ci.yml`, run 39664969425 on `2a4306b`): 585 passed, **3 failed**. The 3 failures already happened at `bcdccc6` (run 39655475487: 555 passed, 3 failed), the suite's first run outside Windows, and do not come from the instruction-15 changes. They are machine-dependent tests (L-23):
+- `tests/stage_b/test_stage_b.py::test_timeout_is_not_success` and `tests/cli/test_cli.py::test_artificial_timeout_never_success` ask for a 0.01 s timeout, but Stage B applies a 1 s floor (`max(1.0, …)` in `stage_b.analyze`). On the runner, the fixture compiles in under 1 s, and the timeout does not fire (`success`). It is not fail-open: the build finished within the effective limit.
+- `tests/ci/test_ci.py::test_all_pass` expects `cache_state: warm`, but on a runner without an inspector cache, the first run comes out `cold`.
 
-A correção desses testes depende de decisão do revisor (instrução 15: nada de novo no auditor até o próximo `auditor-prep`).
+Fixing these tests depends on the reviewer's decision (instruction 15: nothing new in the auditor until the next `auditor-prep`).
 
-**Instrução 16 (D-56, D-57, D-58).** Os 3 testes foram corrigidos (D-58): os dois de timeout usam um fixture gerado (`conftest.slow_lean_source`, 800 teoremas por `decide`, ~13 s no Windows), que compila em segundos em qualquer máquina, e conferem que a duração medida passou de 1 s; o `test_all_pass` aquece o cache do inspetor antes (`ci._prebuild_inspector`) e declara que testa o caminho warm. **A suíte do `ci.yml` (Linux) é a referência da camada 1**; a execução local é conveniência.
+**Instruction 16 (D-56, D-57, D-58).** The 3 tests were fixed (D-58): the two timeout tests use a generated fixture (`conftest.slow_lean_source`, 800 theorems by `decide`, ~13 s on Windows), which takes seconds to compile on any machine, and check that the measured duration went past 1 s; `test_all_pass` warms the inspector cache first (`ci._prebuild_inspector`) and declares that it tests the warm path. **The `ci.yml` suite (Linux) is the layer-1 reference**; the local run is a convenience.
 
-| Data | Commit do código | Grupo | Detectadas | Sobreviventes / puladas |
+| Date | Code commit | Group | Detected | Survivors / skipped |
 |---|---|---|---|---|
 | 2026-10-21 | `e6e9f62` | `stage_a` (9 + 4: D-56, D-57) | 13/13 | 0 |
-| 2026-10-21 | `e6e9f62` | `allowlist` (re-rodado: `stage_a.py` mudou) | 13/13 | 0 |
-| 2026-10-21 | `e6e9f62` | `stage_b` (testes mudaram: D-58) | 17/17 | 0 |
-| 2026-10-21 | `e6e9f62` | `policy` (inclui `tests/cli`, que mudou: D-58) | 45/45 | 0 |
-| 2026-10-21 | `e6e9f62` | `ci` (testes mudaram: D-58) | 22/22 | 0 |
+| 2026-10-21 | `e6e9f62` | `allowlist` (re-run: `stage_a.py` changed) | 13/13 | 0 |
+| 2026-10-21 | `e6e9f62` | `stage_b` (tests changed: D-58) | 17/17 | 0 |
+| 2026-10-21 | `e6e9f62` | `policy` (includes `tests/cli`, which changed: D-58) | 45/45 | 0 |
+| 2026-10-21 | `e6e9f62` | `ci` (tests changed: D-58) | 22/22 | 0 |
 
-Execução: `auditor-mutation`, run 39671405280 (20 min, Linux): 110/110. Suíte no `ci.yml` (run 39670595679 sobre `e6e9f62`): **609 passed, 0 failed**. O grupo `gen_tcb_roots` (8/8 no `2a4306b`) não foi re-rodado: o código e os testes dele não mudaram. **Estado em 2026-10-21: 6 grupos, 118/118 detectadas, 0 sobreviventes, 0 puladas.**
+Run: `auditor-mutation`, run 39671405280 (20 min, Linux): 110/110. Suite in `ci.yml` (run 39670595679 on `e6e9f62`): **609 passed, 0 failed**. The `gen_tcb_roots` group (8/8 at `2a4306b`) was not re-run: its code and tests did not change. **State on 2026-10-21: 6 groups, 118/118 detected, 0 survivors, 0 skipped.**
 
-| Data | Commit | Grupo | Detectadas | Sobreviventes |
+| Date | Commit | Group | Detected | Survivors |
 |---|---|---|---|---|
 | 2026-10-21 | `382b5a5` | `stage_a` | 13/13 | 0 |
 | 2026-10-21 | `382b5a5` | `allowlist` (+10: D-52/D-53, L-26) | 18/19 | **1** |
 | 2026-10-21 | `382b5a5` | `stage_b` | 17/17 | 0 |
 | 2026-10-21 | `382b5a5` | `policy` | 45/45 | 0 |
-| 2026-10-21 | `382b5a5` | `ci` (testes de timeout com fixture lento) | 22/22 | 0 |
+| 2026-10-21 | `382b5a5` | `ci` (timeout tests with the slow fixture) | 22/22 | 0 |
 | 2026-10-21 | `382b5a5` | `gen_tcb_roots` (+1: D-59) | 9/9 | 0 |
 
-Execução: `auditor-mutation`, run 39694466059 (31 min, Linux): 124 detectadas, **1 sobrevivente**, 0 puladas. Suíte no `ci.yml` (run 39694408989 sobre `382b5a5`): **627 passed, 0 failed**. Sobrevivente: `classification_review_status` trocado pela constante `"author-self-review"` (`src/auditor/tier1/stage_a.py`). Os testes só cobriam a classificação auto-revisada, e uma constante igual ao único valor testado passava. Lacuna de teste, não de código. Corrigido com `test_classification_review_status_values` (os 6 caminhos: `core-only`, `no-project-classification`, `undeclared` sem declaração e com `reviewed_by` nulo, `human-reviewed`, `independent-ai-reviewed`). Conferido localmente: com a mutação aplicada, 4 dos 6 casos falham. Re-rodado sobre `fe95112` (run 39698136489): `allowlist` **19/19**, 0 sobreviventes. Suíte no `ci.yml` (run 39698083967 sobre `fe95112`): **633 passed, 0 failed**. **Estado em 2026-10-22: 6 grupos, 125/125 detectadas, 0 sobreviventes, 0 puladas.** O fork segue com o auditor `382b5a5`: de `382b5a5` para `fe95112` só mudaram um teste e este documento.
+Run: `auditor-mutation`, run 39694466059 (31 min, Linux): 124 detected, **1 survivor**, 0 skipped. Suite in `ci.yml` (run 39694408989 on `382b5a5`): **627 passed, 0 failed**. Survivor: `classification_review_status` replaced by the constant `"author-self-review"` (`src/auditor/tier1/stage_a.py`). The tests only covered the self-reviewed classification, and a constant equal to the only tested value passed. A test gap, not a code gap. Fixed with `test_classification_review_status_values` (the 6 paths: `core-only`, `no-project-classification`, `undeclared` without a declaration and with a null `reviewed_by`, `human-reviewed`, `independent-ai-reviewed`). Checked locally: with the mutation applied, 4 of the 6 cases fail. Re-run on `fe95112` (run 39698136489): `allowlist` **19/19**, 0 survivors. Suite in `ci.yml` (run 39698083967 on `fe95112`): **633 passed, 0 failed**. **State on 2026-10-22: 6 groups, 125/125 detected, 0 survivors, 0 skipped.** The fork stays on auditor `382b5a5`: from `382b5a5` to `fe95112` only a test and this document changed.
 
-**Instrução 20 (D-61, A2, D-62).** Grupos afetados re-rodados sobre `7f7238d`:
+**Instruction 20 (D-61, A2, D-62).** Affected groups re-run on `7f7238d`:
 
-| Data | Commit | Grupo | Detectadas | Sobreviventes |
+| Date | Commit | Group | Detected | Survivors |
 |---|---|---|---|---|
 | 2026-10-22 | `7f7238d` | `ci` (+10: D-61, A2, D-62) | 32/32 | 0 |
 | 2026-10-22 | `7f7238d` | `allowlist` | 19/19 | 0 |
 | 2026-10-22 | `7f7238d` | `stage_b` | 17/17 | 0 |
 
-Execução: `auditor-mutation`, run 39758578127 (Linux): 68 detectadas, 0 sobreviventes, 0 puladas. Suíte no `ci.yml` (run 39758445713 sobre `7f7238d`): **662 passed, 0 failed**. Os grupos `stage_a`, `policy` e `gen_tcb_roots` não foram re-rodados: de `fe95112` para `7f7238d` o código e os testes deles não mudaram (`git diff --stat` só toca `ci.py`, um comentário de `allowlist.py`, workflows, testes de CI e docs). **Estado em 2026-10-22: 6 grupos, 135/135 detectadas, 0 sobreviventes, 0 puladas.**
+Run: `auditor-mutation`, run 39758578127 (Linux): 68 detected, 0 survivors, 0 skipped. Suite in `ci.yml` (run 39758445713 on `7f7238d`): **662 passed, 0 failed**. The `stage_a`, `policy` and `gen_tcb_roots` groups were not re-run: from `fe95112` to `7f7238d` their code and tests did not change (`git diff --stat` only touches `ci.py`, a comment in `allowlist.py`, workflows, CI tests and docs). **State on 2026-10-22: 6 groups, 135/135 detected, 0 survivors, 0 skipped.**
 
-**Instrução 22 (passo 9: `auditor-report`).** Grupo `ci` re-rodado sobre `7ba9b6f` (+3 mutações no modelo `auditor-report.yml`): **35/35**, 0 sobreviventes, 0 puladas (`auditor-mutation`, run 39821051965). Suíte no `ci.yml` (run 39820617451 sobre `7ba9b6f`): **666 passed, 0 failed**. Os outros grupos não mudaram desde os commits registrados acima. **Estado em 2026-10-22: 6 grupos, 138/138 detectadas, 0 sobreviventes, 0 puladas.**
+**Instruction 22 (step 9: `auditor-report`).** The `ci` group re-run on `7ba9b6f` (+3 mutations in the `auditor-report.yml` template): **35/35**, 0 survivors, 0 skipped (`auditor-mutation`, run 39821051965). Suite in `ci.yml` (run 39820617451 on `7ba9b6f`): **666 passed, 0 failed**. The other groups have not changed since the commits recorded above. **State on 2026-10-22: 6 groups, 138/138 detected, 0 survivors, 0 skipped.**
 
-**Instrução 23 (linha `classificação: … (L-26)` no sumário).** Grupo `ci` re-rodado sobre `69ed9cf` (+3 mutações: remover a linha do sumário, não registrar o campo por arquivo, trocar "indeterminada" por um valor fixo): **38/38**, 0 sobreviventes, 0 puladas (`auditor-mutation`, run 39826324751). Suíte no `ci.yml` (run 39825726718 sobre `69ed9cf`): **674 passed, 0 failed**. **Estado em 2026-10-22: 6 grupos, 141/141 detectadas, 0 sobreviventes, 0 puladas.**
+**Instruction 23 (the `classificação: … (L-26)` line in the summary).** The `ci` group re-run on `69ed9cf` (+3 mutations: removing the summary line, not recording the per-file field, replacing "indeterminada" (undetermined) with a fixed value): **38/38**, 0 survivors, 0 skipped (`auditor-mutation`, run 39826324751). Suite in `ci.yml` (run 39825726718 on `69ed9cf`): **674 passed, 0 failed**. **State on 2026-10-22: 6 groups, 141/141 detected, 0 survivors, 0 skipped.**
 
 
 
-## Teste de referência dos workflows de cache (A2, instrução 21)
+## Reference test for the cache workflows (A2, instruction 21)
 
-Um cache que sempre dá hit não testa o caminho que salva. Com o branch base aquecido (D-61), todo PR restaura o inspetor do base e o passo de salvar do A2 nunca roda. **Todo workflow que salva cache é testado assim, ao ser criado ou alterado:**
+A cache that always hits does not test the path that saves. With the base branch warmed (D-61), every PR restores the inspector from the base and A2's save step never runs. **Every workflow that saves a cache is tested like this, when created or changed:**
 
-1. Apagar o cache em questão no ref do base (`gh api -X DELETE repos/<fork>/actions/caches/<id>`; listar com `gh api repos/<fork>/actions/caches`). Só caches regeneráveis pelo `auditor-warm-cache`.
-2. Re-rodar um PR cujo job sai **vermelho** (`gh run rerun <run>`). Esperado: miss, build, job vermelho, e mesmo assim o passo de salvar `success`; o cache aparece com ref `refs/pull/N/merge`.
-3. Re-rodar de novo. Esperado: `inspector: hit` no `outcome.json`.
-4. Re-aquecer o base (`gh workflow run auditor-warm-cache --ref auditor-base`) e conferir que os caches voltaram a `refs/heads/auditor-base`.
+1. Delete the cache in question on the base's ref (`gh api -X DELETE repos/<fork>/actions/caches/<id>`; list them with `gh api repos/<fork>/actions/caches`). Only caches that `auditor-warm-cache` can regenerate.
+2. Re-run a PR whose job comes out **red** (`gh run rerun <run>`). Expected: miss, build, red job, and still the save step `success`; the cache appears with ref `refs/pull/N/merge`.
+3. Re-run again. Expected: `inspector: hit` in `outcome.json`.
+4. Re-warm the base (`gh workflow run auditor-warm-cache --ref auditor-base`) and check that the caches are back on `refs/heads/auditor-base`.
 
-Execução de referência (2026-10-22, auditor `7f7238d`): cache do inspetor do base apagado (id 9332096105); PR #6 (`Connect.lean`, exit 1) re-rodado (run 39760129710): tentativa 2 construiu e salvou em `refs/pull/6/merge`; tentativa 3 `inspector: hit`, `warm`, 125,2 s; base re-aquecido (run 39761275384).
+Reference run (2026-10-22, auditor `7f7238d`): the base's inspector cache deleted (id 9332096105); PR #6 (`Connect.lean`, exit 1) re-run (run 39760129710): attempt 2 built and saved on `refs/pull/6/merge`; attempt 3 `inspector: hit`, `warm`, 125.2 s; base re-warmed (run 39761275384).
 
-## Testes de referência dos modos de falha do CI (passos 8 e 9, instrução 22)
+## Reference tests for the CI failure modes (steps 8 and 9, instruction 22)
 
-**Passo 8: timeout de infraestrutura.** Num branch do fork, acrescentar `timeout-file-seconds: 5` ao `with:` do `auditor-tier1.yml` e tocar um `.lean` cuja auditoria leve mais que isso (`Mathlib/Logic/Hydra.lean`, ~13 s). Abrir o PR e nunca fazer merge. Esperado e verificado (PR #9, run 39818035267, auditor `7f7238d`):
-- arquivo `timeout`, `timeout_kind: file`, `duration_s` 5,54 com `timeout_s` 5;
+**Step 8: infrastructure timeout.** On a branch of the fork, add `timeout-file-seconds: 5` to the `with:` of `auditor-tier1.yml` and touch a `.lean` file whose audit takes longer than that (`Mathlib/Logic/Hydra.lean`, ~13 s). Open the PR and never merge it. Expected and verified (PR #9, run 39818035267, auditor `7f7238d`):
+- file `timeout`, `timeout_kind: file`, `duration_s` 5.54 with `timeout_s` 5;
 - `exit_code: 2`, `infra_failed: true`, `audit_failed: false`, `timeout_aborted: true`;
-- `cache_state: warm`, ou seja, o timeout não se confunde com cache frio;
-- job **verde**, PR `mergeable` (não bloqueia);
-- label `auditor-failed-infra` (não `auditor-first-run`);
-- nenhum comentário no PR.
+- `cache_state: warm`, i.e. the timeout is not confused with a cold cache;
+- job **green**, PR `mergeable` (not blocking);
+- label `auditor-failed-infra` (not `auditor-first-run`);
+- no comment on the PR.
 
-**Passo 9: `@auditor report`.** O dono do fork comenta `@auditor report` num PR já auditado. Esperado: um único comentário de `github-actions` com o sumário, começando por "Pedido por um humano". Primeira execução (PR #8, run 39818084000, 2026-10-22): **falhou**. Respondeu "nenhuma execução para o commit `769e23c`", embora a execução 39813522377 existisse e estivesse concluída. Causa: o filtro `head_sha` da API de execuções (usado por `gh run list --commit`) não é determinístico. A mesma consulta, repetida, alternou entre 0 e 1 resultado nos três endpoints (`/actions/runs`, `/actions/workflows/<arquivo>/runs`, `/actions/workflows/<id>/runs`). Não depende da versão do `gh`: 2.101.0 e 2.103.0 deram os dois resultados. Correção no modelo `auditor-report.yml`: listar sem filtro no servidor e selecionar o commit no cliente; execução ainda em andamento tem mensagem própria, em vez de "falha de infraestrutura". Conferida contra o fork (PRs #1, #5, #8, #9, três vezes cada). Teste e 3 mutações no grupo `ci`. **Segunda execução** (auditor `7ba9b6f`, fork `465d97e`; PR #8, run 39821013448): um único comentário de `github-actions`, começando por "Pedido por um humano (`@auditor report`). Commit `769e23cba36b`", com o sumário da execução 39813522377 (9 `verified`, `warm`, 137,6 s). O pedido fica registrado com a conta de quem comentou (OWNER). **Terceira execução, com o sumário qualificado** (auditor `69ed9cf`, fork `018d7db`): o PR #8 foi fechado e reaberto para gerar uma auditoria com o auditor novo (run 39826300196: `warm`, 135,6 s, 9 `verified`). O `@auditor report` (run 39827471933) postou um único comentário, com a linha `classificação: author-self-review (L-26)` logo abaixo do aviso de correspondência.
+**Step 9: `@auditor report`.** The fork's owner comments `@auditor report` on an already-audited PR. Expected: a single `github-actions` comment with the summary, starting with "Pedido por um humano" (requested by a human). First run (PR #8, run 39818084000, 2026-10-22): **failed**. It answered "no run for commit `769e23c`", although run 39813522377 existed and had completed. Cause: the `head_sha` filter of the runs API (used by `gh run list --commit`) is not deterministic. The same query, repeated, alternated between 0 and 1 result on all three endpoints (`/actions/runs`, `/actions/workflows/<file>/runs`, `/actions/workflows/<id>/runs`). It does not depend on the `gh` version: 2.101.0 and 2.103.0 gave both results. Fix in the `auditor-report.yml` template: list without a server-side filter and select the commit on the client; a run still in progress has its own message, instead of "infrastructure failure". Checked against the fork (PRs #1, #5, #8, #9, three times each). A test and 3 mutations in the `ci` group. **Second run** (auditor `7ba9b6f`, fork `465d97e`; PR #8, run 39821013448): a single `github-actions` comment, starting with "Pedido por um humano (`@auditor report`). Commit `769e23cba36b`", with the summary of run 39813522377 (9 `verified`, `warm`, 137.6 s). The request is recorded under the account of whoever commented (OWNER). **Third run, with the qualified summary** (auditor `69ed9cf`, fork `018d7db`): PR #8 was closed and reopened to produce an audit with the new auditor (run 39826300196: `warm`, 135.6 s, 9 `verified`). The `@auditor report` (run 39827471933) posted a single comment, with the line `classificação: author-self-review (L-26)` right below the correspondence notice.
 
-Não testado na camada 2: um comentário de quem **não** tem acesso ao repositório não dispara o job. Exigiria uma segunda conta. A garantia é a condição `author_association` do job, travada por `test_report_workflow_requires_explicit_human_request`.
+Not tested in layer 2: a comment from someone **without** access to the repository does not trigger the job. It would require a second account. The guarantee is the job's `author_association` condition, locked by `test_report_workflow_requires_explicit_human_request`.
 
-## Atualizar o sumário de uma execução antiga sem alterar o PR (instrução 24)
+## Updating the summary of an old run without changing the PR (instruction 24)
 
-Situação: o auditor mudou (por exemplo, o sumário ganhou uma linha nova) e um PR de medição precisa de um relatório gerado pelo auditor novo, sem mudar o código do PR.
+Situation: the auditor changed (for example, the summary gained a new line) and a measurement PR needs a report produced by the new auditor, without changing the PR's code.
 
-- **Não usar `gh run rerun`.** O re-run executa o workflow do commit original, com o SHA do auditor antigo, e reproduz o sumário velho.
-- **Fechar e reabrir o PR** (feito pelo mantenedor, `gh pr close N` e `gh pr reopen N`). O evento `reopened` (um dos tipos padrão de `pull_request`) dispara o `auditor-tier1` a partir do merge ref do PR. Num PR que não toca `.github/`, o workflow do merge ref é o do base, com o SHA novo do auditor. Resultado: auditoria nova, sem commit no PR.
-- Conferir no `outcome.json` da execução nova que o auditor é o esperado e que o sumário traz a mudança. Só depois disso pedir o `@auditor report`, que lê a execução mais recente do commit.
+- **Do not use `gh run rerun`.** A re-run executes the workflow of the original commit, with the old auditor SHA, and reproduces the old summary.
+- **Close and reopen the PR** (done by the maintainer, `gh pr close N` and `gh pr reopen N`). The `reopened` event (one of `pull_request`'s default types) triggers `auditor-tier1` from the PR's merge ref. On a PR that does not touch `.github/`, the merge ref's workflow is the base's, with the new auditor SHA. Result: a new audit, without a commit on the PR.
+- Check in the new run's `outcome.json` that the auditor is the expected one and that the summary carries the change. Only then ask for `@auditor report`, which reads the commit's most recent run.
 
-Execução de referência (2026-10-22, auditor `69ed9cf`, fork `018d7db`): PR #8 fechado e reaberto; auditoria nova run 39826300196 (`warm`, 135,6 s, 9/9 `verified`, `classification_review_status: author-self-review`); `@auditor report` run 39827471933, com a linha `classificação: author-self-review (L-26)`. Aprovada pelo revisor na instrução 24.
+Reference run (2026-10-22, auditor `69ed9cf`, fork `018d7db`): PR #8 closed and reopened; new audit run 39826300196 (`warm`, 135.6 s, 9/9 `verified`, `classification_review_status: author-self-review`); `@auditor report` run 39827471933, with the line `classificação: author-self-review (L-26)`. Approved by the reviewer in instruction 24.
 
-## Fixação de versões nos workflows (D-25)
+## Version pinning in the workflows (D-25)
 
-**Todas as actions em workflows do auditor são pinadas por SHA; atualização é PR que muda o SHA e é revisado.** Vale para este repositório (`.github/workflows/`) e para os modelos do repositório-alvo (`ci/templates/`). Tag é mutável; SHA de commit não. Se o publicador de uma action for comprometido, uma tag flutuante é um vetor de ataque à cadeia de suprimentos, exatamente o tipo de troca silenciosa que o auditor existe para detectar.
+**Every action in the auditor's workflows is pinned by SHA; an update is a PR that changes the SHA and is reviewed.** This applies to this repository (`.github/workflows/`) and to the target repository's templates (`ci/templates/`). A tag is mutable; a commit SHA is not. If an action's publisher is compromised, a floating tag is a supply-chain attack vector, exactly the kind of silent swap the auditor exists to detect.
 
-- Formato: `uses: actions/<nome>@<SHA de 40 hex> # vX.Y.Z`. O comentário com a versão é obrigatório e serve à revisão; `tests/ci/test_workflows.py` exige os dois.
-- Para atualizar: obter o SHA do commit da tag nova (`git ls-remote --tags https://github.com/actions/<nome>`; em tag anotada, usar a linha `^{}`), trocar SHA e comentário juntos, ler o changelog da action e abrir PR. Quem revisa confere o SHA contra a tag.
-- **elan:** o `elan-init.sh` baixa a release `latest` do elan, então fixar a tag do script não fixa o elan (D-35). Os workflows baixam o binário da release fixada (`ELAN_VERSION`) e conferem `ELAN_SHA256` antes de executar. Para atualizar: baixar `elan-x86_64-unknown-linux-gnu.tar.gz` da release nova, calcular o SHA-256, trocar os dois valores em `ci.yml` e `auditor-tier1.yml` no mesmo PR.
-- Resíduos não fixados por hash no CI (L-18): o toolchain Lean que o elan baixa a partir de `lean-toolchain` e as dependências Python resolvidas pelo pip. As versões efetivas entram na TCB do relatório (`kernel.githash`, `aggregator.python_dependencies`).
+- Format: `uses: actions/<name>@<40-hex SHA> # vX.Y.Z`. The comment with the version is mandatory and serves the review; `tests/ci/test_workflows.py` requires both.
+- To update: get the commit SHA of the new tag (`git ls-remote --tags https://github.com/actions/<name>`; for an annotated tag, use the `^{}` line), change SHA and comment together, read the action's changelog and open a PR. The reviewer checks the SHA against the tag.
+- **elan:** `elan-init.sh` downloads elan's `latest` release, so pinning the script's tag does not pin elan (D-35). The workflows download the binary of the pinned release (`ELAN_VERSION`) and check `ELAN_SHA256` before running it. To update: download `elan-x86_64-unknown-linux-gnu.tar.gz` from the new release, compute the SHA-256, change both values in `ci.yml` and `auditor-tier1.yml` in the same PR.
+- What is not pinned by hash in CI (L-18): the Lean toolchain that elan downloads from `lean-toolchain`, and the Python dependencies resolved by pip. Their effective versions enter the report's TCB (`kernel.githash`, `aggregator.python_dependencies`).
 
-**Fase 1, instrução 24 (P0-2 (a), L-33a).** Os 6 grupos foram re-rodados sobre `a0e3387`:
-- 10 mutações novas da Etapa A v3 (continuações, `add_decl_doc`, `cmd%`, palavra de declaração fora de posição, guarda do gerador);
-- 18 da L-33a (`run_tac`/`by_elab`, inclusive a remoção de `run_tac` da lista, pedida pelo revisor; `unsafe`; `execution_capable` e `imports` do inspetor v5; `--changed`; risco do core sobre allow-list antiga).
+**Phase 1, instruction 24 (P0-2 (a), L-33a).** The 6 groups were re-run on `a0e3387`:
+- 10 new Stage A v3 mutations (continuations, `add_decl_doc`, `cmd%`, a declaration keyword out of position, the generator's guard);
+- 18 for L-33a (`run_tac`/`by_elab`, including removing `run_tac` from the list, as requested by the reviewer; `unsafe`; inspector v5's `execution_capable` and `imports`; `--changed`; core risk over an old allow-list).
 
-Resultado: **169/169 detectadas, 0 sobreviventes, 0 puladas** (`auditor-mutation`, run 39851946124). Suíte no `ci.yml` (run 39851133711 sobre `a0e3387`): **778 passed, 0 failed**.
+Result: **169/169 detected, 0 survivors, 0 skipped** (`auditor-mutation`, run 39851946124). Suite in `ci.yml` (run 39851133711 on `a0e3387`): **778 passed, 0 failed**.
 
-Uma rodada sobre `d5f6264` foi **cancelada**: dois testes já falhavam sem mutação (fixture que não compilava e contrato da Etapa B desatualizado, corrigidos em `aa3d552`). Com teste quebrado, toda mutação do grupo pareceria detectada.
+A round on `d5f6264` was **cancelled**: two tests were already failing without any mutation (a fixture that did not compile and an outdated Stage B contract, fixed in `aa3d552`). With a broken test, every mutation of the group would look detected.
 
-**Estado em 2026-10-22: 6 grupos, 169/169.**
+**State on 2026-10-22: 6 groups, 169/169.**
 
-**Prática (instrução 25): mutação só roda sobre suíte verde.** Uma rodada sobre suíte vermelha é descartada, não interpretada: com um teste já falhando, toda mutação do grupo parece detectada, e o número vira ruído. Antes de disparar o `auditor-mutation`, conferir que o `ci.yml` do mesmo commit está verde. Exemplo: a rodada sobre `d5f6264` foi cancelada e refeita sobre `a0e3387`.
+**Practice (instruction 25): mutation only runs on a green suite.** A round on a red suite is discarded, not interpreted: with a test already failing, every mutation of the group looks detected, and the number becomes noise. Before dispatching `auditor-mutation`, check that `ci.yml` is green for the same commit. Example: the round on `d5f6264` was cancelled and redone on `a0e3387`.
 
-**L-33 (b), instrução 25.** Os 6 grupos foram re-rodados sobre `a18d131`, com a suíte verde (run 39861318092, 788 passed). Há 5 mutações novas da (b): o hash do pacote do auditor, o hash do inspetor, a parada do inspetor quando há adulteração, o `toolchain_tampered` no relatório e a conferência entre arquivos no `auditor-ci`. Resultado: **174/174 detectadas, 0 sobreviventes, 0 puladas** (`auditor-mutation`, run 39862103829). **Estado em 2026-10-22: 6 grupos, 174/174.**
+**L-33 (b), instruction 25.** The 6 groups were re-run on `a18d131`, with the suite green (run 39861318092, 788 passed). There are 5 new mutations for (b): the auditor package hash, the inspector hash, stopping the inspector when there is tampering, `toolchain_tampered` in the report and the between-files check in `auditor-ci`. Result: **174/174 detected, 0 survivors, 0 skipped** (`auditor-mutation`, run 39862103829). **State on 2026-10-22: 6 groups, 174/174.**
 
-## Repositório de medições (2026-10-23)
+## Measurements repository (2026-10-23)
 
-**Mudança.** Em 2026-10-23 o GitHub suspendeu os workflows do fork `Enzo47961/mathlib4` por uso intenso do Actions:
-- dois runs foram cancelados com SIGTERM no meio: o benchmark 39876032952 e a mutação 39876502155;
-- os seguintes ficaram na fila sem runner;
-- o mantenedor reativou os workflows.
+**Change.** On 2026-10-23 GitHub suspended the workflows of the fork `Enzo47961/mathlib4` for heavy Actions usage:
+- two runs were cancelled with SIGTERM midway: benchmark 39876032952 and mutation 39876502155;
+- the following ones stayed queued without a runner;
+- the maintainer re-enabled the workflows.
 
-**Medições pesadas rodam em repositório próprio; fork fica com PRs de medição e workflows de PR** (aprovado na instrução 26). **Para não depender da tolerância do GitHub com forks**, os workflows pesados migraram para um repositório próprio, público e **não fork**: [`Enzo47961/auditor-measurements`](https://github.com/Enzo47961/auditor-measurements).
-- **Workflows:** `auditor-mutation`, `auditor-prep`, `auditor-measure` e `auditor-benchmark`.
-- **Mathlib:** cada um baixa o Mathlib oficial (`leanprover-community/mathlib4`) no commit fixado `e1b2403b`, sobrepõe o `.auditor/` do repositório (a mesma allow-list e classificação do fork) e confere o commit antes de rodar.
-- **O que fica no fork:** os PRs de medição da camada 2 (#1 a #9) e os workflows de PR (`auditor-tier1`, `auditor-label`, `auditor-report`, `auditor-warm-cache`). Os runs citados até esta data foram no fork.
+**Heavy measurements run in a dedicated repository; the fork keeps the measurement PRs and the PR workflows** (approved in instruction 26). **So as not to depend on GitHub's tolerance towards forks**, the heavy workflows moved to a dedicated, public, **non-fork** repository: [`Enzo47961/auditor-measurements`](https://github.com/Enzo47961/auditor-measurements).
+- **Workflows:** `auditor-mutation`, `auditor-prep`, `auditor-measure` and `auditor-benchmark` (later also `auditor-study`).
+- **Mathlib:** each one downloads the official Mathlib (`leanprover-community/mathlib4`) at the pinned commit `e1b2403b`, overlays the repository's `.auditor/` (the same allow-list and classification as the fork) and checks the commit before running.
+- **What stays in the fork:** the layer-2 measurement PRs (#1 to #9) and the PR workflows (`auditor-tier1`, `auditor-label`, `auditor-report`, `auditor-warm-cache`). The runs cited up to this date were in the fork.
 
-**Primeira execução no repositório novo:** `auditor-prep` verde (run 39879622234, auditor `81457ac`):
-- commit do Mathlib `e1b2403b`;
-- allow-list regenerada idêntica byte a byte;
-- `gen_tcb_roots --check` com exit 0;
-- fumaça 20/20.
+**First run in the new repository:** `auditor-prep` green (run 39879622234, auditor `81457ac`):
+- Mathlib commit `e1b2403b`;
+- allow-list regenerated byte-for-byte identical;
+- `gen_tcb_roots --check` with exit 0;
+- smoke test 20/20.
 
-**Regra de carga (instrução 25, depois da suspensão):**
-- mutação só nos grupos afetados pela mudança; rodada completa só no fechamento de sub-fase;
-- benchmark e medições só quando o benchmark ou o auditor mudarem de forma relevante;
-- nenhuma medição do Mathlib inteiro sem necessidade.
+**Load rule (instruction 25, after the suspension):**
+- mutation only on the groups affected by the change; a full round only when closing a sub-phase;
+- benchmark and measurements only when the benchmark or the auditor change in a relevant way;
+- no whole-Mathlib measurement without need.
 
-**Etapa A v5 (vínculo de `set_option … in`).** Grupo `stage_a` re-rodado sobre `81457ac`, com a suíte verde (run 39876002319, 800 passed): **30/30** (28 + 2 novas), no `auditor-mutation` do repositório de medições (run 39879882456). Os outros grupos não mudaram desde `a18d131` (174/174). **Estado em 2026-10-23: 6 grupos, 176/176.**
+**Stage A v5 (binding of `set_option … in`).** The `stage_a` group re-run on `81457ac`, with the suite green (run 39876002319, 800 passed): **30/30** (28 + 2 new), in the measurements repository's `auditor-mutation` (run 39879882456). The other groups have not changed since `a18d131` (174/174). **State on 2026-10-23: 6 groups, 176/176.**

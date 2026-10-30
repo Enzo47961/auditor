@@ -1,122 +1,124 @@
-# Integração CI (GitHub Actions)
+# CI integration (GitHub Actions)
 
-## Peças
+## Pieces
 
-| Arquivo | Onde vive | Gatilho | Permissões | Executa código do PR? |
+| File | Where it lives | Trigger | Permissions | Runs PR code? |
 |---|---|---|---|---|
-| `.github/workflows/ci.yml` | este repositório | push, PR | leitura | — (testa o próprio auditor) |
-| `.github/workflows/auditor-tier1.yml` | este repositório (reutilizável) | `workflow_call` | **leitura** | **sim** (`lake build`) |
-| `ci/templates/auditor-tier1.yml` | repositório-alvo | `pull_request` em `**.lean` | leitura | sim, via o reutilizável |
-| `ci/templates/auditor-label.yml` | repositório-alvo | `workflow_run` (auditor-tier1 concluído) | escrita em PRs/issues | **não** |
-| `ci/templates/auditor-report.yml` | repositório-alvo | `issue_comment` (`@auditor report`) | escrita em PRs | **não** |
+| `.github/workflows/ci.yml` | this repository | push, PR | read | — (tests the auditor itself) |
+| `.github/workflows/auditor-tier1.yml` | this repository (reusable) | `workflow_call` | **read** | **yes** (`lake build`) |
+| `ci/templates/auditor-tier1.yml` | target repository | `pull_request` on `**.lean` | read | yes, through the reusable one |
+| `ci/templates/auditor-label.yml` | target repository | `workflow_run` (auditor-tier1 completed) | write on PRs/issues | **no** |
+| `ci/templates/auditor-report.yml` | target repository | `issue_comment` (`@auditor report`) | write on PRs | **no** |
 
-A lógica fica em `auditor-ci` (`src/auditor/ci.py`), testada em `tests/ci`. Os workflows só a chamam. A política de segurança dos workflows também é teste (`tests/ci/test_workflows.py`): sem `pull_request_target`, permissões mínimas, nenhum checkout nos workflows com escrita, nenhuma interpolação de texto do PR em scripts, actions fixadas por SHA de commit, elan da release fixada com SHA-256 conferido. Os 5 arquivos passam no `actionlint` 1.7.12.
+The logic lives in `auditor-ci` (`src/auditor/ci.py`), tested in `tests/ci`. The workflows only call it. The workflows' security policy is also a test (`tests/ci/test_workflows.py`): no `pull_request_target`, minimal permissions, no checkout in workflows with write access, no interpolation of PR text into scripts, actions pinned by commit SHA, elan from a pinned release with a checked SHA-256. All 5 files pass `actionlint` 1.7.12.
 
-## Comportamento (spec, componente 7; instrução 11)
+"Instruction N" refers to the numbered decisions of the project's external reviewer.
 
-- **Roda em todo PR que toca `.lean`**: o modelo filtra por `paths: ["**.lean"]`, e o job audita os arquivos `.lean` alterados entre base e head que ainda existem.
-- **Orçamento do PR = wall-clock do trigger até o relatório (D-28).** O relógio começa no evento do PR (`github.event.pull_request.updated_at`; numa re-execução, no início do job) e **inclui a preparação**: instalação, `lake exe cache get` e compilação do inspetor. O `outcome.json` declara `clock_origin`, `setup_elapsed_s`, `audit_elapsed_s` e `elapsed_s`.
-  - **Steady-state (`cache_state` `warm` ou `delta`): 5 min** (`timeout-total-seconds`; `auditor-ci run --timeout-total`; padrão 300).
-  - **Cache `cold`: orçamento estendido** (`timeout-total-first-run-seconds`; `--timeout-total-first-run`; padrão 900) e `first_run: true`. Se a auditoria passar dos 5 min sem estourar o estendido, o PR **não falha**: `cache_cold_extension: true` e label `auditor-first-run` (diferente de `auditor-failed-infra`). O SLA de 5 min é declarado como steady-state.
-- **`cache_state`** vem de dois sinais medidos, nunca de suposição:
-  - cache de build do alvo (`~/.cache/mathlib`, restaurado por `actions/cache/restore`): `hit` (chave exata: mesmo commit base), `partial` (só `restore-keys`), `miss`, ou `none` (alvo sem `cache-get`);
-  - binário do inspetor no cache local (`hit`/`miss`, medido pelo `auditor-ci`).
-  - Regra: `cold` se o cache de build é `miss` ou o inspetor é `miss`; `delta` se o cache de build é `partial`; senão `warm`. **O orçamento estendido só é concedido com evidência positiva de cache frio**: sinal ausente conta como quente.
-- **Timeout por arquivo (D-21): 90 s** (`timeout-file-seconds`; `auditor check --timeout-file`). Cada arquivo recebe o menor entre o timeout por arquivo e o que resta do orçamento. Arquivo que estoura o timeout **encerra a auditoria do PR**: os arquivos seguintes ficam `not_audited_after_timeout` e o PR sai com **exit 2**. Arquivo que já não cabe no orçamento é `skipped_budget`. O inspetor é compilado antes do primeiro arquivo, para não consumir o timeout de um arquivo.
-- **Exit code do PR** (`auditor-ci run`, mesmos códigos da CLI): 0 tudo verificado; 1 rejeição ou não resolução; 2 infraestrutura (orçamento, timeout, exit 2 de algum arquivo). Infraestrutura vence: um PR com uma rejeição e um timeout sai com 2, e `audit_failed` continua `true`.
-- **Resultado no GitHub:**
-  - infraestrutura (exit 2, relatório ilegível, job cancelado ou sem resultado): o job **não falha por isso**, portanto não bloqueia merge; o workflow de label aplica `auditor-failed-infra`, que exige revisão humana explícita; timeout nunca é sucesso;
-  - rejeição ou não resolução (`audit_failed`): um passo dedicado falha o job. Se o check é obrigatório é configuração do repositório-alvo (D-22).
-- **Sumário** no Job Summary, com o aviso "Correspondência: Não Auditada", `cache_state`, tempos (preparação, auditoria, total) e p95 por arquivo. **Relatórios completos** no artefato `auditor-report`, junto com `outcome.json` (formato `auditor-ci-outcome/2`) e `summary.md`.
-- **Comentário no PR só a pedido humano:** um comentário cuja primeira linha começa com `@auditor report`, de OWNER, MEMBER ou COLLABORATOR, publica o sumário da última execução para o commit atual. O sistema nunca comenta por iniciativa própria.
+## Behaviour (spec, component 7; instruction 11)
 
-### Fluxo humano acionado (`@auditor report`, passo 9 da camada 2)
+- **Runs on every PR that touches `.lean`**: the template filters by `paths: ["**.lean"]`, and the job audits the `.lean` files changed between base and head that still exist.
+- **PR budget = wall clock from the trigger to the report (D-28).** The clock starts at the PR event (`github.event.pull_request.updated_at`; on a re-run, at the start of the job) and **includes preparation**: installation, `lake exe cache get` and compiling the inspector. `outcome.json` declares `clock_origin`, `setup_elapsed_s`, `audit_elapsed_s` and `elapsed_s`.
+  - **Steady state (`cache_state` `warm` or `delta`): 5 min** (`timeout-total-seconds`; `auditor-ci run --timeout-total`; default 300).
+  - **`cold` cache: extended budget** (`timeout-total-first-run-seconds`; `--timeout-total-first-run`; default 900) and `first_run: true`. If the audit goes past 5 min without exceeding the extended budget, the PR **does not fail**: `cache_cold_extension: true` and the `auditor-first-run` label (different from `auditor-failed-infra`). The 5-min SLA is declared as steady state.
+- **`cache_state`** comes from two measured signals, never from assumption:
+  - the target's build cache (`~/.cache/mathlib`, restored by `actions/cache/restore`): `hit` (exact key: same base commit), `partial` (only `restore-keys`), `miss`, or `none` (a target without `cache-get`);
+  - the inspector binary in the local cache (`hit`/`miss`, measured by `auditor-ci`).
+  - Rule: `cold` if the build cache is `miss` or the inspector is `miss`; `delta` if the build cache is `partial`; otherwise `warm`. **The extended budget is only granted with positive evidence of a cold cache**: a missing signal counts as warm.
+- **Per-file timeout (D-21): 90 s** (`timeout-file-seconds`; `auditor check --timeout-file`). Each file gets the smaller of the per-file timeout and what remains of the budget. A file that exceeds the timeout **ends the PR's audit**: the following files are `not_audited_after_timeout` and the PR exits with **exit 2**. A file that no longer fits in the budget is `skipped_budget`. The inspector is compiled before the first file, so as not to consume one file's timeout.
+- **PR exit code** (`auditor-ci run`, same codes as the CLI): 0 everything verified; 1 rejection or non-resolution; 2 infrastructure (budget, timeout, exit 2 from some file). Infrastructure wins: a PR with one rejection and one timeout exits with 2, and `audit_failed` remains `true`.
+- **Result on GitHub:**
+  - infrastructure (exit 2, unreadable report, job cancelled or without a result): the job **does not fail because of it**, so it does not block merging; the label workflow applies `auditor-failed-infra`, which requires explicit human review; a timeout is never success;
+  - rejection or non-resolution (`audit_failed`): a dedicated step fails the job. Whether the check is required is a setting of the target repository (D-22).
+- **Summary** in the Job Summary, with the notice "Correspondência: Não Auditada" (correspondence: not audited), `cache_state`, timings (preparation, audit, total) and per-file p95. **Full reports** in the `auditor-report` artifact, together with `outcome.json` (format `auditor-ci-outcome/2`) and `summary.md`.
+- **A comment on the PR only on human request:** a comment whose first line starts with `@auditor report`, from an OWNER, MEMBER or COLLABORATOR, publishes the summary of the latest run for the current commit. The system never comments on its own initiative.
 
-1. Um humano com acesso ao repositório comenta `@auditor report` no PR. O comentário fica no PR com a conta dele: a identificação do pedido é a do humano, não a de um bot.
-2. O `auditor-report` dispara por `issue_comment`. A condição do job exige PR, primeira linha começando por `@auditor report` e `author_association` em OWNER, MEMBER ou COLLABORATOR. Qualquer outro comentário não cria job.
-3. O job não faz checkout e não executa código do PR. Instala o auditor no SHA fixado e lê o `headRefOid` do PR (conferido como 40 hex).
-4. Localiza a execução do `auditor-tier1` para esse commit listando as 100 execuções mais recentes do workflow e selecionando pelo `head_sha` no cliente. O filtro `head_sha` da API (o que `gh run list --commit` usa) não é determinístico (passo 9, instrução 22).
-5. Responde com **um** comentário, assinado por `github-actions`:
-   - execução encontrada e concluída: o sumário (`auditor-ci comment`), começando por "Pedido por um humano". O sumário traz no topo a linha `classificação: <classification_review_status> (L-26)` (por exemplo, `author-self-review`), tirada dos relatórios; o Job Summary traz a mesma linha;
-   - execução em andamento: aviso para pedir de novo quando terminar;
-   - execução concluída sem o artefato `auditor-report`: falha de infraestrutura;
-   - nenhuma execução entre as 100 mais recentes: aviso com o commit.
-6. O relatório completo continua só no artefato `auditor-report` da execução do `auditor-tier1`. O comentário é o sumário.
-- **Cache do inspetor (D-7):** `actions/cache` em `~/.cache/auditor`, chave por ref do auditor + `lean-toolchain`. O Job Summary registra, por arquivo, se o binário estava em cache (`hit`/`miss`).
-- **Fixação de versões (D-25, obrigatória):** toda action por SHA de commit, com a versão num comentário; elan baixado da release `v4.2.4` e conferido por SHA-256. O `elan-init.sh` não é usado: mesmo tirado de uma tag, ele baixa a release `latest` do elan. Procedimento de atualização em `docs/maintenance.md`.
+### Human-triggered flow (`@auditor report`, layer-2 step 9)
 
-### Por que três workflows (D-24)
+1. A human with access to the repository comments `@auditor report` on the PR. The comment stays on the PR under their account: the request is identified as the human's, not a bot's.
+2. `auditor-report` is triggered by `issue_comment`. The job's condition requires a PR, a first line starting with `@auditor report`, and `author_association` in OWNER, MEMBER or COLLABORATOR. Any other comment creates no job.
+3. The job does not check out and does not run PR code. It installs the auditor at the pinned SHA and reads the PR's `headRefOid` (checked as 40 hex characters).
+4. It finds the `auditor-tier1` run for that commit by listing the workflow's 100 most recent runs and selecting by `head_sha` on the client. The API's `head_sha` filter (the one `gh run list --commit` uses) is not deterministic (step 9, instruction 22).
+5. It answers with **one** comment, signed by `github-actions`:
+   - run found and completed: the summary (`auditor-ci comment`), starting with "Pedido por um humano" (requested by a human). The summary carries at the top the line `classificação: <classification_review_status> (L-26)` (for example, `author-self-review`), taken from the reports; the Job Summary carries the same line;
+   - run in progress: a notice to ask again when it finishes;
+   - run completed without the `auditor-report` artifact: an infrastructure failure;
+   - no run among the 100 most recent: a notice with the commit.
+6. The full report remains only in the `auditor-report` artifact of the `auditor-tier1` run. The comment is the summary.
+- **Inspector cache (D-7):** `actions/cache` in `~/.cache/auditor`, keyed by the auditor ref + `lean-toolchain`. The Job Summary records, per file, whether the binary was cached (`hit`/`miss`).
+- **Version pinning (D-25, mandatory):** every action by commit SHA, with the version in a comment; elan downloaded from release `v4.2.4` and checked by SHA-256. `elan-init.sh` is not used: even taken from a tag, it downloads elan's `latest` release. Update procedure in `docs/maintenance.md`.
 
-PRs do Mathlib frequentemente vêm de forks. O job que audita precisa compilar o código do PR (`lake build`), e código não confiável **nunca** roda com token de escrita (o padrão `pull_request_target` + checkout do PR é uma vulnerabilidade conhecida). Por isso:
-- a auditoria roda em `pull_request`, com token só de leitura, e não aplica label nem comenta;
-- o label é aplicado por `workflow_run`, que roda no contexto confiável do repositório, nunca faz checkout e trata o artefato do job auditado como dado não confiável (`auditor-ci label-decision` lê só os booleanos `infra_failed` e `cache_cold_extension`, com checagem estrita de tipo; qualquer desvio resulta em `auditor-failed-infra`, fail-closed);
-- o comentário é disparado por `issue_comment`, também sem checkout.
+### Why three workflows (D-24)
 
-## Instalação no fork do Mathlib (camada 2)
+Mathlib PRs often come from forks. The job that audits must compile the PR's code (`lake build`), and untrusted code **never** runs with a write token (the `pull_request_target` + PR checkout pattern is a known vulnerability). Therefore:
+- the audit runs on `pull_request`, with a read-only token, and neither applies labels nor comments;
+- the label is applied by `workflow_run`, which runs in the repository's trusted context, never checks out, and treats the audited job's artifact as untrusted data (`auditor-ci label-decision` reads only the booleans `infra_failed` and `cache_cold_extension`, with strict type checking; any deviation results in `auditor-failed-infra`, fail-closed);
+- the comment is triggered by `issue_comment`, also without checkout.
 
-1. Fixar o auditor num commit: `AUDITOR_SHA`.
-   - **Toolchain:** o auditor traz allow-list do core só para o toolchain fixado (`src/auditor/data/allowlist/`; hoje, `leanprover/lean4:v4.36.0-rc1`, o do Mathlib `master` no commit `e1b2403b`). A base dos PRs de medição precisa usar esse toolchain. Se o Mathlib subir de versão antes da medição, há duas saídas: fixar o fork no commit `e1b2403b` (ou outro com o mesmo `lean-toolchain`), ou subir o toolchain do auditor de novo (`docs/maintenance.md`). Com outro toolchain, todo arquivo sai `allowlist_unavailable` (fail-closed).
-2. Copiar `ci/templates/*.yml` para `.github/workflows/` do fork e substituir `OWNER/auditor` e `AUDITOR_SHA`.
-3. Gerar e versionar a allow-list do Mathlib: `auditor-gen-allowlist --project .` depois de `lake exe cache get`, e classificar os comandos em `.auditor/classification.toml` (ver `docs/maintenance.md`). Sem ela, todo arquivo do Mathlib sai `Não resolvida` por `unknown_command`.
-4. Fazer o **primeiro run** (cache cold): um PR qualquer que toque um `.lean`. Ele declara `first_run: true`. Não é medição de steady-state. Os caches que ele salva só valem para ele mesmo: o cache do GitHub Actions é isolado por ref, e um PR só lê o do próprio ref ou o do branch base.
-5. **Aquecer o cache no branch base (D-61):** o workflow `auditor-warm-cache` roda a cada push no base e por `workflow_dispatch`. Ele salva, no ref do base, os caches do inspetor e do Mathlib com as mesmas chaves do `auditor-tier1`. Rodar de novo sempre que o `AUDITOR_SHA` mudar, porque a chave do inspetor inclui o SHA.
-6. Abrir os PRs de medição, **depois** do aquecimento. Esperado: `cache_state: warm`, `build_cache: hit` e `inspector: hit` já no primeiro push.
+## Installation in the Mathlib fork (layer 2)
 
-## Escolha do arquivo de maior fanout (D-38)
+1. Pin the auditor to a commit: `AUDITOR_SHA`.
+   - **Toolchain:** the auditor ships a core allow-list only for the pinned toolchain (`src/auditor/data/allowlist/`; today, `leanprover/lean4:v4.36.0-rc1`, Mathlib `master`'s at commit `e1b2403b`). The base of the measurement PRs must use this toolchain. If Mathlib bumps its version before the measurement, there are two ways out: pin the fork to commit `e1b2403b` (or another with the same `lean-toolchain`), or bump the auditor's toolchain again (`docs/maintenance.md`). With another toolchain, every file comes out `allowlist_unavailable` (fail-closed).
+2. Copy `ci/templates/*.yml` into the fork's `.github/workflows/` and replace `OWNER/auditor` and `AUDITOR_SHA`.
+3. Generate and version the Mathlib allow-list: `auditor-gen-allowlist --project .` after `lake exe cache get`, and classify the commands in `.auditor/classification.toml` (see `docs/maintenance.md`). Without it, every Mathlib file comes out `Não resolvida` (unresolved) because of `unknown_command`.
+4. Do the **first run** (cold cache): any PR that touches a `.lean` file. It declares `first_run: true`. It is not a steady-state measurement. The caches it saves only work for itself: the GitHub Actions cache is isolated per ref, and a PR only reads its own ref's cache or the base branch's.
+5. **Warm the cache on the base branch (D-61):** the `auditor-warm-cache` workflow runs on every push to the base and on `workflow_dispatch`. It saves, on the base's ref, the inspector and Mathlib caches with the same keys as `auditor-tier1`. Run it again whenever `AUDITOR_SHA` changes, because the inspector key includes the SHA.
+6. Open the measurement PRs **after** warming. Expected: `cache_state: warm`, `build_cache: hit` and `inspector: hit` from the first push.
 
-`tools/layer2/fanout.py <projeto> --root Mathlib` ordena os módulos do projeto por fanout.
+## Choosing the highest-fanout file (D-38)
 
-**(a) Como é calculado.**
-1. Lista os `.lean` sob `<projeto>/<root>/` e `<projeto>/<root>.lean`; o nome do módulo é o caminho relativo com `/` → `.`.
-2. Lê só o **cabeçalho** de cada arquivo: linhas em branco, comentários de linha (`--`) e de bloco (`/- … -/`, com aninhamento), `prelude`, `module` e linhas `import` (com os modificadores `public`, `meta`, `private`; vários módulos por linha). O primeiro comando de outro tipo encerra o cabeçalho, como no Lean. Nome de módulo ilegível (ex.: com `«»`) ou comentário de bloco dentro de uma linha `import` é erro (exit 2), nunca ignorado.
-3. Monta o grafo de imports **restrito ao projeto**: imports de fora (`Init`, `Std`, `Lean`, dependências) são descartados.
-4. Inverte as arestas e calcula, por busca em largura, para cada módulo:
-   - `direct`: quantos módulos o importam diretamente;
-   - `transitive`: quantos módulos dependem dele direta ou transitivamente (fecho reverso);
-   - `imports_transitive`: quantos módulos do projeto ele mesmo importa, direta ou transitivamente (fecho direto).
-5. Ordena por `transitive` decrescente, depois `direct` decrescente, depois nome. Determinístico.
+`tools/layer2/fanout.py <project> --root Mathlib` ranks the project's modules by fanout.
 
-Não há peso por uso: uma aresta é um `import`, não uma referência a constante.
+**(a) How it is computed.**
+1. It lists the `.lean` files under `<project>/<root>/` and `<project>/<root>.lean`; the module name is the relative path with `/` → `.`.
+2. It reads only the **header** of each file: blank lines, line comments (`--`) and block comments (`/- … -/`, with nesting), `prelude`, `module` and `import` lines (with the modifiers `public`, `meta`, `private`; several modules per line). The first command of another kind ends the header, as in Lean. An unreadable module name (e.g. with `«»`) or a block comment inside an `import` line is an error (exit 2), never ignored.
+3. It builds the import graph **restricted to the project**: imports from outside (`Init`, `Std`, `Lean`, dependencies) are dropped.
+4. It reverses the edges and computes, by breadth-first search, for each module:
+   - `direct`: how many modules import it directly;
+   - `transitive`: how many modules depend on it directly or transitively (reverse closure);
+   - `imports_transitive`: how many project modules it itself imports, directly or transitively (forward closure).
+5. It sorts by `transitive` descending, then `direct` descending, then name. Deterministic.
 
-**(b) Por que essa definição.**
-- O fanout reverso transitivo é a medida de "raio de invalidação": mudar o módulo invalida o `.olean` de todos os dependentes. No Mathlib, isso decide quanto do cache do `lake exe cache get` deixa de corresponder ao commit do PR. Se isso pesa no tempo é **hipótese a medir**, não fato: o `lake build` do módulo-alvo só precisa dos módulos que ele importa, não dos dependentes; o efeito esperado está na preparação (`cache get`), que o orçamento de 5 min passou a incluir (D-28).
-- Restringir ao projeto e usar só o cabeçalho torna a ferramenta barata (não precisa compilar nada nem carregar `.olean`) e reprodutível a partir do checkout.
-- Peso por uso (contar referências a constantes) exigiria o ambiente elaborado de todo o Mathlib e mediria outra coisa: o quanto as provas dependem do módulo, não o quanto do build é invalidado. Fica fora.
-- **Ressalva, para a medição não ser mal lida:** o custo da **auditoria** de um arquivo (o `lake build` do módulo-alvo e a leitura do ambiente pelo inspetor) cresce com o fecho **direto** (`imports_transitive`), não com o fanout. Um arquivo de fanout máximo tende a estar na base da hierarquia, com fecho direto pequeno. Por isso a ferramenta também imprime `imports_transitive`; o arquivo "médio" ou um quarto PR pode ser escolhido pelo maior fecho direto, se o revisor quiser medir o pior caso da auditoria em si.
+There is no weighting by use: an edge is an `import`, not a reference to a constant.
 
-**(c) Como é testado** (`tests/maintenance/test_layer2_tools.py`):
-- cabeçalho: comentários aninhados, `module`, `public import`, vários módulos por linha, comentário no fim da linha, parada no primeiro comando (um `import` depois de um `theorem` não conta);
-- nome ilegível → erro;
-- grafo sintético de 5 módulos com dependência transitiva, import externo descartado e módulo raiz: valores exatos de `direct`, `transitive` e `imports_transitive` e a ordem do ranking;
-- procedência e `--expect-commit`: commit diferente do esperado → exit 2, sem ranking.
+**(b) Why this definition.**
+- Transitive reverse fanout is the measure of "invalidation radius": changing the module invalidates the `.olean` of all dependents. In Mathlib, this decides how much of the `lake exe cache get` cache stops matching the PR's commit. Whether this weighs on time is a **hypothesis to measure**, not a fact: the target module's `lake build` only needs the modules it imports, not its dependents; the expected effect is on preparation (`cache get`), which the 5-min budget now includes (D-28).
+- Restricting to the project and using only the header makes the tool cheap (it needs to compile nothing and load no `.olean`) and reproducible from the checkout.
+- Weighting by use (counting references to constants) would require the elaborated environment of all of Mathlib and would measure something else: how much the proofs depend on the module, not how much of the build is invalidated. It is left out.
+- **Caveat, so that the measurement is not misread:** the cost of **auditing** a file (the target module's `lake build` and the inspector's reading of the environment) grows with the **forward** closure (`imports_transitive`), not with fanout. A maximum-fanout file tends to sit at the base of the hierarchy, with a small forward closure. That is why the tool also prints `imports_transitive`; the "medium" file or a fourth PR can be chosen by the largest forward closure, if the reviewer wants to measure the worst case of the audit itself.
 
-**(d) Reprodutibilidade: a escolha não depende do `master` do dia** (instrução 13).
-- A ferramenta não acessa a rede nem o `master`: lê só o checkout passado como argumento. O
-  resultado é função do commit do checkout, e só dele.
-- A saída JSON registra a procedência: o commit do checkout (`git rev-parse HEAD`), o SHA-256 do
-  `lake-manifest.json` e o `lean-toolchain`. O grafo só tem módulos do projeto, então as
-  dependências do manifest não mudam o ranking. O hash do manifest fica registrado para provar
-  que o checkout é o fixado, e não porque o ranking dependa dele.
-- `--expect-commit <sha>`: se o checkout não estiver nesse commit, a ferramenta sai com 2 e não
-  imprime o ranking. O checklist da camada 2 (passo 6) passa `e1b2403bdd31…`.
-- Não existe "teste de drift da D-38" contra o Mathlib real na suíte: a suíte não baixa o
-  Mathlib. A garantia é esta procedência, conferida no momento da medição. O teste da suíte cobre
-  o mecanismo (grafo sintético e conferência do commit).
+**(c) How it is tested** (`tests/maintenance/test_layer2_tools.py`):
+- header: nested comments, `module`, `public import`, several modules per line, an end-of-line comment, stopping at the first command (an `import` after a `theorem` does not count);
+- unreadable name → error;
+- a synthetic graph of 5 modules with a transitive dependency, a dropped external import and a root module: exact values of `direct`, `transitive` and `imports_transitive`, and the ranking order;
+- provenance and `--expect-commit`: a commit different from the expected one → exit 2, no ranking.
 
-## Evidência pendente (camada 2): roteiro
+**(d) Reproducibility: the choice does not depend on the day's `master`** (instruction 13).
+- The tool does not access the network or `master`: it only reads the checkout passed as an argument. The
+  result is a function of the checkout's commit, and only of it.
+- The JSON output records provenance: the checkout's commit (`git rev-parse HEAD`), the SHA-256 of
+  `lake-manifest.json` and the `lean-toolchain`. The graph only has project modules, so the
+  manifest's dependencies do not change the ranking. The manifest hash is recorded to prove
+  that the checkout is the pinned one, not because the ranking depends on it.
+- `--expect-commit <sha>`: if the checkout is not at that commit, the tool exits with 2 and does not
+  print the ranking. The layer-2 checklist (step 6) passes `e1b2403bdd31…`.
+- There is no "D-38 drift test" against the real Mathlib in the suite: the suite does not download
+  Mathlib. The guarantee is this provenance, checked at measurement time. The suite's test covers
+  the mechanism (synthetic graph and commit check).
 
-A Fase 0 só fecha com esta evidência. A Fase 1 não começa antes dela.
+## Pending evidence (layer 2): plan
 
-| Item da DoD | Como produzir |
+Phase 0 only closes with this evidence. Phase 1 does not start before it.
+
+| DoD item | How to produce it |
 |---|---|
-| Primeiro run no fork | PR qualquer; registrar `cache_state` (`cold` esperado), `first_run`, `elapsed_s` e se houve `cache_cold_extension` |
-| PRs de medição no steady-state (cache aquecido no base, D-61) | **trivial** (ex.: docstring num arquivo folha), **médio** (um lema novo num arquivo de tamanho típico), **fanout, caminho de sucesso**: o arquivo de maior fanout entre os que não declaram sintaxe (L-27), com a sonda `verified`; **fanout, caminho fail-closed**: o arquivo de maior fanout, se ele declara sintaxe, medido à parte e com a sonda `unresolved` como resultado esperado. O ranking é com `python tools/layer2/fanout.py <fork> --root Mathlib --expect-commit <base>` (anexar a tabela; o antigo `Mathlib/Logic/Basic.lean` não existe no commit fixado: é `Mathlib/Basic/Logic/Basic.lean`) |
-| Tempos por `cache_state` | baixar o artefato `auditor-report` de cada execução e rodar `python tools/layer2/timings.py <diretórios>`: total, preparação, auditoria e p95 por arquivo, separados por `cold`/`delta`/`warm` |
-| Caminho de timeout (`auditor-failed-infra`, sem bloquear) | PR com `timeout-file-seconds` artificial pequeno (ex.: 5): o PR sai com exit 2, o job fica verde e o PR recebe o label |
-| Action integrada e testada em fork | os itens acima + um `@auditor report` de um colaborador |
-| Reajuste do timeout por arquivo | p95 por arquivo medido; o default de 90 s é reajustado com dados, não com intuição |
-| Verificações de premissa | o carimbo `updated_at` do evento coincide com o push (comparar com o horário do commit); o tamanho de `~/.cache/mathlib` cabe no limite de cache do repositório |
+| First run in the fork | any PR; record `cache_state` (`cold` expected), `first_run`, `elapsed_s` and whether there was a `cache_cold_extension` |
+| Measurement PRs in steady state (cache warmed on the base, D-61) | **trivial** (e.g. a docstring in a leaf file), **medium** (a new lemma in a typically sized file), **fanout, success path**: the highest-fanout file among those that do not declare syntax (L-27), with the probe `verified`; **fanout, fail-closed path**: the highest-fanout file, if it declares syntax, measured separately and with the probe `unresolved` as the expected result. The ranking comes from `python tools/layer2/fanout.py <fork> --root Mathlib --expect-commit <base>` (attach the table; the old `Mathlib/Logic/Basic.lean` does not exist at the pinned commit: it is `Mathlib/Basic/Logic/Basic.lean`) |
+| Timings per `cache_state` | download the `auditor-report` artifact of each run and run `python tools/layer2/timings.py <directories>`: total, preparation, audit and per-file p95, split by `cold`/`delta`/`warm` |
+| Timeout path (`auditor-failed-infra`, non-blocking) | a PR with a small artificial `timeout-file-seconds` (e.g. 5): the PR exits with exit 2, the job stays green and the PR gets the label |
+| Action integrated and tested in a fork | the items above + an `@auditor report` from a collaborator |
+| Readjusting the per-file timeout | per-file p95 measured; the 90 s default is readjusted with data, not intuition |
+| Premise checks | the event's `updated_at` timestamp matches the push (compare with the commit time); the size of `~/.cache/mathlib` fits in the repository's cache limit |
 
-Trazer: os 3 relatórios (`outcome.json` + `summary.md`), a tabela do `timings.py` e a do `fanout.py`.
+Bring: the 3 reports (`outcome.json` + `summary.md`), the `timings.py` table and the `fanout.py` table.
 
-O comportamento de timeout/label/não bloqueio/first run já está testado na camada 1 (`tests/ci/test_ci.py`), com tempos artificiais.
+The timeout/label/non-blocking/first-run behaviour is already tested in layer 1 (`tests/ci/test_ci.py`), with artificial timings.

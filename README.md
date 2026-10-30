@@ -1,136 +1,138 @@
-# auditor — verificador mecânico de integridade de provas Lean 4 (Fase 0, Tier 1)
+# auditor — mechanical integrity checker for Lean 4 proofs (Phase 0, Tier 1)
 
-## O que esta ferramenta NÃO faz
+## What this tool does NOT do
 
-Leia esta seção antes de qualquer outra. Um selo emitido por esta ferramenta **não** significa "a prova está correta" nem "o teorema diz o que o autor afirma".
+Read this section before any other. A seal issued by this tool does **not** mean "the proof is correct" or "the theorem says what its author claims".
 
-> **Declaração obrigatória (L-26): `classification_review_status: author-self-review`.** A classificação dos comandos do Mathlib que sustenta os resultados desta ferramenta foi elaborada e revisada pelo mesmo autor; não houve revisão independente. Todo relatório, sumário e comentário declara isso. Nenhum resultado de cobertura do Mathlib pode ser apresentado a terceiros (Mathlib Zulip, artigo, blog ou outro) sem essa qualificação. A revisão independente é item da Fase 1 (`docs/roadmap.md`).
+> **Mandatory statement (L-26): `classification_review_status: author-self-review`.** The classification of Mathlib commands on which this tool's results rest was written and reviewed by the same author; there has been no independent review. Every report, summary and comment states this. No Mathlib coverage result may be presented to third parties (Mathlib Zulip, paper, blog or elsewhere) without this qualification. Independent review is a Phase 1 item (`docs/roadmap.md`).
 
-- **Não audita correspondência.** Não verifica se o enunciado formal corresponde ao enunciado informal (artigo, LaTeX, intenção do autor). Todo relatório da Fase 0 declara `correspondence_status: "Não auditada"`, sem exceção. Um teorema que prova a coisa errada recebe o mesmo selo que um que prova a coisa certa.
-- **Não audita o kernel do Lean.** O kernel é âncora de confiança (TCB), não objeto auditado. Um bug no kernel invalida todos os selos e esta ferramenta não o detectaria.
-- **Não usa LLM**, em nenhuma capacidade, em nenhum ponto do código.
-- **Não faz análise semântica de provas**: não decompõe táticas em obrigações, não detecta circularidade semântica, não avalia se hipóteses são vazias ou contraditórias.
-- **Não procura contraexemplos**, não tenta refutar, não usa SMT.
-- **Não lê LaTeX nem PDF.**
-- **Não distingue contextos construtivos.** `Classical.choice` é permitido por padrão; isso é decisão explícita da Fase 0, não omissão.
-- **Não opera como bot.** Não abre PRs, não comenta em PRs por iniciativa própria, não age sob identidade própria. Tudo que aparece num PR foi pedido por um humano (ver [Integração CI](#integração-ci)).
-- **Não revoga selos.** O modelo de revogação está documentado em `docs/invalidation.md`; a implementação é Fase 1.
-- **Não garante cobertura sintática completa na Etapa A.** A Etapa A é varredura léxica, não parsing fiel (ver [Limitações](#limitações)). A Etapa B, que inspeciona declarações elaboradas, é a fonte de evidência; a Etapa A só sinaliza candidatos.
-- **Não emite veredito binário.** A saída é um mapa de dívida epistêmica: três estados ortogonais por declaração, mais a lista do que não foi verificado.
+*Language note.* Status values that the tool prints, such as `Validada` (validated), `Rejeitada` (rejected), `Não resolvida` (unresolved), `Conforme` (conforming), `Não conforme` (non-conforming) and `Não auditada` (not audited), are quoted below exactly as they appear in the reports.
+
+- **It does not audit correspondence.** It does not check whether the formal statement matches the informal one (paper, LaTeX, the author's intent). Every Phase 0 report states `correspondence_status: "Não auditada"` (not audited), without exception. A theorem that proves the wrong thing gets the same seal as one that proves the right thing.
+- **It does not audit the Lean kernel.** The kernel is a trust anchor (TCB), not an audited object. A kernel bug invalidates every seal, and this tool would not detect it.
+- **It does not use an LLM**, in any capacity, anywhere in the code.
+- **It does no semantic analysis of proofs**: it does not decompose tactics into obligations, does not detect semantic circularity, and does not assess whether hypotheses are vacuous or contradictory.
+- **It does not search for counterexamples**, does not try to refute, and does not use SMT.
+- **It does not read LaTeX or PDF.**
+- **It does not distinguish constructive contexts.** `Classical.choice` is allowed by default; this is an explicit Phase 0 decision, not an omission.
+- **It does not act as a bot.** It does not open PRs, does not comment on PRs on its own initiative, and does not act under its own identity. Everything that appears on a PR was requested by a human (see [CI integration](#ci-integration)).
+- **It does not revoke seals.** The revocation model is documented in `docs/invalidation.md`; the implementation is Phase 1.
+- **It does not guarantee full syntactic coverage in Stage A.** Stage A is a lexical scan, not faithful parsing (see [Limitations](#limitations)). Stage B, which inspects elaborated declarations, is the source of evidence; Stage A only flags candidates.
+- **It does not issue a binary verdict.** The output is a map of epistemic debt: three orthogonal states per declaration, plus the list of what was not verified.
 
 ## Status
 
-**Fase 0 = closed unconditionally 2026-10-22. Fase 1 = em andamento (sub-fase 1a: P0-1 e P0-2; `docs/p0-1-implemented-by.md`, `docs/p0-2-fail-closed.md`).**
+**Phase 0 = closed unconditionally 2026-10-22. Phase 1 = in progress (sub-phase 1a: P0-1 and P0-2; `docs/p0-1-implemented-by.md`, `docs/p0-2-fail-closed.md`).**
 
-Fechamento confirmado pelo revisor na instrução 24: auditor `69ed9cf`, fork `auditor-base` `018d7db`, 674 testes, 141/141 mutações, passos 8 e 9 da camada 2 (o 9 com sumário qualificado), L-26 declarada em todos os artefatos. Evidência em `docs/phase0-report.md`. A Fase 1 começa pelos dois P0 de `docs/roadmap.md`.
+Closure confirmed by the project reviewer in instruction 24: auditor `69ed9cf`, fork `auditor-base` `018d7db`, 674 tests, 141/141 mutations, layer-2 steps 8 and 9 (step 9 with a qualified summary), L-26 declared in every artifact. Evidence in `docs/phase0-report.md`. Phase 1 starts with the two P0 items of `docs/roadmap.md`.
 
-As tabelas abaixo registram como as duas camadas da Fase 0 foram construídas. O critério de go/no-go foi a camada 2 (GitHub Actions em PRs reais do fork do Mathlib), não a camada 1.
+The tables below record how the two layers of Phase 0 were built. The go/no-go criterion was layer 2 (GitHub Actions on real PRs in the Mathlib fork), not layer 1.
 
-**Camada 1 — done no ambiente do builder.** Itens verificáveis sem Mathlib, com evidência produzida no ambiente de desenvolvimento. Toolchain fixado: **`leanprover/lean4:v4.36.0-rc1`** (o do Mathlib `master`, instrução 12). **Q9 decidida (instrução 13):** `native_decide` nunca sai `verified` na Fase 0 (fail-closed permanente; reavaliação pelo kernel é pesquisa da Fase 1).
+**Layer 1 — done in the builder's environment.** Items verifiable without Mathlib, with evidence produced in the development environment. Pinned toolchain: **`leanprover/lean4:v4.36.0-rc1`** (Mathlib `master`'s, instruction 12). **Q9 decided (instruction 13):** `native_decide` never comes out `verified` in Phase 0 (permanently fail-closed; re-checking by the kernel is Phase 1 research).
 
-| Item | Estado |
+| Item | State |
 |---|---|
-| README com limitações e seção "O que NÃO faz" | em revisão |
-| Conformance suite (5 cenários obrigatórios + `04b-extern` + `06-tcb-boundary`) passa | **verde** fim a fim (CLI real, Lean real) |
-| Fail-closed suite (3 cenários) passa | **verde**: macro customizada e zero-width → `Não resolvida` (Etapa A); ciclo de imports → `compile_failure`, exit 1 |
-| Etapa A (pré-scan léxico) | feita: 39 testes, 9 mutações detectadas; D-1 com `#reduce`/`#guard`/`#widget` |
-| Gerador de allow-list testado contra projeto Lake arbitrário (Q5) | feito: 16 testes, 9 mutações detectadas |
-| Etapa B (inspetor Lean v2 + wrapper) | feita: 13 mutações detectadas (rodada anterior) |
-| Fronteira de TCB (Q7-a) | feita: algoritmo em `docs/tcb.md`, 19 testes unitários, canário `06-tcb-boundary` |
-| Policy engine (`policy.toml` + regras com regressão própria) | feito: 30 mutações detectadas (política, agregador, relatório, fronteira, fingerprint) |
-| Schema JSON v1 publicado e validado | feito: `schema/report-v1.json`; todo relatório dos fixtures valida; o schema rejeita 8 violações de princípio |
-| CLI (`auditor check`) com exit codes Q6 e `overall_status` Q4 | feita |
-| `docs/tcb.md` | feito, com a seção "Fronteira de TCB" |
-| `docs/invalidation.md` (só modelo) | feito: selos imutáveis, eventos append-only, estado derivado, propagação |
-| `docs/limitations.md`, `docs/maintenance.md` | feito |
-| Nenhuma dependência de LLM (verificação automatizada) | feito: `tests/maintenance/test_no_llm.py` |
-| GitHub Action (workflow reutilizável + modelos para o fork) | feita e testada na camada 1: 78 testes (`tests/ci`), `actionlint` sem apontamentos; actions fixadas por SHA, elan por release + SHA-256; orçamento wall-clock do PR com `cache_state`, timeout por arquivo de 90 s. Teste em fork é camada 2 |
-| Testes de mutação versionados (`tools/mutation`) | catálogo de 84 mutações em 5 grupos, com teste de integridade do catálogo |
-| Nenhuma promessa não cumprida no README | pendente (revisão final) |
+| README with limitations and a "What it does NOT do" section | under review |
+| Conformance suite (5 mandatory scenarios + `04b-extern` + `06-tcb-boundary`) passes | **green** end to end (real CLI, real Lean) |
+| Fail-closed suite (3 scenarios) passes | **green**: custom macro and zero-width → `Não resolvida` (Stage A); import cycle → `compile_failure`, exit 1 |
+| Stage A (lexical pre-scan) | done: 39 tests, 9 mutations detected; D-1 with `#reduce`/`#guard`/`#widget` |
+| Allow-list generator tested against an arbitrary Lake project (Q5) | done: 16 tests, 9 mutations detected |
+| Stage B (Lean inspector v2 + wrapper) | done: 13 mutations detected (previous round) |
+| TCB boundary (Q7-a) | done: algorithm in `docs/tcb.md`, 19 unit tests, canary `06-tcb-boundary` |
+| Policy engine (`policy.toml` + rules with their own regression tests) | done: 30 mutations detected (policy, aggregator, report, boundary, fingerprint) |
+| JSON schema v1 published and validated | done: `schema/report-v1.json`; every fixture report validates; the schema rejects 8 violations of principle |
+| CLI (`auditor check`) with Q6 exit codes and Q4 `overall_status` | done |
+| `docs/tcb.md` | done, with the "TCB boundary" section |
+| `docs/invalidation.md` (model only) | done: immutable seals, append-only events, derived state, propagation |
+| `docs/limitations.md`, `docs/maintenance.md` | done |
+| No LLM dependency (automated check) | done: `tests/maintenance/test_no_llm.py` |
+| GitHub Action (reusable workflow + templates for the fork) | done and tested in layer 1: 78 tests (`tests/ci`), `actionlint` clean; actions pinned by SHA, elan by release + SHA-256; PR wall-clock budget with `cache_state`, per-file timeout of 90 s. Testing in a fork is layer 2 |
+| Versioned mutation tests (`tools/mutation`) | catalog of 84 mutations in 5 groups, with a catalog-integrity test |
+| No unfulfilled promise in the README | pending (final review) |
 
-**Camada 2 — done no ambiente real** (evidência em `docs/phase0-report.md`).
+**Layer 2 — done in the real environment** (evidence in `docs/phase0-report.md`).
 
-| Item | Estado |
+| Item | State |
 |---|---|
-| Allow-list do Mathlib gerada no fork (`auditor-gen-allowlist --project`), com os comandos do Mathlib classificados | feito: 259 comandos, 0 sem classificação; regenerada no CI idêntica byte a byte (run 39696176700) |
-| Primeiro run no fork (cache cold, `first_run: true`) | feito: PR #1, 136,1 s |
-| PRs reais do Mathlib no steady-state, com o cache aquecido no branch base (D-61): trivial, médio, fanout no caminho de sucesso e fanout no caminho fail-closed (L-27; ranking de `tools/layer2/fanout.py`), com tempos por `cache_state` (`tools/layer2/timings.py`) e `project_dirty: false` (D-62) | feito: PRs #5–#8, `warm`, 126–142 s; fail-closed à parte (PR #7) |
-| Caminho de timeout (`auditor-failed-infra`, sem bloquear merge) | feito: passo 8, PR #9 |
-| p95 por arquivo medido e default do timeout por arquivo reajustado | **não feito**: adiado para a Fase 1 (`docs/roadmap.md`, "Timeout por arquivo medido") |
-| GitHub Action integrada e testada em fork | feito: `auditor-tier1`, `auditor-label`, `auditor-report` (passo 9, PR #8) e `auditor-warm-cache` no fork |
+| Mathlib allow-list generated in the fork (`auditor-gen-allowlist --project`), with Mathlib's commands classified | done: 259 commands, 0 unclassified; regenerated in CI byte-for-byte identical (run 39696176700) |
+| First run in the fork (cold cache, `first_run: true`) | done: PR #1, 136.1 s |
+| Real Mathlib PRs in steady state, with the cache warmed on the base branch (D-61): trivial, medium, fanout on the success path and fanout on the fail-closed path (L-27; ranking from `tools/layer2/fanout.py`), with timings per `cache_state` (`tools/layer2/timings.py`) and `project_dirty: false` (D-62) | done: PRs #5–#8, `warm`, 126–142 s; fail-closed separately (PR #7) |
+| Timeout path (`auditor-failed-infra`, without blocking merge) | done: step 8, PR #9 |
+| Per-file p95 measured and the per-file timeout default readjusted | **not done**: deferred to Phase 1 (`docs/roadmap.md`, "Measured per-file timeout") |
+| GitHub Action integrated and tested in a fork | done: `auditor-tier1`, `auditor-label`, `auditor-report` (step 9, PR #8) and `auditor-warm-cache` in the fork |
 
-**Por que duas camadas.** O ambiente de desenvolvimento tem o toolchain Lean (verificado: `lean`, `lake` e `#print axioms` funcionam), mas não tem acesso ao cache de build do Mathlib, e compilar o Mathlib do zero não cabe nele.
+**Why two layers.** The development environment has the Lean toolchain (checked: `lean`, `lake` and `#print axioms` work), but has no access to the Mathlib build cache, and building Mathlib from scratch does not fit in it.
 
-**Ambientes de desenvolvimento usados.** Linux (sandbox, até a Etapa A) e Windows 11 com elan, a partir da Etapa B: `leanprover/lean4:v4.22.0` (commit `ba2cbbf0`) até a instrução 11; **`leanprover/lean4:v4.36.0-rc1`** (commit `c9afcddf`, o toolchain do Mathlib `master` em 2026-10-20) desde a instrução 12. A suíte inteira roda no toolchain fixado.
+**Development environments used.** Linux (sandbox, up to Stage A) and Windows 11 with elan, from Stage B on: `leanprover/lean4:v4.22.0` (commit `ba2cbbf0`) up to instruction 11; **`leanprover/lean4:v4.36.0-rc1`** (commit `c9afcddf`, Mathlib `master`'s toolchain on 2026-10-20) since instruction 12. The whole suite runs on the pinned toolchain.
 
-## Conformance suite: o que cada cenário testa
+## Conformance suite: what each scenario tests
 
-| Cenário | Categoria | Estado esperado |
+| Scenario | Category | Expected state |
 |---|---|---|
-| `01-sorry-target` | admissão no arquivo-alvo | `Rejeitada` / `Conforme`, `sorryAx_detected` |
-| `02-sorry-transitive` | admissão transitiva (A → B → C → D) | `Rejeitada` / `Conforme`; origem rastreada até `d_lemma` |
-| `03-axiom-unknown` | axioma **desconhecido** nas premissas | `Validada` / `Não resolvido`, `unknown_axiom` |
-| `04-implemented-by` | `@[implemented_by]` sozinho e combinado com avaliação nativa | (a) `Não resolvida`, `implemented_by_candidate`; (b) `Rejeitada`, `implemented_by_reaches_native_eval` |
-| `04b-extern` | `@[extern]` user-level sozinho e combinado (O-5); (c) com `Nat.add` do toolchain no mesmo enunciado | (a) `Não resolvida`, `extern_candidate`; (b)/(c) `Rejeitada`, `extern_reaches_native_eval`, só `myF` apontado |
-| `06-tcb-boundary` | fronteira de TCB (Q7-a), canário: `Nat.add` (`@[extern]` do toolchain) com e sem `native_decide`; uma sonda por raiz da allow-list de raízes (`uses_init`, `uses_lean`, `uses_std`, `uses_lake`; D-42) | nenhuma regra de `extern`/`implemented_by` dispara; sem `native_decide`: `verified`; com: `unresolved` só por `native_auxiliary_axiom` (Q9-a; na v4.22, `verified`); sondas: `verified` |
-| `05-native-decide` | mecanismo **proibido** nas premissas (avaliação nativa sem justificativa) e a gramática da justificativa | `Validada` / `Não conforme`; justificado: `Validada` / `Não resolvido` (`native_auxiliary_axiom`, Q9-a; na v4.22, `verified`); órfã: `Rejeitada` |
+| `01-sorry-target` | admission in the target file | `Rejeitada` / `Conforme`, `sorryAx_detected` |
+| `02-sorry-transitive` | transitive admission (A → B → C → D) | `Rejeitada` / `Conforme`; origin traced to `d_lemma` |
+| `03-axiom-unknown` | **unknown** axiom in the premises | `Validada` / `Não resolvido`, `unknown_axiom` |
+| `04-implemented-by` | `@[implemented_by]` alone and combined with native evaluation | (a) `Não resolvida`, `implemented_by_candidate`; (b) `Rejeitada`, `implemented_by_reaches_native_eval` |
+| `04b-extern` | user-level `@[extern]` alone and combined (O-5); (c) with the toolchain's `Nat.add` in the same statement | (a) `Não resolvida`, `extern_candidate`; (b)/(c) `Rejeitada`, `extern_reaches_native_eval`, only `myF` flagged |
+| `06-tcb-boundary` | TCB boundary (Q7-a), canary: `Nat.add` (the toolchain's `@[extern]`) with and without `native_decide`; one probe per root of the roots allow-list (`uses_init`, `uses_lean`, `uses_std`, `uses_lake`; D-42) | no `extern`/`implemented_by` rule fires; without `native_decide`: `verified`; with it: `unresolved` only because of `native_auxiliary_axiom` (Q9-a; on v4.22, `verified`); probes: `verified` |
+| `05-native-decide` | **forbidden** mechanism in the premises (native evaluation without justification) and the justification grammar | `Validada` / `Não conforme`; justified: `Validada` / `Não resolvido` (`native_auxiliary_axiom`, Q9-a; on v4.22, `verified`); orphan: `Rejeitada` |
 
-Sob a ortogonalidade estrita (Q1-X), `sorryAx` é admissão e afeta só `proof_status`; por isso a categoria "proibido nas premissas" é coberta pelo 05, não pelo 02 (R-1).
+Under strict orthogonality (Q1-X), `sorryAx` is an admission and affects only `proof_status`; that is why the "forbidden in the premises" category is covered by 05, not by 02 (R-1).
 
-## O que a ferramenta faz
+## What the tool does
 
-Dado um arquivo `.lean`, um ambiente fixado (`lean-toolchain` + `lake-manifest.json`) e uma política (`policy.toml`), emite um relatório JSON (schema v1) com:
+Given a `.lean` file, a pinned environment (`lean-toolchain` + `lake-manifest.json`) and a policy (`policy.toml`), it emits a JSON report (schema v1) with:
 
-- status de compilação (sucesso, falha ou timeout);
-- `sorryAx` e outras admissões, incluindo as transitivas;
-- axiomas usados por cada declaração, com dependências transitivas;
-- violações de política: axioma fora da política, `native_decide` sem justificativa, `@[implemented_by]` suspeito, `set_option` que relaxa checagem;
-- TCB enumerada componente a componente, com versões e hashes;
-- fingerprint do ambiente, para invalidação futura;
-- `correspondence_status: "Não auditada"`.
+- compilation status (success, failure or timeout);
+- `sorryAx` and other admissions, including transitive ones;
+- the axioms used by each declaration, with transitive dependencies;
+- policy violations: an axiom outside the policy, `native_decide` without justification, a suspicious `@[implemented_by]`, a `set_option` that relaxes checking;
+- the TCB, enumerated component by component, with versions and hashes;
+- an environment fingerprint, for future invalidation;
+- `correspondence_status: "Não auditada"` (not audited).
 
-## Arquitetura
+## Architecture
 
 ```
-arquivo.lean ──► Etapa A (parser léxico, Python) ──► candidatos ─┐
+file.lean ──► Stage A (lexical parser, Python) ──► candidates ───┐
                                                                   │
 lean-toolchain + lake-manifest ──► lake build ──► .olean ──►      │
-   Etapa B: inspetor (metaprograma Lean) ──► dados brutos ────────┤
+   Stage B: inspector (Lean metaprogram) ──► raw data ────────────┤
                                                                   ▼
-policy.toml ─────────────────────────────────► agregador (Python)
+policy.toml ─────────────────────────────────► aggregator (Python)
                                                    │
                                                    ▼
-                                    relatório JSON v1 + selo + exit code
+                                    JSON report v1 + seal + exit code
 ```
 
-Os componentes são separados de propósito: quem **lê** o ambiente não é quem **julga**.
+The components are separate on purpose: what **reads** the environment is not what **judges**.
 
-**Etapa A — parser léxico (Python).** Varredura léxica do arquivo-alvo, sem elaboração. Sinaliza `sorry`, `admit`, `axiom`, `native_decide`, `@[implemented_by]`, `set_option` suspeitos, declarações de `macro`/`syntax`/`elab`/`notation` no próprio arquivo, comandos fora da allow-list e caracteres Unicode proibidos. **Nunca emite conclusão positiva.** Seu papel é apontar candidatos e capturar o que não existe no ambiente elaborado: `set_option` e comentários.
+**Stage A — lexical parser (Python).** A lexical scan of the target file, without elaboration. It flags `sorry`, `admit`, `axiom`, `native_decide`, `@[implemented_by]`, suspicious `set_option`s, `macro`/`syntax`/`elab`/`notation` declarations in the file itself, commands outside the allow-list and forbidden Unicode characters. **It never issues a positive conclusion.** Its role is to point out candidates and to capture what does not exist in the elaborated environment: `set_option` and comments.
 
-**Etapa B — inspetor (metaprograma Lean).** Roda depois de `lake build` no ambiente fixado. Importa os módulos compilados via `Lean.Environment` e, para cada declaração do arquivo-alvo, extrai os axiomas transitivos (mesmo algoritmo de `#print axioms`), as admissões (`sorryAx`), o uso de `Lean.ofReduceBool`/`Lean.ofReduceNat`, os atributos relevantes (`@[implemented_by]`, `@[auditor_justified]`) e os metadados para o fingerprint. Produz dados brutos, sem aplicar política. O inspetor é compilado contra o toolchain do projeto-alvo, porque arquivos `.olean` só são legíveis pela mesma versão do Lean; o binário fica em cache, identificado pelo hash do fonte + toolchain, e roda sob `lake env` no projeto-alvo.
+**Stage B — inspector (Lean metaprogram).** Runs after `lake build` in the pinned environment. It imports the compiled modules via `Lean.Environment` and, for each declaration of the target file, extracts the transitive axioms (same algorithm as `#print axioms`), the admissions (`sorryAx`), the use of `Lean.ofReduceBool`/`Lean.ofReduceNat`, the relevant attributes (`@[implemented_by]`, `@[auditor_justified]`) and the metadata for the fingerprint. It produces raw data, without applying policy. The inspector is compiled against the target project's toolchain, because `.olean` files are only readable by the same Lean version; the binary is cached, identified by the hash of source + toolchain, and runs under `lake env` in the target project.
 
-O inspetor calcula os axiomas de duas formas: com `Lean.collectAxioms` (o algoritmo oficial de `#print axioms`) e com um fecho de dependências próprio, que também registra quem referencia cada axioma, as constantes com `@[implemented_by]`/`@[extern]` e se cada uma vem do toolchain (decidido pelo caminho do `.olean`, não pelo nome do módulo). Divergência entre as duas formas, constante referenciada inexistente (o algoritmo oficial a ignora em silêncio) ou dona não resolvida viram anomalias, que o agregador converte em fail-closed.
+The inspector computes the axioms in two ways: with `Lean.collectAxioms` (the official `#print axioms` algorithm) and with its own dependency closure, which also records who references each axiom, the constants with `@[implemented_by]`/`@[extern]`, and whether each one comes from the toolchain (decided by the `.olean` path, not by the module name). A disagreement between the two, a referenced constant that does not exist (the official algorithm silently ignores it), or an unresolved owner become anomalies, which the aggregator turns into fail-closed.
 
-**Allow-list de comandos de projetos (Q5).** A allow-list empacotada cobre só o core. Para um projeto com comandos próprios (o Mathlib define `lemma`, por exemplo), `auditor-gen-allowlist --project <dir>` gera `<dir>/.auditor/allowlist.json` vinculada ao pino do ambiente (`lean-toolchain` + `lake-manifest.json`). A Etapa A só a usa se o pino bater (senão, `allowlist_stale`, fail-closed). Comando do projeto sem classificação explícita em `<dir>/.auditor/classification.toml` é fail-closed (`unclassified_command`).
+**Project command allow-list (Q5).** The bundled allow-list covers only the core. For a project with its own commands (Mathlib defines `lemma`, for example), `auditor-gen-allowlist --project <dir>` generates `<dir>/.auditor/allowlist.json`, bound to the environment pin (`lean-toolchain` + `lake-manifest.json`). Stage A uses it only if the pin matches (otherwise `allowlist_stale`, fail-closed). A project command without an explicit classification in `<dir>/.auditor/classification.toml` is fail-closed (`unclassified_command`).
 
-**Agregador (Python).** Valida a política, aplica as regras aos dados brutos das Etapas A e B, consolida os três estados ortogonais por declaração, monta a TCB e o fingerprint, valida o relatório contra o JSON Schema v1 e define o exit code.
+**Aggregator (Python).** Validates the policy, applies the rules to the raw data from Stages A and B, consolidates the three orthogonal states per declaration, assembles the TCB and the fingerprint, validates the report against JSON Schema v1 and sets the exit code.
 
-### Por que Python (e não Rust)
+### Why Python (and not Rust)
 
-O custo dominante de uma execução é `lake build` (segundos a minutos), não o startup do wrapper (milissegundos). A inspeção semântica precisa ser escrita em Lean de qualquer forma, já que só o próprio Lean lê `Lean.Environment`. O wrapper Python só orquestra, faz varredura léxica e aplica regras declarativas. Rust não traria ganho mensurável e reduziria a velocidade de iteração.
+The dominant cost of a run is `lake build` (seconds to minutes), not the wrapper's startup (milliseconds). The semantic inspection has to be written in Lean anyway, since only Lean itself reads `Lean.Environment`. The Python wrapper only orchestrates, scans lexically and applies declarative rules. Rust would bring no measurable gain and would slow down iteration.
 
-## Estados ortogonais
+## Orthogonal states
 
-Cada declaração tem três estados independentes, nunca condensados num veredito único.
+Each declaration has three independent states, never collapsed into a single verdict.
 
-| Estado | Valores |
+| State | Values |
 |---|---|
-| `proof_status` | `Validada` (kernel aceitou e toda verificação obrigatória passou) · `Rejeitada` (violação concreta de política demonstrada) · `Não resolvida` (evidência insuficiente, timeout ou input fora de cobertura) |
-| `premises_status` | `Conforme` · `Não conforme` (dependência proibida detectada) · `Não resolvido` (análise incompleta) |
-| `correspondence_status` | `Não auditada` — sempre, na Fase 0 |
-| `overall_status` | `verified` · `rejected` · `unresolved`, pela tabela abaixo (Q4: o pior estado vence) |
+| `proof_status` | `Validada` (the kernel accepted it and every mandatory check passed) · `Rejeitada` (a concrete policy violation was demonstrated) · `Não resolvida` (insufficient evidence, timeout, or input outside coverage) |
+| `premises_status` | `Conforme` · `Não conforme` (forbidden dependency detected) · `Não resolvido` (incomplete analysis) |
+| `correspondence_status` | `Não auditada` — always, in Phase 0 |
+| `overall_status` | `verified` · `rejected` · `unresolved`, by the table below (Q4: the worst state wins) |
 
-**`overall_status` (Q4: precedência `rejected` > `unresolved` > `verified`).** É a leitura segura para quem só lê esse campo.
+**`overall_status` (Q4: precedence `rejected` > `unresolved` > `verified`).** It is the safe reading for anyone who reads only this field.
 
 | `proof_status` \ `premises_status` | `Conforme` | `Não conforme` | `Não resolvido` |
 |---|---|---|---|
@@ -138,158 +140,162 @@ Cada declaração tem três estados independentes, nunca condensados num veredit
 | `Rejeitada` | `rejected` | `rejected` | `rejected` |
 | `Não resolvida` | `unresolved` | `rejected` | `unresolved` |
 
-Todo estado diferente de `Validada`/`Conforme` carrega uma razão explícita e legível por máquina (ex.: `sorryAx_detected`, `unknown_axiom`, `policy_invalid`, `timeout`).
+Every state other than `Validada`/`Conforme` carries an explicit, machine-readable reason (e.g. `sorryAx_detected`, `unknown_axiom`, `policy_invalid`, `timeout`).
 
-**`Validada` exige, cumulativamente:** compilação bem-sucedida; inspetor concluído para a declaração; nenhuma admissão; política válida; TCB completa; nenhum gatilho de fail-closed na Etapa A ou B. Se faltar qualquer um, o estado é `Rejeitada` ou `Não resolvida`, nunca `Validada`. Axiomas fora da política afetam só `premises_status`; admissões (`sorryAx`) afetam só `proof_status` (ortogonalidade estrita). O consumidor lê `overall_status` primeiro; os estados individuais continuam completos no relatório.
+**`Validada` requires, cumulatively:** successful compilation; the inspector finished for the declaration; no admission; a valid policy; a complete TCB; no fail-closed trigger in Stage A or B. If any is missing, the state is `Rejeitada` or `Não resolvida`, never `Validada`. Axioms outside the policy affect only `premises_status`; admissions (`sorryAx`) affect only `proof_status` (strict orthogonality). The consumer reads `overall_status` first; the individual states remain complete in the report.
 
-### O selo
+### The seal
 
-O selo é uma string derivada do relatório e sempre declara o que não foi verificado:
+The seal is a string derived from the report, and it always states what was not verified:
 
 ```
-auditor Tier1 v<versão> · Prova: Validada · Premissas: Conforme ·
+auditor Tier1 v<version> · Prova: Validada · Premissas: Conforme ·
 Correspondência: Não Auditada · Não coberto: correspondência, kernel,
 análise semântica, contextos construtivos · fingerprint: <hash>
 ```
 
+(The seal text is emitted in Portuguese: "Prova" = proof, "Premissas" = premises, "Correspondência" = correspondence, "Não coberto" = not covered: correspondence, kernel, semantic analysis, constructive contexts.)
+
 ## Exit codes
 
-| Código | Significado |
+| Code | Meaning |
 |---|---|
-| `0` | Todos os checks obrigatórios passaram em todas as declarações (`Validada` + `Conforme`) |
-| `1` | Pelo menos uma declaração não está `Validada` + `Conforme`; inclui alvo que **não compila** (Q6) |
-| `2` | Falha de infraestrutura: a ferramenta não conseguiu rodar (política ausente ou inválida, ambiente não fixado ou inconsistente, timeout, falha do inspetor); ou arquivo **sem declarações** (`no_declarations_found`, D-15): não há nada a rejeitar, e o usuário precisa ser explícito (`--allow-empty` para arquivos só de imports) |
+| `0` | Every mandatory check passed for every declaration (`Validada` + `Conforme`) |
+| `1` | At least one declaration is not `Validada` + `Conforme`; includes a target that **does not compile** (Q6) |
+| `2` | Infrastructure failure: the tool could not run (missing or invalid policy, unpinned or inconsistent environment, timeout, inspector failure); or a file **without declarations** (`no_declarations_found`, D-15): there is nothing to reject, and the user must be explicit (`--allow-empty` for import-only files) |
 
-Input não reconhecido **nunca** resulta em exit `0`.
+Unrecognized input **never** results in exit `0`.
 
-**Alvo que não compila (Q6)**, incluindo ciclo de imports: exit `1`, `proof_status: Não resolvida`, `overall_status: unresolved`, razão `compile_failure`. É falha do alvo detectada pela ferramenta: não é infraestrutura (exit 2 é para a ferramenta incapaz de rodar) nem violação de política (`Rejeitada`).
+**A target that does not compile (Q6)**, including an import cycle: exit `1`, `proof_status: Não resolvida`, `overall_status: unresolved`, reason `compile_failure`. It is a failure of the target detected by the tool: it is not infrastructure (exit 2 is for a tool unable to run) nor a policy violation (`Rejeitada`).
 
-## Política (`policy.toml`)
+## Policy (`policy.toml`)
 
-A política é código testado: cada regra tem teste de regressão próprio, e mudança de regra exige auditoria por alguém que não é o autor da regra.
+The policy is tested code: each rule has its own regression test, and a rule change requires an audit by someone other than the rule's author.
 
-**Política ausente, malformada ou com regra inexistente:** o auditor não aplica default silenciosamente. Todas as declarações saem `Não resolvida` / `Não resolvido` com razão `policy_invalid`, exit `2`.
+**A missing or malformed policy, or one with a nonexistent rule:** the auditor does not silently apply a default. Every declaration comes out `Não resolvida` / `Não resolvido` with reason `policy_invalid`, exit `2`.
 
-**Axiomas.**
-- Permitidos por padrão: `Classical.choice`, `propext`, `Quot.sound`.
-- Proibidos por padrão: `sorryAx`; `Lean.ofReduceBool` e `Lean.ofReduceNat` sem justificativa.
-- Axioma auxiliar de avaliação nativa (v4.36+): No `leanprover/lean4:v4.36.0-rc1`, `native_decide` não produz mais `Lean.ofReduceBool`: ele adiciona, por uso, um axioma auxiliar `<dona>._native.native_decide.ax_N : e = true` (`Lean.Meta.nativeEqTrue`), que o kernel não reconfere. O inspetor o reconhece pela forma (`native_auxiliary`); a política o trata como avaliação nativa para as regras de justificativa e do padrão combinado, e **além disso** deixa as premissas `Não resolvido` (`native_auxiliary_axiom`), porque a forma não prova a origem. Decisão da Q9 (opção a): permanente na Fase 0.
-- Axioma fora das duas listas: governado por `unknown_axiom_action`, default `fail_closed` (estado `Não resolvido`, razão `unknown_axiom`, com sugestão de atualização da política). O valor alternativo `allow_with_warning` exige justificativa escrita na própria política e teste de regressão.
+**Axioms.**
+- Allowed by default: `Classical.choice`, `propext`, `Quot.sound`.
+- Forbidden by default: `sorryAx`; `Lean.ofReduceBool` and `Lean.ofReduceNat` without justification.
+- Native-evaluation auxiliary axiom (v4.36+): on `leanprover/lean4:v4.36.0-rc1`, `native_decide` no longer produces `Lean.ofReduceBool`: it adds, per use, an auxiliary axiom `<owner>._native.native_decide.ax_N : e = true` (`Lean.Meta.nativeEqTrue`), which the kernel does not re-check. The inspector recognizes it by its shape (`native_auxiliary`); the policy treats it as native evaluation for the justification rules and for the combined pattern, and **additionally** leaves the premises `Não resolvido` (`native_auxiliary_axiom`), because the shape does not prove the origin. Decision Q9 (option a): permanent in Phase 0.
+- An axiom on neither list: governed by `unknown_axiom_action`, default `fail_closed` (state `Não resolvido`, reason `unknown_axiom`, with a suggested policy update). The alternative value `allow_with_warning` requires a written justification in the policy itself and a regression test.
 
-**`native_decide`.** Bloqueado por padrão. Permitido somente com justificativa na docstring da declaração dona, numa única linha com gramática estrita:
+**`native_decide`.** Blocked by default. Allowed only with a justification in the docstring of the owning declaration, on a single line with a strict grammar:
 
 ```lean
-/-- Texto livre da docstring.
+/-- Free docstring text.
 auditor_justified: reason="motivo" reviewer="@handle" -/
 theorem t : 10 < 20 := by native_decide
 ```
 
-A Etapa B lê a docstring do ambiente elaborado (`.olean`) e associa a justificativa pelo nome da declaração, não pela posição no arquivo. Não há escape, continuação em várias linhas nem duplicata; qualquer desvio é violação (`native_decide_justification_malformed`). Justificativa numa declaração vizinha não cobre quem usa `native_decide`. Declarações que herdam `Lean.ofReduceBool` transitivamente são rastreadas até a declaração dona. Nenhuma dependência no projeto-alvo é necessária. A aprovação é humana e fica fora do escopo. Detalhes e riscos residuais em `docs/limitations.md` (L-4).
+Stage B reads the docstring from the elaborated environment (`.olean`) and associates the justification by declaration name, not by position in the file. There is no escaping, no multi-line continuation and no duplicate; any deviation is a violation (`native_decide_justification_malformed`). A justification on a neighbouring declaration does not cover the one that uses `native_decide`. Declarations that inherit `Lean.ofReduceBool` transitively are traced back to the owning declaration. No dependency in the target project is needed. Approval is human and out of scope. Details and residual risks in `docs/limitations.md` (L-4).
 
 **`@[implemented_by]`.**
-- Sozinho, não afeta o kernel: `Não resolvida`, razão `implemented_by_candidate`.
-- Combinado: se os axiomas transitivos da declaração incluem `Lean.ofReduceBool` ou `Lean.ofReduceNat` **e** o fecho de dependências da declaração contém uma constante com `@[implemented_by]`, o estado é `Rejeitada`, razão `implemented_by_reaches_native_eval`. Uma justificativa de `native_decide` **não** cobre esse caso. O padrão está escrito na política e tem teste de regressão próprio.
+- Alone, it does not affect the kernel: `Não resolvida`, reason `implemented_by_candidate`.
+- Combined: if the declaration's transitive axioms include `Lean.ofReduceBool` or `Lean.ofReduceNat` **and** the declaration's dependency closure contains a constant with `@[implemented_by]`, the state is `Rejeitada`, reason `implemented_by_reaches_native_eval`. A `native_decide` justification does **not** cover this case. The pattern is written in the policy and has its own regression test.
 
-**`@[extern]` (O-5).** Mesma categoria de risco que `@[implemented_by]`: substitui a implementação compilada, e `native_decide` confia nela. Regras análogas (sozinho: candidato; combinado com `Lean.ofReduceBool`/`Lean.ofReduceNat`: `Rejeitada`), com cenário próprio (`04b-extern`, ground truth: deriva `False`).
+**`@[extern]` (O-5).** Same risk category as `@[implemented_by]`: it replaces the compiled implementation, and `native_decide` trusts it. Analogous rules (alone: candidate; combined with `Lean.ofReduceBool`/`Lean.ofReduceNat`: `Rejeitada`), with its own scenario (`04b-extern`, ground truth: derives `False`).
 
-**Fronteira de TCB (Q7, opção a).** As regras de `@[implemented_by]` e `@[extern]` só se aplicam a declarações **user-level**. Implementações do próprio toolchain (`Nat.add`, `Lean.Name.str`, …) são TCB e não disparam nada. A fronteira é declarada pelo toolchain (raízes de biblioteca em `<sysroot>/lib/lean`) e pelo `lake-manifest.json` (pacotes do usuário), nunca pelo nome do módulo. O que não puder ser decidido é `Não resolvida` (`tcb_boundary_unresolved`). Algoritmo e manutenção em `docs/tcb.md`; o canário é o cenário `06-tcb-boundary`.
+**TCB boundary (Q7, option a).** The `@[implemented_by]` and `@[extern]` rules apply only to **user-level** declarations. The toolchain's own implementations (`Nat.add`, `Lean.Name.str`, …) are TCB and trigger nothing. The boundary is declared by the toolchain (library roots in `<sysroot>/lib/lean`) and by `lake-manifest.json` (user packages), never by the module name. Whatever cannot be decided is `Não resolvida` (`tcb_boundary_unresolved`). Algorithm and maintenance in `docs/tcb.md`; the canary is scenario `06-tcb-boundary`.
 
-**`set_option`.** Allow-list versionada. `maxHeartbeats 0` é **sempre** violação na política default, em qualquer caminho. Uma política customizada pode isentar, mas só com duas condições cumulativas: (a) o arquivo está numa allow-list explícita de caminhos; e (b) a opção está na forma `set_option maxHeartbeats 0 in` aplicada a uma declaração cuja docstring tem `auditor_justified: reason="test-only heartbeat exemption" reviewer="@handle"`. `set_option maxHeartbeats 0` em nível de arquivo ou seção nunca é isentável.
+**`set_option`.** Versioned allow-list. `maxHeartbeats 0` is **always** a violation under the default policy, on any path. A custom policy may exempt it, but only under two cumulative conditions: (a) the file is on an explicit allow-list of paths; and (b) the option is in the form `set_option maxHeartbeats 0 in` applied to a declaration whose docstring has `auditor_justified: reason="test-only heartbeat exemption" reviewer="@handle"`. `set_option maxHeartbeats 0` at file or section level is never exemptable.
 
-**Escopo da violação de `maxHeartbeats 0`:** invalida **apenas a declaração que o usa** (forma `in`). As demais declarações do arquivo são avaliadas normalmente e passam se não dependerem dela. Uma declaração que **depende** da violadora mantém o próprio estado (pode ser `Validada` + `Conforme`); a dependência fica visível no campo `depends_on_rejected`. Em nível de arquivo ou seção, a opção atinge todas as declarações sob seu alcance, e cada uma é marcada individualmente. `autoImplicit true` e `checkBinderAnnotations false` são violações por padrão.
+**Scope of a `maxHeartbeats 0` violation:** it invalidates **only the declaration that uses it** (the `in` form). The other declarations of the file are evaluated normally and pass if they do not depend on it. A declaration that **depends** on the violating one keeps its own state (it may be `Validada` + `Conforme`); the dependency is visible in the `depends_on_rejected` field. At file or section level, the option affects every declaration in its scope, and each is flagged individually. `autoImplicit true` and `checkBinderAnnotations false` are violations by default.
 
 ## Unicode
 
-Allow-list versionada, alinhada a Unicode TR36/TR39.
+Versioned allow-list, aligned with Unicode TR36/TR39.
 
-- **Controles bidirecionais e caracteres de largura zero**, em qualquer posição (inclusive comentários e strings): fail-closed. É risco de segurança real (Trojan Source).
-- **Confusables** (por exemplo, letras cirílicas que imitam latinas): warning no relatório, sem falha. O kernel não se confunde; o risco é para o revisor humano.
-- Unicode matemático usual (`ℝ`, `∀`, `∑`, …) é permitido.
+- **Bidirectional controls and zero-width characters**, in any position (including comments and strings): fail-closed. This is a real security risk (Trojan Source).
+- **Confusables** (for example, Cyrillic letters that imitate Latin ones): a warning in the report, not a failure. The kernel is not confused; the risk is to the human reviewer.
+- Usual mathematical Unicode (`ℝ`, `∀`, `∑`, …) is allowed.
 
-## Fingerprint do ambiente
+## Environment fingerprint
 
-Hash que captura:
+A hash that captures:
 
-- versão exata do `lean-toolchain`;
-- commit do Mathlib e hash do `lake-manifest.json`;
-- hash do inspetor (fonte e binário compilado);
-- versão e hash da fonte do agregador, e versão do interpretador Python;
-- versão do parser da Etapa A e da allow-list;
-- versão e hash da política;
-- hash dos metadados importados transitivamente: todos os `@[simp]`, `@[ext]`, `@[reducible]` e `@[implemented_by]`.
+- the exact `lean-toolchain` version;
+- the Mathlib commit and the hash of `lake-manifest.json`;
+- the inspector's hash (source and compiled binary);
+- the aggregator's version and source hash, and the Python interpreter version;
+- the version of the Stage A parser and of the allow-list;
+- the policy's version and hash;
+- the hash of the transitively imported metadata: all `@[simp]`, `@[ext]`, `@[reducible]` and `@[implemented_by]`.
 
-Mudança em qualquer componente invalida os selos emitidos contra o fingerprint anterior. A Fase 0 não faz isso automaticamente: o relatório declara o fingerprint, e o consumidor compara com o ambiente atual.
+A change in any component invalidates the seals issued against the previous fingerprint. Phase 0 does not do this automatically: the report states the fingerprint, and the consumer compares it with the current environment.
 
 ## TCB (Trusted Computing Base)
 
-Todo relatório enumera a TCB contra a qual o selo foi emitido. Mínimo:
+Every report enumerates the TCB against which the seal was issued. At minimum:
 
-| Componente | Identificação no relatório |
+| Component | Identification in the report |
 |---|---|
-| Kernel do Lean | versão + commit do toolchain |
-| Toolchain (elaborador, `lake`) | `lean-toolchain` exato |
-| Mathlib e demais dependências | commit + hash do `lake-manifest.json` |
-| Inspetor (metaprograma Lean) | hash |
-| Agregador (Python) | versão + hash + versão do interpretador + dependências Python transitivas com versão exata (`jsonschema` e o que ele puxa; D-20) |
-| Parser da Etapa A | versão + versão da allow-list |
-| Política | versão + hash |
+| Lean kernel | toolchain version + commit |
+| Toolchain (elaborator, `lake`) | exact `lean-toolchain` |
+| Mathlib and other dependencies | commit + hash of `lake-manifest.json` |
+| Inspector (Lean metaprogram) | hash |
+| Aggregator (Python) | version + hash + interpreter version + transitive Python dependencies with exact versions (`jsonschema` and what it pulls in; D-20) |
+| Stage A parser | version + allow-list version |
+| Policy | version + hash |
 
-TCB incompleta impede `Validada`. Detalhes em `docs/tcb.md`.
+An incomplete TCB prevents `Validada`. Details in `docs/tcb.md`.
 
-## Uso
+## Usage
 
 ```
-auditor check <arquivo.lean> --output report.json --policy policy.toml
+auditor check <file.lean> --output report.json --policy policy.toml
         [--timeout-file 90] [--timeout-test artificial] [--allowlist <allowlist.json>]
 ```
 
-Requisitos: Python ≥ 3.11 com `jsonschema` (`pip install -e .`), e `elan` no `PATH` com o toolchain do projeto-alvo. O arquivo precisa estar num projeto Lake com `lean-toolchain` e `lake-manifest.json`. A primeira execução com um toolchain novo compila o inspetor (cerca de 15 s); as seguintes reutilizam o binário em cache.
+Requirements: Python ≥ 3.11 with `jsonschema` (`pip install -e .`), and `elan` on the `PATH` with the target project's toolchain. The file must be in a Lake project with `lean-toolchain` and `lake-manifest.json`. The first run with a new toolchain compiles the inspector (about 15 s); later runs reuse the cached binary.
 
-Para projetos com comandos próprios (Mathlib), gere antes a allow-list do projeto: `auditor-gen-allowlist --project <raiz>` (ver `docs/maintenance.md`).
+For projects with their own commands (Mathlib), first generate the project allow-list: `auditor-gen-allowlist --project <root>` (see `docs/maintenance.md`).
 
-O relatório é validado contra `schema/report-v1.json` antes de ser gravado. Cada declaração traz `seal`, a string do selo, que sempre declara o que não foi verificado.
+The report is validated against `schema/report-v1.json` before it is written. Each declaration carries `seal`, the seal string, which always states what was not verified.
 
-O ambiente vem do `lean-toolchain` e do `lake-manifest.json` do projeto que contém o arquivo. Nenhuma versão de Lean, Mathlib ou política é codificada na ferramenta.
+The environment comes from the `lean-toolchain` and `lake-manifest.json` of the project containing the file. No Lean, Mathlib or policy version is hard-coded in the tool.
 
-## Integração CI
+## CI integration
 
-GitHub Action `auditor-tier1` (workflow reutilizável `.github/workflows/auditor-tier1.yml` + modelos em `ci/templates/` para o repositório-alvo; detalhes e instalação no fork em `docs/ci.md`):
+GitHub Action `auditor-tier1` (reusable workflow `.github/workflows/auditor-tier1.yml` + templates in `ci/templates/` for the target repository; details and installation in the fork in `docs/ci.md`):
 
-- roda em PRs que tocam arquivos `.lean`, acionada pelo workflow do repositório, sob identidade do repositório; o job que compila o código do PR tem só permissão de leitura (o label é aplicado por um workflow separado que nunca executa código do PR);
-- publica o sumário no **Job Summary** da execução e anexa o relatório JSON completo como artefato;
-- **não comenta no PR automaticamente.** Um comentário com o sumário só é postado quando um humano o pede explicitamente no PR (`@auditor report`);
-- **orçamento de 5 minutos de wall-clock do PR**, do trigger ao relatório, incluindo `lake exe cache get` (steady-state). Se não concluir: exit 2, label `auditor-failed-infra`, **não bloqueia o merge** e exige revisão humana explícita. Timeout nunca é tratado como sucesso;
-- **timeout por arquivo de 90 s**: um arquivo que o estoura encerra a auditoria do PR (exit 2);
-- o relatório declara `cache_state` (`cold`, `delta`, `warm`). Com cache cold (primeiro run), o orçamento é estendido (15 min), o resultado declara `first_run: true`, e passar dos 5 min não é falha: `cache_cold_extension` e label `auditor-first-run`;
-- toda action é fixada por SHA de commit.
+- runs on PRs that touch `.lean` files, triggered by the repository's workflow, under the repository's identity; the job that compiles the PR's code has read-only permission (the label is applied by a separate workflow that never runs PR code);
+- publishes the summary in the run's **Job Summary** and attaches the full JSON report as an artifact;
+- **does not comment on the PR automatically.** A comment with the summary is posted only when a human explicitly asks for it on the PR (`@auditor report`);
+- **5-minute PR wall-clock budget**, from trigger to report, including `lake exe cache get` (steady state). If it does not finish: exit 2, label `auditor-failed-infra`, it **does not block the merge**, and it requires explicit human review. A timeout is never treated as success;
+- **per-file timeout of 90 s**: a file that exceeds it ends the PR's audit (exit 2);
+- the report states `cache_state` (`cold`, `delta`, `warm`). With a cold cache (first run), the budget is extended (15 min), the result states `first_run: true`, and exceeding 5 min is not a failure: `cache_cold_extension` and label `auditor-first-run`;
+- every action is pinned by commit SHA.
 
-## Limitações
+## Limitations
 
-- **Etapa A não é parsing fiel.** A sintaxe do Lean é extensível: o parser depende de notações importadas. A Etapa A faz varredura léxica e detecta macros e notações declaradas no próprio arquivo; notação vinda de import só é coberta pela Etapa B. A allow-list é versionada por toolchain, e um teste falha se ela ficar defasada em relação ao `lean-toolchain` fixado (ver `docs/maintenance.md`).
-- **`set_option` e comentários só existem na Etapa A**, porque não são registrados no ambiente elaborado.
-- **Fingerprint não é revogação.** Detectar que um selo ficou obsoleto é responsabilidade do consumidor na Fase 0.
-- **`Classical.choice` é permitido por padrão.** Contextos construtivos são assunto da Fase 3+.
-- Lista completa em `docs/limitations.md`.
+- **Stage A is not faithful parsing.** Lean's syntax is extensible: the parser depends on imported notations. Stage A does a lexical scan and detects macros and notations declared in the file itself; notation coming from imports is only covered by Stage B. The allow-list is versioned per toolchain, and a test fails if it falls out of date relative to the pinned `lean-toolchain` (see `docs/maintenance.md`).
+- **`set_option` and comments exist only in Stage A**, because they are not recorded in the elaborated environment.
+- **A fingerprint is not revocation.** Detecting that a seal has become stale is the consumer's responsibility in Phase 0.
+- **`Classical.choice` is allowed by default.** Constructive contexts are a Phase 3+ topic.
+- Full list in `docs/limitations.md`.
 
-## Princípios
+## Principles
 
-1. **Assimetria de erro.** Falso "verificado" é catastrófico; "não resolvido" para prova correta é só inconveniente.
-2. **TCB enumerada por selo.**
-3. **Fail-closed.** Input não reconhecido gera falha explícita com razão, nunca selo positivo.
-4. **Nenhum LLM no caminho crítico.**
-5. **Ground truth independente.** Testes negativos usam contraexemplo verificável ou prova da negação no Lean.
-6. **O selo declara o que não foi verificado.**
-7. **Expiração vinculada ao fingerprint.**
-8. **Nenhum bot autônomo.**
+1. **Error asymmetry.** A false "verified" is catastrophic; "unresolved" for a correct proof is only an inconvenience.
+2. **TCB enumerated per seal.**
+3. **Fail-closed.** Unrecognized input produces an explicit failure with a reason, never a positive seal.
+4. **No LLM on the critical path.**
+5. **Independent ground truth.** Negative tests use a verifiable counterexample or a proof of the negation in Lean.
+6. **The seal states what was not verified.**
+7. **Expiry bound to the fingerprint.**
+8. **No autonomous bot.**
 
-## Documentação
+## Documentation
 
-- `docs/tcb.md` — manifesto completo da TCB
-- `docs/invalidation.md` — modelo de dados de selos e revogação (implementação na Fase 1)
-- `docs/limitations.md` — limitações detalhadas
-- `docs/maintenance.md` — manutenção da allow-list, do inspetor, dos testes de mutação e da fixação de versões dos workflows
-- `docs/ci.md` — integração CI, segurança dos workflows, instalação no fork e roteiro da evidência da camada 2 (ferramentas em `tools/layer2/`)
-- `docs/roadmap.md` — itens já decididos da Fase 1 (que só começa depois da camada 2)
-- `docs/layer2-checklist.md` — passo a passo da camada 2 (comandos, verificações, critérios de abortar, formato do relatório), para o mantenedor executar
-- `CHANGELOG.md` — mudanças que afetam quem usa o auditor
-- `docs/proposed-improvements.md` — objeções registradas à especificação
+- `docs/tcb.md` — full TCB manifest
+- `docs/invalidation.md` — data model for seals and revocation (implementation in Phase 1)
+- `docs/limitations.md` — detailed limitations
+- `docs/maintenance.md` — maintenance of the allow-list, the inspector, the mutation tests and workflow version pinning
+- `docs/ci.md` — CI integration, workflow security, installation in the fork and the layer-2 evidence plan (tools in `tools/layer2/`)
+- `docs/roadmap.md` — decided Phase 1 and Phase 2 items
+- `docs/layer2-checklist.md` — layer-2 step by step (commands, checks, abort criteria, report format), for the maintainer to execute
+- `docs/user-study.md` — methodology and pre-registered metrics of the user study (sub-phase 1c)
+- `docs/benchmark.md` — the swapped-statement benchmark (sub-phase 1b)
+- `CHANGELOG.md` — changes that affect auditor users
+- `docs/proposed-improvements.md` — recorded objections to the specification
